@@ -2,6 +2,7 @@
 import { ChevronRight, ListChecks, Moon, Settings, Sun } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import AboutRepoVantageDialog from '@/components/layout/AboutRepoVantageDialog.vue'
 import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
@@ -17,14 +18,15 @@ const current = computed(() => (route.meta.title as string) ?? '')
       <ChevronRight :size="13" />
       <b class="truncate font-medium text-ink">{{ current }}</b>
     </div>
-    <div class="flex items-center gap-2">
-      <RouterLink to="/tasks" class="flex h-[30px] items-center gap-1.5 rounded-md bg-track px-2.5 text-[12.5px] hover:bg-soft">
+    <div class="flex shrink-0 items-center gap-1 sm:gap-2">
+      <AboutRepoVantageDialog />
+      <RouterLink to="/tasks" class="flex h-[30px] shrink-0 items-center gap-1.5 rounded-md bg-track px-2.5 text-[12.5px] hover:bg-soft">
         <ListChecks :size="14" /> 任务
       </RouterLink>
-      <RouterLink to="/settings" aria-label="设置" title="设置" class="grid size-[30px] place-items-center rounded-md text-muted hover:bg-track hover:text-ink" :class="route.name === 'settings' ? 'bg-soft text-ink' : ''">
+      <RouterLink to="/settings" aria-label="设置" title="设置" class="grid size-[30px] shrink-0 place-items-center rounded-md text-muted hover:bg-track hover:text-ink" :class="route.name === 'settings' ? 'bg-soft text-ink' : ''">
         <Settings :size="16" />
       </RouterLink>
-      <button class="grid size-[30px] place-items-center rounded-md text-muted hover:bg-track hover:text-ink" :title="ui.isDark ? '切换到浅色' : '切换到深色'" @click="ui.toggleTheme()">
+      <button class="grid size-[30px] shrink-0 place-items-center rounded-md text-muted hover:bg-track hover:text-ink" :title="ui.isDark ? '切换到浅色' : '切换到深色'" @click="ui.toggleTheme()">
         <Sun v-if="ui.isDark" :size="16" />
         <Moon v-else :size="16" />
       </button>
