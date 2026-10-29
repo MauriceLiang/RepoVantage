@@ -251,7 +251,7 @@ async function submit() {
             <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">04</span>
             <h3 class="m-0 text-[13px] font-semibold">按需比较或研究</h3>
           </div>
-          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">先在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>选择 2–5 个候选，再到<RouterLink to="/compare" class="gd-link">项目比较</RouterLink>查看结果；需要研究时，前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看可用样本、分组统计与数据分布。</p>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>勾选 2–5 个候选仓库后，点击“进入比较”查看结果；需要研究时，前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看可用样本、分组统计与数据分布。</p>
         </li>
       </ol>
     </section>
