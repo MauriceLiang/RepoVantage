@@ -143,17 +143,17 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-[18px] px-7 pb-8 pt-[22px]">
+  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
     <header>
       <h1 class="m-0 text-[26px] font-semibold tracking-[-0.3px]">仓库数据分析</h1>
       <p class="mt-1.5 text-muted">输入 GitHub 开源仓库，查看开发活动、Issue / PR 协作与发布节奏。</p>
     </header>
 
-    <GdCard padding="none" class="gap-2.5 p-[22px]">
+    <GdCard padding="none" class="gap-2.5 p-4 sm:p-[22px]">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <GdInput v-model="input" class="flex-1" placeholder="owner/repo 或 GitHub 链接，例如 vuejs/core" :invalid="invalid" @enter="submit">
+          <div class="flex min-w-0 items-center gap-2">
+            <GdInput v-model="input" class="min-w-0 flex-1" placeholder="owner/repo 或 GitHub 链接，例如 vuejs/core" :invalid="invalid" @enter="submit">
               <template #icon><Search :size="16" class="text-muted" /></template>
             </GdInput>
             <GdButton class="h-11 px-4" :disabled="submitting" @click="submit">{{ submitting ? '正在提交…' : '开始分析' }}</GdButton>
@@ -165,6 +165,45 @@ async function submit() {
       </div>
     </GdCard>
 
+    <section aria-labelledby="how-to-use-title" class="flex flex-col gap-3.5">
+      <div>
+        <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">GET STARTED</p>
+        <h2 id="how-to-use-title" class="m-0 text-[20px] font-semibold tracking-[-0.2px]">开始使用</h2>
+        <p class="mt-1.5 text-[12px] leading-relaxed text-muted">提交后会直接进入仓库详情；采集进度可以在总览任务卡或任务中心查看。</p>
+      </div>
+
+      <ol class="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">01</span>
+            <h3 class="m-0 text-[13px] font-semibold">输入公开仓库</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">输入 GitHub 仓库的 <code class="rounded bg-soft px-1 py-0.5 font-mono text-[11px] text-ink">owner/repo</code> 或完整链接，点击“开始分析”。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">02</span>
+            <h3 class="m-0 text-[13px] font-semibold">进入详情看状态</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">提交后立即进入该仓库详情，不需要等待采集完成。查看当前可用结果、采集时点和覆盖状态；从总览任务卡或<RouterLink to="/tasks" class="gd-link">任务中心</RouterLink>跟进进度。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">03</span>
+            <h3 class="m-0 text-[13px] font-semibold">查看单仓库分析</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在开发活动、Issue、PR 和 Release 页签查看相应数据，并结合分析时间范围、样本和覆盖说明理解结果。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">04</span>
+            <h3 class="m-0 text-[13px] font-semibold">按需比较或研究</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>勾选 2–5 个候选仓库后，点击“进入比较”查看结果；需要研究时，前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看可用样本、分组统计与数据分布。</p>
+        </li>
+      </ol>
+    </section>
+
     <GdCard>
       <div class="flex items-start justify-between gap-4">
         <div>
@@ -175,27 +214,35 @@ async function submit() {
       </div>
       <div class="divide-y divide-line">
         <p v-if="error" class="py-3 text-[12px] text-danger">加载最近分析失败：{{ error }}</p>
-        <div v-else-if="loading" v-for="i in 4" :key="i" class="h-14 animate-pulse bg-track/60" />
-        <RouterLink v-for="repo in recent" v-else :key="repo.id" :to="`/repositories/${repo.id}/overview`"
-          class="grid cursor-pointer grid-cols-1 items-center gap-3 py-3 transition-colors hover:bg-soft/40 sm:grid-cols-[1.6fr_1.4fr_auto_auto] sm:gap-5">
-          <div class="min-w-0">
-            <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
-            <div class="truncate text-[11.5px] text-muted">{{ repo.description }}</div>
-          </div>
-          <div class="text-[11.5px] text-muted">
-            <template v-if="repo.status === 'ready' || repo.status === 'partial'">
-              {{ repo.activityDelta === null ? '活动样本不足，未生成趋势判断' : `近 4 周较前 4 周 ${repo.activityDelta > 0 ? '+' : ''}${repo.activityDelta}%` }}
-            </template>
-            <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
-          </div>
-          <GdBadge :variant="(statusLabel[repo.status].cls as 'default' | 'warn' | 'plain')">
-            {{ statusLabel[repo.status].text }}
-          </GdBadge>
-          <div class="flex items-center gap-2 text-[11.5px] text-muted">
-            <span class="font-mono">{{ repo.lastAnalyzedAt ?? '—' }}</span>
-            <ChevronRight :size="14" />
-          </div>
-        </RouterLink>
+        <div v-else-if="loading" class="divide-y divide-line">
+          <div v-for="i in 4" :key="i" class="h-14 animate-pulse bg-track/60" />
+        </div>
+        <template v-else-if="recent.length">
+          <RouterLink v-for="repo in recent" :key="repo.id" :to="`/repositories/${repo.id}/overview`"
+            class="grid cursor-pointer grid-cols-1 items-center gap-3 py-3 transition-colors hover:bg-soft/40 sm:grid-cols-[1.6fr_1.4fr_auto_auto] sm:gap-5">
+            <div class="min-w-0">
+              <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
+              <div class="truncate text-[11.5px] text-muted">{{ repo.description }}</div>
+            </div>
+            <div class="text-[11.5px] text-muted">
+              <template v-if="repo.status === 'ready' || repo.status === 'partial'">
+                {{ repo.activityDelta === null ? '活动样本不足，未生成趋势判断' : `近 4 周较前 4 周 ${repo.activityDelta > 0 ? '+' : ''}${repo.activityDelta}%` }}
+              </template>
+              <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
+            </div>
+            <GdBadge :variant="(statusLabel[repo.status].cls as 'default' | 'warn' | 'plain')">
+              {{ statusLabel[repo.status].text }}
+            </GdBadge>
+            <div class="flex items-center gap-2 text-[11.5px] text-muted">
+              <span class="font-mono">{{ repo.lastAnalyzedAt ?? '—' }}</span>
+              <ChevronRight :size="14" />
+            </div>
+          </RouterLink>
+        </template>
+        <div v-else class="flex flex-wrap items-center justify-between gap-3 py-4 text-[12px] text-muted">
+          <span>还没有已加入的仓库。提交公开仓库后，会在这里保留最近分析记录。</span>
+          <RouterLink to="/repositories" class="gd-link shrink-0">浏览仓库 <ArrowRight :size="12" /></RouterLink>
+        </div>
       </div>
     </GdCard>
 
@@ -311,5 +358,7 @@ async function submit() {
         </div>
       </GdCard>
     </div>
+
+
   </div>
 </template>

@@ -131,7 +131,7 @@ async function exportCsv() {
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
-    <GdCard>
+    <GdCard class="h-[420px] min-h-0 overflow-hidden">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">合并耗时分布</h3>
@@ -139,7 +139,7 @@ async function exportCsv() {
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
       </div>
-      <HistogramChart :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" />
+      <HistogramChart :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" class="min-h-[200px] flex-1 w-full" />
       <div class="text-[11px] text-muted">P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.prDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
     </GdCard>
