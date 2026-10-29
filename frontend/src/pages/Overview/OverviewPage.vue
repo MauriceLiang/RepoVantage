@@ -143,17 +143,17 @@ async function submit() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-[18px] px-7 pb-8 pt-[22px]">
+  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
     <header>
       <h1 class="m-0 text-[26px] font-semibold tracking-[-0.3px]">仓库数据分析</h1>
       <p class="mt-1.5 text-muted">输入 GitHub 开源仓库，查看开发活动、Issue / PR 协作与发布节奏。</p>
     </header>
 
-    <GdCard padding="none" class="gap-2.5 p-[22px]">
+    <GdCard padding="none" class="gap-2.5 p-4 sm:p-[22px]">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
         <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2">
-            <GdInput v-model="input" class="flex-1" placeholder="owner/repo 或 GitHub 链接，例如 vuejs/core" :invalid="invalid" @enter="submit">
+          <div class="flex min-w-0 items-center gap-2">
+            <GdInput v-model="input" class="min-w-0 flex-1" placeholder="owner/repo 或 GitHub 链接，例如 vuejs/core" :invalid="invalid" @enter="submit">
               <template #icon><Search :size="16" class="text-muted" /></template>
             </GdInput>
             <GdButton class="h-11 px-4" :disabled="submitting" @click="submit">{{ submitting ? '正在提交…' : '开始分析' }}</GdButton>
@@ -175,27 +175,35 @@ async function submit() {
       </div>
       <div class="divide-y divide-line">
         <p v-if="error" class="py-3 text-[12px] text-danger">加载最近分析失败：{{ error }}</p>
-        <div v-else-if="loading" v-for="i in 4" :key="i" class="h-14 animate-pulse bg-track/60" />
-        <RouterLink v-for="repo in recent" v-else :key="repo.id" :to="`/repositories/${repo.id}/overview`"
-          class="grid cursor-pointer grid-cols-1 items-center gap-3 py-3 transition-colors hover:bg-soft/40 sm:grid-cols-[1.6fr_1.4fr_auto_auto] sm:gap-5">
-          <div class="min-w-0">
-            <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
-            <div class="truncate text-[11.5px] text-muted">{{ repo.description }}</div>
-          </div>
-          <div class="text-[11.5px] text-muted">
-            <template v-if="repo.status === 'ready' || repo.status === 'partial'">
-              {{ repo.activityDelta === null ? '活动样本不足，未生成趋势判断' : `近 4 周较前 4 周 ${repo.activityDelta > 0 ? '+' : ''}${repo.activityDelta}%` }}
-            </template>
-            <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
-          </div>
-          <GdBadge :variant="(statusLabel[repo.status].cls as 'default' | 'warn' | 'plain')">
-            {{ statusLabel[repo.status].text }}
-          </GdBadge>
-          <div class="flex items-center gap-2 text-[11.5px] text-muted">
-            <span class="font-mono">{{ repo.lastAnalyzedAt ?? '—' }}</span>
-            <ChevronRight :size="14" />
-          </div>
-        </RouterLink>
+        <div v-else-if="loading" class="divide-y divide-line">
+          <div v-for="i in 4" :key="i" class="h-14 animate-pulse bg-track/60" />
+        </div>
+        <template v-else-if="recent.length">
+          <RouterLink v-for="repo in recent" :key="repo.id" :to="`/repositories/${repo.id}/overview`"
+            class="grid cursor-pointer grid-cols-1 items-center gap-3 py-3 transition-colors hover:bg-soft/40 sm:grid-cols-[1.6fr_1.4fr_auto_auto] sm:gap-5">
+            <div class="min-w-0">
+              <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
+              <div class="truncate text-[11.5px] text-muted">{{ repo.description }}</div>
+            </div>
+            <div class="text-[11.5px] text-muted">
+              <template v-if="repo.status === 'ready' || repo.status === 'partial'">
+                {{ repo.activityDelta === null ? '活动样本不足，未生成趋势判断' : `近 4 周较前 4 周 ${repo.activityDelta > 0 ? '+' : ''}${repo.activityDelta}%` }}
+              </template>
+              <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
+            </div>
+            <GdBadge :variant="(statusLabel[repo.status].cls as 'default' | 'warn' | 'plain')">
+              {{ statusLabel[repo.status].text }}
+            </GdBadge>
+            <div class="flex items-center gap-2 text-[11.5px] text-muted">
+              <span class="font-mono">{{ repo.lastAnalyzedAt ?? '—' }}</span>
+              <ChevronRight :size="14" />
+            </div>
+          </RouterLink>
+        </template>
+        <div v-else class="flex flex-wrap items-center justify-between gap-3 py-4 text-[12px] text-muted">
+          <span>还没有已加入的仓库。提交公开仓库后，会在这里保留最近分析记录。</span>
+          <RouterLink to="/repositories" class="gd-link shrink-0">浏览仓库 <ArrowRight :size="12" /></RouterLink>
+        </div>
       </div>
     </GdCard>
 
@@ -311,5 +319,96 @@ async function submit() {
         </div>
       </GdCard>
     </div>
+
+    <section aria-labelledby="project-background-title" class="flex flex-col gap-3.5">
+      <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">RepoVantage</p>
+          <h2 id="project-background-title" class="m-0 text-[20px] font-semibold tracking-[-0.2px]">项目背景与意义</h2>
+          <p class="mt-1.5 text-[12px] leading-relaxed text-muted">把分散的开发与协作信息整理为可阅读、可比较的数据。</p>
+        </div>
+        <GdBadge variant="plain">产品说明</GdBadge>
+      </div>
+
+      <div class="grid items-stretch gap-3.5 xl:grid-cols-[0.92fr_1.08fr]">
+        <article class="min-w-0 rounded-[10px] border border-line bg-panel p-4 sm:p-5">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h3 class="m-0 text-[15px] font-semibold">项目背景</h3>
+            <GdBadge variant="plain">常见团队选型情境</GdBadge>
+          </div>
+          <div class="mt-3 space-y-3 text-[12.5px] leading-[1.8] text-muted">
+            <p class="m-0">一个团队准备为新项目选择开源组件，搜索后发现几个功能相近的 GitHub 仓库。它们都有介绍文档，也有不同数量的 Stars 和 Forks。但要进一步了解这些项目，还会遇到许多具体问题：最近是否持续有开发活动？已经关闭的 Issue 通常经历了多长时间？PR 的协作情况如何？过去一年发布过哪些版本，发布之间的间隔又是怎样的？</p>
+            <p class="m-0">这些信息虽然都能在 GitHub 上找到，却分布在提交记录、Issue、PR 和 Release 等不同页面。查看一个仓库需要来回切换；比较多个仓库时，还需要手动整理时间范围和统计口径。仅看某个数字或某一天的状态，也很难理解项目在一段时间内的变化。</p>
+            <p class="m-0">RepoVantage 希望把这些分散的信息组织成更容易阅读和比较的数据。用户输入公开仓库后，系统采集可用的开发与协作数据，通过趋势、分布和时间线展示项目在所选时间范围内发生了什么。用户既可以观察单个项目，也可以在满足数据条件时比较多个项目，或围绕选定样本开展研究。</p>
+          </div>
+        </article>
+
+        <article class="min-w-0 rounded-[10px] border border-line bg-panel p-4 sm:p-5">
+          <h3 class="m-0 text-[15px] font-semibold">项目的意义</h3>
+          <ol class="mt-3 m-0 list-none divide-y divide-line p-0">
+            <li class="flex gap-3 py-3 first:pt-0">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[10px] font-semibold text-muted">01</span>
+              <p class="m-0 min-w-0 text-[12.5px] leading-[1.75]"><strong class="font-semibold text-ink">更快认识陌生项目：</strong><span class="text-muted">把提交、协作和发布信息集中起来，帮助使用者从多个维度了解项目近况，减少在不同页面之间反复查找和整理的工作。</span></p>
+            </li>
+            <li class="flex gap-3 py-3">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[10px] font-semibold text-muted">02</span>
+              <p class="m-0 min-w-0 text-[12.5px] leading-[1.75]"><strong class="font-semibold text-ink">为技术选型提供线索：</strong><span class="text-muted">比较候选项目的活动变化、已结束 Issue 和 PR 的处理耗时及发布节奏，帮助团队发现需要继续核查的问题。例如，两个项目都很受关注，但近期发布节奏不同，就可以进一步查看版本内容和维护情况。</span></p>
+            </li>
+            <li class="flex gap-3 py-3">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[10px] font-semibold text-muted">03</span>
+              <p class="m-0 min-w-0 text-[12.5px] leading-[1.75]"><strong class="font-semibold text-ink">支持项目观察与复盘：</strong><span class="text-muted">维护者和参与者可以查看一段时间内的开发活动和协作数据，发现值得追问的变化，再结合具体 Issue、PR 或版本记录分析原因。</span></p>
+            </li>
+            <li class="flex gap-3 py-3">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[10px] font-semibold text-muted">04</span>
+              <p class="m-0 min-w-0 text-[12.5px] leading-[1.75]"><strong class="font-semibold text-ink">帮助开展开源研究：</strong><span class="text-muted">围绕明确的样本查看分组统计和数据分布，导出样本成员与统计结果，为研究者整理材料和讨论现象提供支持。研究结论仍需结合样本范围与数据质量理解。</span></p>
+            </li>
+            <li class="flex gap-3 py-3 last:pb-0">
+              <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[10px] font-semibold text-muted">05</span>
+              <p class="m-0 min-w-0 text-[12.5px] leading-[1.75]"><strong class="font-semibold text-ink">让讨论有清楚的数据依据：</strong><span class="text-muted">展示采集时间、观察范围和覆盖状态，让使用者知道数据来自哪里、能说明什么，也能看见尚未采到或样本不足的部分。</span></p>
+            </li>
+          </ol>
+          <p class="mb-0 mt-4 border-t border-line pt-3 text-[12px] leading-[1.75] text-muted">RepoVantage 提供的是观察和比较的依据。项目是否适合某个具体用途，还需要结合功能、兼容性、安全和许可证等因素进一步判断。</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="how-to-use-title" class="flex flex-col gap-3.5">
+      <div>
+        <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">GET STARTED</p>
+        <h2 id="how-to-use-title" class="m-0 text-[20px] font-semibold tracking-[-0.2px]">开始使用</h2>
+        <p class="mt-1.5 text-[12px] leading-relaxed text-muted">提交后会直接进入仓库详情；采集进度可以在总览任务卡或任务中心查看。</p>
+      </div>
+
+      <ol class="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">01</span>
+            <h3 class="m-0 text-[13px] font-semibold">输入公开仓库</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">输入 GitHub 仓库的 <code class="rounded bg-soft px-1 py-0.5 font-mono text-[11px] text-ink">owner/repo</code> 或完整链接，点击“开始分析”。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">02</span>
+            <h3 class="m-0 text-[13px] font-semibold">进入详情看状态</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">提交后立即进入该仓库详情，不需要等待采集完成。查看当前可用结果、采集时点和覆盖状态；从总览任务卡或<RouterLink to="/tasks" class="gd-link">任务中心</RouterLink>跟进进度。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">03</span>
+            <h3 class="m-0 text-[13px] font-semibold">查看单仓库分析</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在开发活动、Issue、PR 和 Release 页签查看相应数据，并结合分析时间范围、样本和覆盖说明理解结果。</p>
+        </li>
+        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+          <div class="flex items-center gap-2.5">
+            <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">04</span>
+            <h3 class="m-0 text-[13px] font-semibold">按需比较或研究</h3>
+          </div>
+          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">先在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>选择 2–5 个候选，再到<RouterLink to="/compare" class="gd-link">项目比较</RouterLink>查看结果；需要研究时，前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看可用样本、分组统计与数据分布。</p>
+        </li>
+      </ol>
+    </section>
   </div>
 </template>
