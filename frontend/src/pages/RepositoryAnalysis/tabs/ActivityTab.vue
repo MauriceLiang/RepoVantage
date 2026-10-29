@@ -93,9 +93,9 @@ function formatTime(value: string) {
       </div>
       <GdCoverageNote :coverage="analysis.commits.coverage" />
     </div>
-    <TrendChart :points="weeklyPoints" :unit="analysis.commits.unit" :height="260" @select="(payload) => selectWeek(payload.dataIndex)" />
+    <TrendChart :points="weeklyPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(payload) => selectWeek(payload.dataIndex)" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }} · 灰色间断代表该周未达到完整覆盖口径。</span>
+      <span>有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }} · 折线只统计连续 4 个完整周；灰色间断代表该周覆盖不完整。</span>
       <span>点击周趋势点，可查看该周已采集的逐条 Commit。</span>
     </div>
   </GdCard>

@@ -2,7 +2,7 @@
 import { BookOpen, Download, LoaderCircle } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import RankChart from '@/components/charts/RankChart.vue'
+import ResearchGroupComboChart from '@/components/charts/ResearchGroupComboChart.vue'
 import ScatterChart from '@/components/charts/ScatterChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -29,11 +29,14 @@ const selectedMode = computed(() => data.value?.analysisMode ?? (requestedMode.v
 const activeFeaturedImport = computed(() => ['queued', 'running'].includes(featuredStatus.value?.activeTask?.status ?? ''))
 const featuredImportUnavailable = computed(() => !featuredStatus.value?.available)
 
-const palette = ['#E2683C', '#E5A03A', '#CE3F7C', '#2E8FCB', '#B08310', '#8C6DB0', '#65A765']
-const groupItems = computed(() => (data.value?.groups ?? []).map((group, index) => ({ label: group.label, value: group.count, color: palette[index % palette.length] })))
-const issueMedianItems = computed(() => (data.value?.groups ?? []).flatMap((group, index) => group.medianCloseDays === null ? [] : [{ label: group.label, value: group.medianCloseDays, color: palette[index % palette.length] }]))
-const groupChartHeight = computed(() => Math.max(190, groupItems.value.length * 32))
-const issueMedianChartHeight = computed(() => Math.max(190, issueMedianItems.value.length * 32))
+const groupChartItems = computed(() => data.value?.groups.map((group) => ({
+  label: group.label,
+  repositoryCount: group.count,
+  issueSampleSize: group.issueSampleSize,
+  medianCloseDays: group.medianCloseDays,
+})) ?? [])
+const groupChartHeight = computed(() => Math.max(190, groupChartItems.value.length * 32))
+const groupsWithoutIssueSamples = computed(() => groupChartItems.value.filter((group) => group.issueSampleSize === 0).length)
 const qualityItems = computed(() => (data.value?.quality ?? []).filter((quality) => quality.collected).map((quality) => ({ label: quality.field, value: quality.missingRate })))
 const groups = computed(() => (data.value?.groups ?? []).map((group) => group.label))
 
@@ -189,34 +192,20 @@ async function importFeatured() {
         </div>
       </section>
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <GdCard class="h-[360px] overflow-hidden">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="m-0 text-[15.5px] font-semibold">按主要语言分组</h3>
-              <p class="mt-0.5 text-[12px] text-muted">研究成员数</p>
-            </div>
-            <span class="font-mono text-[11.5px] text-muted">n={{ data.repositoryCount }}</span>
+      <GdCard class="h-[360px] overflow-hidden">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="m-0 text-[15.5px] font-semibold">语言分组：样本规模与 Issue 耗时</h3>
+            <p class="mt-0.5 text-[12px] text-muted">柱：有有效 Issue 耗时的仓库数 · 点：组内 Issue P50（天）</p>
           </div>
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-            <RankChart :items="groupItems" :height="groupChartHeight" />
-          </div>
-          <p v-if="!data.groups.length" class="text-[11px] text-muted">当前数据集没有可展示的分组。</p>
-        </GdCard>
-
-        <GdCard class="h-[360px] overflow-hidden">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="m-0 text-[15.5px] font-semibold">各语言 Issue 关闭耗时</h3>
-              <p class="mt-0.5 text-[12px] text-muted">组内中位数（天）</p>
-            </div>
-          </div>
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-            <RankChart :items="issueMedianItems" :height="issueMedianChartHeight" value-suffix=" 天" />
-          </div>
-          <p v-if="!issueMedianItems.length" class="text-[11px] text-muted">没有具备有效 Issue 耗时样本的语言组。</p>
-        </GdCard>
-      </div>
+          <span class="font-mono text-[11.5px] text-muted">数据集 {{ data.repositoryCount }} 个仓库</span>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          <ResearchGroupComboChart v-if="groupChartItems.length" :groups="groupChartItems" :height="groupChartHeight" />
+          <p v-else class="py-12 text-center text-[12px] text-muted">当前数据集没有可展示的分组。</p>
+        </div>
+        <p v-if="groupsWithoutIssueSamples" class="m-0 text-[10.5px] text-muted">{{ groupsWithoutIssueSamples }} 个语言组没有有效 Issue 耗时样本。组内仓库数不等于该指标的有效样本数。</p>
+      </GdCard>
 
       <GdCard>
         <div class="flex flex-wrap items-start justify-between gap-3">

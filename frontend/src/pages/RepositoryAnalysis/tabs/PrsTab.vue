@@ -135,7 +135,7 @@ async function exportCsv() {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">合并耗时分布</h3>
-          <p class="mt-0.5 text-[12px] text-muted">merged_at − created_at</p>
+          <p class="mt-0.5 text-[12px] text-muted">merged_at − created_at · 柱为区间样本数，折线为累计占比</p>
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
       </div>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { Download, Plus, TriangleAlert, X } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
-import RankChart from '@/components/charts/RankChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
@@ -45,8 +45,13 @@ const entries = computed(() => data.value?.entries ?? [])
 const comparisonBasis = computed(() => data.value?.comparisonBasis)
 const comparisonNotes = computed(() => (data.value?.notes ?? []).filter((note) => !entries.value.some((entry) => entry.windowReason && note === `${entry.label}：${entry.windowReason}`)))
 const short = (label: string) => label.split('/')[1]
-const issueItems = computed(() => entries.value.filter((e) => e.issueP50 !== null).map((e) => ({ label: short(e.label), value: e.issueP50 as number, color: e.color })))
-const prItems = computed(() => entries.value.filter((e) => e.prP50 !== null).map((e) => ({ label: short(e.label), value: e.prP50 as number, color: e.color })))
+const durationItems = computed(() => entries.value.map((entry) => ({
+  label: short(entry.label),
+  issueP50: entry.issueP50,
+  issueSample: entry.issueSample,
+  prP50: entry.prP50,
+  prSample: entry.prSample,
+})))
 const missingReason = (quality: string) => ({
   partial: '覆盖不完整',
   insufficient_samples: '样本不足',
@@ -157,35 +162,22 @@ async function exportComparison() {
       </div>
     </GdCard>
 
-    <div class="grid gap-4 lg:grid-cols-2">
-      <GdCard>
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="m-0 text-[15.5px] font-semibold">Issue 关闭耗时</h3>
-            <p class="mt-0.5 text-[12px] text-muted">中位数（天）· 仅统计可比较且覆盖完整的样本</p>
-          </div>
+    <GdCard>
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
+          <p class="mt-0.5 text-[12px] text-muted">每个仓库并列展示 Issue 关闭与 PR 合并 P50 · 同一“天”刻度</p>
         </div>
-        <RankChart :items="issueItems" :height="150" value-suffix=" 天" />
-        <div class="flex flex-wrap gap-3 text-[11px] text-muted">
-          <span v-for="entry in entries.filter((e) => e.issueP50 !== null)" :key="entry.id">{{ short(entry.label) }} · n={{ entry.issueSample }}</span>
-          <span v-if="issueMissing.length" class="text-warnfg">{{ issueMissing.join(' / ') }}，显示 —</span>
-        </div>
-      </GdCard>
-
-      <GdCard>
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <h3 class="m-0 text-[15.5px] font-semibold">PR 合并耗时</h3>
-            <p class="mt-0.5 text-[12px] text-muted">中位数（天）· 数据缺失时不参与对比</p>
-          </div>
-        </div>
-        <RankChart :items="prItems" :height="150" value-suffix=" 天" />
-        <div class="flex flex-wrap gap-3 text-[11px] text-muted">
-          <span v-for="entry in entries.filter((e) => e.prP50 !== null)" :key="entry.id">{{ short(entry.label) }} · n={{ entry.prSample }}</span>
-          <span v-if="prMissing.length" class="text-warnfg">{{ prMissing.join(' / ') }}，显示 —</span>
-        </div>
-      </GdCard>
-    </div>
+      </div>
+      <ComparisonDurationChart :items="durationItems" :height="260" />
+      <div class="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted">
+        <span v-for="entry in entries.filter((item) => item.issueP50 !== null || item.prP50 !== null)" :key="entry.id">
+          {{ short(entry.label) }} · Issue n={{ entry.issueSample }} / PR n={{ entry.prSample }}
+        </span>
+        <span v-if="issueMissing.length" class="text-warnfg">Issue 缺失：{{ issueMissing.join(' / ') }}。</span>
+        <span v-if="prMissing.length" class="text-warnfg">PR 缺失：{{ prMissing.join(' / ') }}。</span>
+      </div>
+    </GdCard>
 
     <GdCard>
       <div class="flex items-start justify-between gap-3">

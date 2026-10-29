@@ -835,12 +835,12 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       }
     }
     const groups = [
-      { label: 'TypeScript', count: 28, medianCloseDays: 4.2, p25: 2.1, p75: 8.4 },
-      { label: 'JavaScript', count: 19, medianCloseDays: 5.6, p25: 2.8, p75: 11.2 },
-      { label: 'Python', count: 16, medianCloseDays: 6.8, p25: 3.4, p75: 11.6 },
-      { label: 'Go', count: 12, medianCloseDays: 2.9, p25: 1.6, p75: 5.4 },
-      { label: 'Rust', count: 7, medianCloseDays: 3.1, p25: 2.0, p75: 6.2 },
-      { label: '其他', count: 4, medianCloseDays: 7.4, p25: 4.1, p75: 13.0 },
+      { label: 'TypeScript', count: 28, issueSampleSize: 25, medianCloseDays: 4.2, p25: 2.1, p75: 8.4 },
+      { label: 'JavaScript', count: 19, issueSampleSize: 17, medianCloseDays: 5.6, p25: 2.8, p75: 11.2 },
+      { label: 'Python', count: 16, issueSampleSize: 12, medianCloseDays: 6.8, p25: 3.4, p75: 11.6 },
+      { label: 'Go', count: 12, issueSampleSize: 10, medianCloseDays: 2.9, p25: 1.6, p75: 5.4 },
+      { label: 'Rust', count: 7, issueSampleSize: 6, medianCloseDays: 3.1, p25: 2.0, p75: 6.2 },
+      { label: '其他', count: 4, issueSampleSize: 3, medianCloseDays: 7.4, p25: 4.1, p75: 13.0 },
     ]
     const points = Array.from({ length: 40 }, (_, i) => {
       const issueCloseDays = 1 + ((i * 17) % 120) / 10

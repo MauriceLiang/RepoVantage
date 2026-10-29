@@ -18,37 +18,72 @@ const axis = (t: ChartTheme) => ({
   splitLine: { lineStyle: { color: t.grid } },
 })
 
-export function timeSeriesOption(points: TimePoint[], unit: string, color: string, t: ChartTheme, dense = false): EChartsOption {
+export function timeSeriesOption(points: TimePoint[], unit: string, color: string, t: ChartTheme, dense = false, movingAverageWindow = 0): EChartsOption {
+  const averageName = `${movingAverageWindow} 周均值`
+  const observedName = movingAverageWindow > 1 ? '每周提交' : unit
+  const movingAverage = movingAverageWindow > 1
+    ? points.map((_, index) => {
+      const window = points.slice(index - movingAverageWindow + 1, index + 1)
+      if (window.length !== movingAverageWindow || window.some((item) => item.value === null || item.quality !== 'ready' || item.completeWeek !== true)) return null
+      return window.reduce((sum, item) => sum + (item.value ?? 0), 0) / movingAverageWindow
+    })
+    : []
   return {
     animation: false,
-    grid: { left: 44, right: 12, top: 16, bottom: 26 },
+    grid: { left: 44, right: 12, top: movingAverageWindow > 1 ? 34 : 16, bottom: 26 },
+    legend: movingAverageWindow > 1 ? {
+      top: 0, left: 0, icon: 'roundRect', itemWidth: 8, itemHeight: 8, itemGap: 14,
+      textStyle: { color: t.muted, fontSize: 10.5, fontFamily },
+      data: [observedName, averageName],
+    } : undefined,
     tooltip: {
       ...tip(t),
       trigger: 'axis',
       axisPointer: { type: 'line', lineStyle: { color: t.border, width: 1 } },
       formatter: (params: unknown) => {
-        const p = (params as { axisValue: string; dataIndex: number; value: number | null }[])[0]
-        const point = points[p.dataIndex]
-        const observed = point?.value === null && point.observedValue != null
-        const value = observed ? point.observedValue : p.value
-        const note = observed ? `<div style="color:${t.ink};font-size:10px;margin-top:3px">仅显示已观察数量，覆盖不完整</div>` : ''
-        return `<div style="color:${t.muted};font-size:10.5px;font-family:${MONO};margin-bottom:3px">${p.axisValue}</div><b>${value ?? '未覆盖'}</b> ${value === null ? '' : unit}${note}`
+        const rows = params as { axisValue: string; dataIndex: number; seriesName: string; value: number | null; color: string }[]
+        const point = points[rows[0]?.dataIndex]
+        const header = `<div style="color:${t.muted};font-size:10.5px;font-family:${MONO};margin-bottom:4px">${rows[0]?.axisValue}</div>`
+        return header + rows.map((row) => {
+          const observed = row.seriesName === observedName && point?.value === null && point.observedValue != null
+          const value = observed ? point?.observedValue : row.value
+          const display = value === null || value === undefined
+            ? row.seriesName === averageName ? `未计算（需连续完整 ${movingAverageWindow} 周）` : '未覆盖'
+            : `${Number(value).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} ${unit}`
+          const note = observed ? `<div style="color:${t.ink};font-size:10px;margin:2px 0 4px 14px">仅显示已观察数量，覆盖不完整</div>` : ''
+          return `<div style="display:flex;justify-content:space-between;gap:16px"><span><i style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${row.color};margin-right:6px"></i>${row.seriesName}</span><b>${display}</b></div>${note}`
+        }).join('')
       },
     },
     xAxis: { type: 'category', data: points.map((p) => mmdd(p.date)), ...axis(t), axisLine: { lineStyle: { color: t.border } }, splitLine: { show: false } },
     yAxis: { type: 'value', ...axis(t), axisLine: { show: false } },
-    series: [{
-      type: dense ? 'line' : 'bar',
-      data: points.map((p) => ({
-        value: p.value ?? p.observedValue ?? null,
-        ...(p.value === null && p.observedValue != null ? { itemStyle: { opacity: 0.55 } } : {}),
-      })),
-      itemStyle: { color, borderRadius: dense ? undefined : [3, 3, 0, 0] },
-      lineStyle: { color, width: 2 },
-      symbol: 'circle', symbolSize: 4, showSymbol: false,
-      areaStyle: dense ? { opacity: 0.12, color } : undefined,
-      emphasis: { itemStyle: { color } },
-    }],
+    series: [
+      {
+        name: observedName,
+        type: dense ? 'line' : 'bar',
+        data: points.map((p) => ({
+          value: p.value ?? p.observedValue ?? null,
+          ...(p.value === null && p.observedValue != null ? { itemStyle: { opacity: 0.55 } } : {}),
+        })),
+        itemStyle: { color, borderRadius: dense ? undefined : [3, 3, 0, 0] },
+        lineStyle: { color, width: 2 },
+        symbol: 'circle', symbolSize: 4, showSymbol: false,
+        areaStyle: dense ? { opacity: 0.12, color } : undefined,
+        emphasis: { itemStyle: { color } },
+      },
+      ...(movingAverageWindow > 1 ? [{
+        name: averageName,
+        type: 'line' as const,
+        data: movingAverage,
+        symbol: 'circle',
+        symbolSize: 5,
+        showSymbol: true,
+        connectNulls: false,
+        lineStyle: { color: t.series[3], width: 2 },
+        itemStyle: { color: t.series[3] },
+        z: 3,
+      }] : []),
+    ],
   }
 }
 
@@ -90,24 +125,53 @@ export function groupedOption(series: NamedSeries[], unit: string, colors: strin
 }
 
 export function histogramOption(buckets: HistogramBucket[], color: string, t: ChartTheme, unit = '条记录'): EChartsOption {
+  const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
+  let cumulative = 0
+  const cumulativePercent = buckets.map((bucket) => {
+    cumulative += bucket.count
+    return total ? Number((cumulative / total * 100).toFixed(1)) : null
+  })
   return {
     animation: false,
-    grid: { left: 40, right: 12, top: 22, bottom: 30 },
+    grid: { left: 40, right: 44, top: 30, bottom: 30 },
+    legend: {
+      top: 0, left: 0, icon: 'roundRect', itemWidth: 8, itemHeight: 8, itemGap: 14,
+      textStyle: { color: t.muted, fontSize: 10.5, fontFamily },
+      data: ['样本数', '累计占比'],
+    },
     tooltip: {
       ...tip(t), trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: t.border, width: 1 } },
       formatter: (params: unknown) => {
-        const p = (params as { axisValue: string; value: number }[])[0]
-        return `<div style="color:${t.muted};font-size:10.5px;margin-bottom:3px">${p.axisValue}</div><b>${p.value}</b> ${unit}`
+        const rows = params as { axisValue: string; seriesName: string; value: number | null }[]
+        const count = rows.find((row) => row.seriesName === '样本数')?.value
+        const percent = rows.find((row) => row.seriesName === '累计占比')?.value
+        return `<div style="color:${t.muted};font-size:10.5px;margin-bottom:3px">${rows[0]?.axisValue}</div><div>样本数：<b>${count ?? 0}</b> ${unit}</div><div>累计占比：<b>${percent === null || percent === undefined ? '—' : `${percent}%`}</b></div>`
       },
     },
     xAxis: { type: 'category', data: buckets.map((b) => b.label), ...axis(t), splitLine: { show: false }, axisLabel: { color: t.muted, fontSize: 10, fontFamily } },
-    yAxis: { type: 'value', ...axis(t), axisLine: { show: false } },
-    series: [{
-      type: 'bar', barMaxWidth: 46,
-      data: buckets.map((b) => b.count),
-      itemStyle: { color, borderRadius: [3, 3, 0, 0] },
-      label: { show: true, position: 'top', color: t.muted, fontSize: 10, fontFamily: MONO },
-    }],
+    yAxis: [
+      { type: 'value', name: '样本数', nameTextStyle: { color: t.muted, fontSize: 9.5 }, ...axis(t), axisLine: { show: false } },
+      { type: 'value', name: '%', min: 0, max: 100, interval: 25, position: 'right', axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false }, axisLabel: { color: t.muted, fontSize: 9.5, formatter: (value: number) => `${value}%` } },
+    ],
+    series: [
+      {
+        name: '样本数',
+        type: 'bar', barMaxWidth: 46,
+        data: buckets.map((b) => b.count),
+        itemStyle: { color, borderRadius: [3, 3, 0, 0] },
+        label: { show: true, position: 'top', color: t.muted, fontSize: 10, fontFamily: MONO },
+      },
+      {
+        name: '累计占比',
+        type: 'line', yAxisIndex: 1,
+        data: cumulativePercent,
+        step: 'end',
+        symbol: 'circle', symbolSize: 5,
+        lineStyle: { color: t.series[3], width: 2 },
+        itemStyle: { color: t.series[3] },
+        connectNulls: false,
+      },
+    ],
   }
 }
 

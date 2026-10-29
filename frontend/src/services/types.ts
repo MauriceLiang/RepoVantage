@@ -367,6 +367,8 @@ export interface ComparisonBundle {
 export interface ResearchGroup {
   label: string
   count: number
+  /** Number of repositories in the group with a valid Issue median. */
+  issueSampleSize: number
   medianCloseDays: number | null
   p25: number | null
   p75: number | null

@@ -8,11 +8,11 @@ const emit = defineEmits<{ select: [payload: { dataIndex: number; seriesName: st
 import { timeSeriesOption } from './options'
 import { chartTheme } from './theme'
 
-const props = withDefaults(defineProps<{ points: TimePoint[]; unit: string; color?: string; height?: number }>(), { color: '', height: 260 })
+const props = withDefaults(defineProps<{ points: TimePoint[]; unit: string; color?: string; height?: number; movingAverageWindow?: number }>(), { color: '', height: 260, movingAverageWindow: 0 })
 const ui = useUiStore()
 const option = computed(() => {
   const t = chartTheme(ui.isDark)
-  return timeSeriesOption(props.points, props.unit, props.color || t.series[0], t, props.points.length > 40)
+  return timeSeriesOption(props.points, props.unit, props.color || t.series[0], t, props.points.length > 40, props.movingAverageWindow)
 })
 </script>
 

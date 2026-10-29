@@ -133,6 +133,7 @@ function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysi
     return {
       label: String(group.language ?? '未知'),
       count: Number(group.n ?? 0),
+      issueSampleSize: Number(metric.count ?? 0),
       medianCloseDays: numberOrNull(metric.median) === null ? null : Number((metric.median / 24).toFixed(1)),
       p25: null,
       p75: null,
