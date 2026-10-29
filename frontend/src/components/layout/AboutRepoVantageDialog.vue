@@ -42,7 +42,13 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
           </DialogClose>
         </header>
 
-        <div data-testid="about-repovantage-scroll" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5">
+        <div
+          data-testid="about-repovantage-scroll"
+          role="region"
+          aria-label="项目背景与意义内容"
+          tabindex="0"
+          class="gd-about-scroll min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6 sm:py-5"
+        >
           <div class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-7">
             <section aria-labelledby="about-project-background-title" class="min-w-0">
               <div class="flex flex-wrap items-center justify-between gap-2">
@@ -95,6 +101,10 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
   width: min(980px, calc(100vw - 32px));
   max-height: min(88vh, 820px);
   max-height: min(88dvh, 820px);
+}
+.gd-about-scroll:focus-visible {
+  outline: 2px solid var(--gd-ink);
+  outline-offset: -3px;
 }
 .gd-about-overlay[data-state='open'] { animation: gd-about-fade-in 0.18s ease; }
 .gd-about-overlay[data-state='closed'] { animation: gd-about-fade-out 0.16s ease; }
