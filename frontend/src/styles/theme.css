@@ -15,6 +15,10 @@
   --gd-warn-bg: #faf2e3;
   --gd-warn-fg: #8a5a12;
   --gd-danger: #c0392b;
+  --gd-toast-success-bg: #e8f5eb;
+  --gd-toast-success-fg: #206534;
+  --gd-toast-error-bg: #fde9e7;
+  --gd-toast-error-fg: #a52e2a;
   --gd-s1: #e2683c;
   --gd-s2: #e5a03a;
   --gd-s3: #ce3f7c;
@@ -40,6 +44,10 @@
   --gd-warn-bg: #2a2213;
   --gd-warn-fg: #e3b568;
   --gd-danger: #f2777a;
+  --gd-toast-success-bg: #193422;
+  --gd-toast-success-fg: #a0e6ad;
+  --gd-toast-error-bg: #401f20;
+  --gd-toast-error-fg: #ff9c9e;
   --gd-s1: #f5a183;
   --gd-s2: #f2c67d;
   --gd-s3: #f294c2;

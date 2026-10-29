@@ -47,7 +47,7 @@ async function exportResearchMembers() {
   try {
     downloadBlob(await source.exportRepositories('research', data.value.id, data.value.analysisMode), `${data.value.id}-members.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出样本成员失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出样本成员失败', 'error')
   } finally {
     exporting.value = false
   }
@@ -59,7 +59,7 @@ async function exportResearchStatistics() {
   try {
     downloadBlob(await source.exportResearchStatistics(data.value.id, data.value.analysisMode), `${data.value.id}-statistics.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出统计结果失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出统计结果失败', 'error')
   } finally {
     exporting.value = false
   }
@@ -74,12 +74,12 @@ async function importFeatured() {
     await reloadFeaturedStatus()
     if (result.alreadyCurrent) {
       await reload()
-      ui.toast('精选数据已是当前版本')
+      ui.toast('精选数据已是当前版本', 'warning')
     } else {
-      ui.toast('精选数据导入任务已排队，可在任务中心查看进度')
+      ui.toast('精选数据导入任务已排队，可在任务中心查看进度', 'warning')
     }
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导入精选数据失败')
+    ui.toast(cause instanceof Error ? cause.message : '导入精选数据失败', 'error')
   } finally {
     importing.value = false
   }

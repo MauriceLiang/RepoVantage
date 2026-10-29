@@ -73,7 +73,7 @@ async function exportComparison() {
   try {
     downloadBlob(await source.exportComparison(analysis.compareIds, analysis.timeWindow, comparisonMode.value), 'repovantage-comparison.csv')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出比较结果失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出比较结果失败', 'error')
   } finally {
     exporting.value = false
   }

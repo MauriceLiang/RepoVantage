@@ -1,5 +1,5 @@
 import type {
-  AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, Granularity, HistogramResult,
+  ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, Granularity, HistogramResult,
   IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, PullRequestRecord, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositorySummary,
   ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
@@ -435,8 +435,15 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     throw new Error('演示数据源不提供精选数据包下载')
   }
 
-  async getActivityChangePercent(id: string): Promise<number | null> {
-    return repoSeed(id)?.activityDelta ?? null
+  async getActivityTrend(id: string): Promise<ActivityTrend> {
+    const changePercent = repoSeed(id)?.activityDelta ?? null
+    return {
+      changePercent,
+      recentCommits: null,
+      previousCommits: null,
+      qualityStatus: changePercent === null ? 'insufficient_samples' : 'ready',
+      comparisonReason: changePercent === null ? '演示数据没有提供 Commit 趋势样本' : null,
+    }
   }
 
   async getAnalysis(id: string, window: TimeWindow, granularity: Granularity): Promise<RepositoryAnalysis> {

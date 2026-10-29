@@ -4,9 +4,12 @@ import { computed, ref, watch } from 'vue'
 export type ThemeMode = 'light' | 'dark'
 export type DrawerKind = 'commits' | 'definitions' | 'release' | 'issue' | 'pr' | null
 
+export type ToastStatus = 'success' | 'warning' | 'error'
+
 export interface Toast {
   id: number
   message: string
+  status: ToastStatus
 }
 
 const stored = (typeof localStorage !== 'undefined' && (localStorage.getItem('repovantage-theme') ?? localStorage.getItem('githubda-theme'))) as ThemeMode | null
@@ -39,9 +42,9 @@ export const useUiStore = defineStore('ui', () => {
     drawerPayload.value = null
   }
 
-  function toast(message: string) {
+  function toast(message: string, status: ToastStatus = 'success') {
     const id = ++toastId
-    toasts.value.push({ id, message })
+    toasts.value.push({ id, message, status })
     window.setTimeout(() => {
       toasts.value = toasts.value.filter((t) => t.id !== id)
     }, 2600)

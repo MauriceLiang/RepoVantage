@@ -8,7 +8,7 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
-import type { RepositorySummary, TaskItem } from '@/services/types'
+import type { ActivityTrend, RepositorySummary, TaskItem } from '@/services/types'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 
@@ -26,6 +26,8 @@ const { data: tasks, loading: tasksLoading, error: tasksError, reload: reloadTas
 
 const recent = computed(() => (repositories.value ?? []).slice(0, 5))
 const activeTasks = computed(() => (tasks.value ?? []).filter((task) => ['queued', 'running', 'analyzing'].includes(task.status)))
+type ActivityTrendState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; trend: ActivityTrend }
+const activityTrendStates = ref<Record<string, ActivityTrendState>>({})
 const activityChanges = ref<{ repo: RepositorySummary; changePercent: number }[]>([])
 const changesLoading = ref(false)
 const changesError = ref<string | null>(null)
@@ -36,6 +38,7 @@ let pollTimer: number | undefined
 watch(repositories, async (items) => {
   const requestId = ++changesRequestId
   activityChanges.value = []
+  activityTrendStates.value = {}
   changesError.value = null
   if (!items) {
     changesLoading.value = false
@@ -51,28 +54,33 @@ watch(repositories, async (items) => {
     return
   }
 
+  const pending: Record<string, ActivityTrendState> = {}
+  for (const repo of candidates) pending[repo.id] = { status: 'loading' }
+  activityTrendStates.value = pending
   changesLoading.value = true
-  const results = await Promise.allSettled(candidates.map(async (repo) => ({
-    repo,
-    changePercent: await source.getActivityChangePercent(repo.id),
-  })))
+  const results = await Promise.allSettled(candidates.map((repo) => source.getActivityTrend(repo.id)))
   if (requestId !== changesRequestId) return
 
-  const rejected = results.filter((result) => result.status === 'rejected')
+  const trendStates: Record<string, ActivityTrendState> = {}
   const available: { repo: RepositorySummary; changePercent: number }[] = []
-  for (const result of results) {
-    if (result.status === 'fulfilled' && result.value.changePercent !== null) {
-      available.push({ repo: result.value.repo, changePercent: result.value.changePercent })
+  const failures: unknown[] = []
+  for (const [index, result] of results.entries()) {
+    const repo = candidates[index]
+    if (result.status === 'fulfilled') {
+      const trend = result.value
+      trendStates[repo.id] = { status: 'ready', trend }
+      if (trend.changePercent !== null) available.push({ repo, changePercent: trend.changePercent })
+    } else {
+      trendStates[repo.id] = { status: 'error' }
+      failures.push(result.reason)
     }
   }
+  activityTrendStates.value = trendStates
   activityChanges.value = available.sort((left, right) => Math.abs(right.changePercent) - Math.abs(left.changePercent)).slice(0, 3)
-  if (rejected.length === candidates.length) {
-    const failure = rejected[0]
-    changesError.value = failure.status === 'rejected'
-      ? String(failure.reason?.message ?? '趋势数据读取失败')
-      : '趋势数据读取失败'
-  } else if (rejected.length) {
-    changesError.value = `${rejected.length} 个仓库的趋势暂时无法读取`
+  if (failures.length === candidates.length) {
+    changesError.value = String(failures[0] instanceof Error ? failures[0].message : '趋势数据读取失败')
+  } else if (failures.length) {
+    changesError.value = `${failures.length} 个仓库的趋势暂时无法读取`
   }
   changesLoading.value = false
 }, { immediate: true })
@@ -87,6 +95,23 @@ const changes = computed(() => activityChanges.value.map(({ repo, changePercent 
       : `近 4 个完整周的 Commit 数较前 4 周${roundedChange < 0 ? '减少' : '增加'} ${Math.abs(roundedChange)}%。`,
   }
 }))
+
+function activityTrendSummary(repo: RepositorySummary): string {
+  const state = activityTrendStates.value[repo.id]
+  if (!state || state.status === 'loading') return '正在读取 Commit 趋势…'
+  if (state.status === 'error') return '趋势数据暂时无法读取'
+
+  const trend = state.trend
+  if (trend.changePercent !== null) {
+    return `近 4 周较前 4 周 ${trend.changePercent > 0 ? '+' : ''}${Number(trend.changePercent.toFixed(1))}%`
+  }
+  if (trend.qualityStatus === 'ready' && trend.previousCommits === 0 && trend.recentCommits !== null) {
+    return trend.recentCommits > 0
+      ? `此前 4 周无 Commit，近 4 周 ${trend.recentCommits.toLocaleString('zh-CN')} 次`
+      : '前后 8 周均无 Commit'
+  }
+  return trend.comparisonReason ?? '当前没有可比较的 Commit 趋势'
+}
 
 const taskStatusLabel: Record<string, string> = {
   queued: '排队中', running: '执行中', analyzing: '分析中',
@@ -132,7 +157,7 @@ async function submit() {
   try {
     const result = await source.addRepository(raw)
     analysis.remember(result.repositoryId)
-    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库')
+    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
     void router.push(`/repositories/${result.repositoryId}/overview`)
   } catch (error) {
     submitError.value = error instanceof Error ? error.message : '提交分析失败'
@@ -226,7 +251,7 @@ async function submit() {
             </div>
             <div class="text-[11.5px] text-muted">
               <template v-if="repo.status === 'ready' || repo.status === 'partial'">
-                {{ repo.activityDelta === null ? '活动样本不足，未生成趋势判断' : `近 4 周较前 4 周 ${repo.activityDelta > 0 ? '+' : ''}${repo.activityDelta}%` }}
+                {{ activityTrendSummary(repo) }}
               </template>
               <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
             </div>

@@ -1,5 +1,5 @@
 import type {
-  CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, Granularity, HistogramResult, ReleaseDetails, ReleaseRecord,
+  ActivityTrend, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, Granularity, HistogramResult, ReleaseDetails, ReleaseRecord,
   IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryStatus, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
@@ -395,14 +395,20 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return result.items.map((item) => mapRepository(item))
   }
 
-  async getActivityChangePercent(id: string): Promise<number | null> {
+  async getActivityTrend(id: string): Promise<ActivityTrend> {
     const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/insights`)
     const commit = object(object(result.insights).commit_activity)
     const quality = object(commit.quality)
     const recent = numberOrNull(commit.recent_4w)
     const previous = numberOrNull(commit.previous_4w)
     const change = numberOrNull(commit.change_rate_pct)
-    return quality.status === 'ready' && recent !== null && previous !== null ? change : null
+    return {
+      changePercent: quality.status === 'ready' && recent !== null && previous !== null ? change : null,
+      recentCommits: recent,
+      previousCommits: previous,
+      qualityStatus: String(quality.status ?? 'missing'),
+      comparisonReason: textOrNull(commit.comparison_reason) ?? textOrNull(quality.reason) ?? textOrNull(result.window_reason),
+    }
   }
 
   async searchRepositories(query: string): Promise<(RepositorySummary & { alreadyInLibrary: boolean })[]> {

@@ -45,7 +45,7 @@ watch(featuredData, (value) => {
     const events = Number(completed.result?.event_count ?? 0)
     ui.toast(`精选数据导入完成：新增 ${imported.toLocaleString('zh-CN')} 个仓库，活动记录 ${events.toLocaleString('zh-CN')} 条`)
   } else if (completed?.status === 'failed') {
-    ui.toast(completed.errorMessage ?? '精选数据导入失败，可在此重试')
+    ui.toast(completed.errorMessage ?? '精选数据导入失败，可在此重试', 'error')
   }
 }, { immediate: true })
 
@@ -79,7 +79,7 @@ const statusMeta: Record<RepositoryStatus, { text: string; variant: 'default' | 
 
 function toggle(repo: RepositorySummary) {
   if (selected.value.includes(repo.id)) selected.value = selected.value.filter((id) => id !== repo.id)
-  else if (selected.value.length >= 100) ui.toast('最多一次选择 100 个仓库')
+  else if (selected.value.length >= 100) ui.toast('最多一次选择 100 个仓库', 'warning')
   else selected.value = [...selected.value, repo.id]
 }
 
@@ -96,7 +96,7 @@ function toggleAllFiltered() {
   const selectedIds = new Set(selected.value)
   const newIds = visibleIds.filter((id) => !selectedIds.has(id))
   if (selected.value.length + newIds.length > 100) {
-    ui.toast('最多一次选择 100 个仓库，请先清除部分已选项')
+    ui.toast('最多一次选择 100 个仓库，请先清除部分已选项', 'warning')
     return
   }
   selected.value = [...selected.value, ...newIds]
@@ -128,11 +128,11 @@ async function add(repo: RepositorySummary) {
   busyId.value = repo.id
   try {
     const result = await source.addRepository(repo.fullName)
-    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库')
+    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
     await reload()
     void router.push(`/repositories/${result.repositoryId}/overview`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '添加仓库失败')
+    ui.toast(cause instanceof Error ? cause.message : '添加仓库失败', 'error')
   } finally {
     busyId.value = null
   }
@@ -147,7 +147,7 @@ async function remove(repo: RepositorySummary) {
     await reload()
     ui.toast('已从分析库移除')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '移除仓库失败')
+    ui.toast(cause instanceof Error ? cause.message : '移除仓库失败', 'error')
   } finally {
     busyId.value = null
   }
@@ -170,7 +170,7 @@ async function deleteSelectedRepositories() {
     await Promise.all([reload(), reloadFeaturedStatus()])
     ui.toast(`已删除 ${repositoryIds.length} 个仓库的本地数据并从“我的仓库”移除`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '删除所选仓库失败')
+    ui.toast(cause instanceof Error ? cause.message : '删除所选仓库失败', 'error')
   } finally {
     clearingSelected.value = false
   }
@@ -182,10 +182,10 @@ async function importFeatured() {
   try {
     const result = await source.importFeaturedDataset()
     await reloadFeaturedStatus()
-    if (result.alreadyCurrent) ui.toast('精选数据包当前版本已导入')
-    else ui.toast('精选数据导入任务已排队，可在任务中心查看进度')
+    if (result.alreadyCurrent) ui.toast('精选数据包当前版本已导入', 'warning')
+    else ui.toast('精选数据导入任务已排队，可在任务中心查看进度', 'warning')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导入精选仓库失败')
+    ui.toast(cause instanceof Error ? cause.message : '导入精选仓库失败', 'error')
   } finally {
     importingFeatured.value = false
   }
@@ -198,9 +198,9 @@ async function handleFeaturedImport() {
     try {
       await source.retryTask(latest.taskId)
       await reloadFeaturedStatus()
-      ui.toast('精选数据导入已重新排队')
+      ui.toast('精选数据导入已重新排队', 'warning')
     } catch (cause) {
-      ui.toast(cause instanceof Error ? cause.message : '重试精选数据导入失败')
+      ui.toast(cause instanceof Error ? cause.message : '重试精选数据导入失败', 'error')
     } finally {
       importingFeatured.value = false
     }
@@ -229,7 +229,7 @@ async function exportFeatured() {
     downloadBlob(blob, `repovantage-dataset-${featuredStatus.value.version ?? 'featured-v1'}.zip`)
     ui.toast('精选数据包已开始下载')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '下载精选数据包失败')
+    ui.toast(cause instanceof Error ? cause.message : '下载精选数据包失败', 'error')
   } finally {
     exportingFeatured.value = false
   }

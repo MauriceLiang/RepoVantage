@@ -44,7 +44,7 @@ const refreshLabel = computed(() => analysis.collectionScope === 'quick'
 function toggleCompare() {
   const selected = analysis.compareIds.includes(props.repository.id)
   if (!selected && analysis.compareIds.length >= 5) {
-    ui.toast('最多同时比较 5 个仓库')
+    ui.toast('最多同时比较 5 个仓库', 'warning')
     return
   }
   analysis.toggleCompare(props.repository.id)
@@ -56,7 +56,7 @@ async function exportCsv() {
   try {
     downloadBlob(await source.exportInsights(props.repository.id, analysis.timeWindow), `${props.repository.id}-insights.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出分析结果失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出分析结果失败', 'error')
   } finally {
     exporting.value = false
   }

@@ -88,6 +88,14 @@ export interface HistogramResult {
   note?: string
 }
 
+export interface ActivityTrend {
+  changePercent: number | null
+  recentCommits: number | null
+  previousCommits: number | null
+  qualityStatus: string
+  comparisonReason: string | null
+}
+
 export interface RepositorySummary {
   /** Backend repository ID used in routes. */
   id: string

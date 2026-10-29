@@ -104,7 +104,7 @@ async function exportCsv() {
   try {
     downloadBlob(await source.exportIssueRecords(props.analysis.repository.id, appliedSearch.value), `${props.analysis.repository.id}-issues.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出 Issue 记录失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出 Issue 记录失败', 'error')
   } finally {
     exporting.value = false
   }

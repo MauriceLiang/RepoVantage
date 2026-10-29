@@ -51,15 +51,15 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
         >
           <div class="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:gap-7">
             <section aria-labelledby="about-project-background-title" class="min-w-0">
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <h2 id="about-project-background-title" class="m-0 text-[16px] font-semibold">项目背景</h2>
-                <span class="rounded-full border border-line bg-soft px-2 py-1 text-[10.5px] font-medium text-muted">常见团队选型情境</span>
+              <h2 id="about-project-background-title" class="m-0 text-[16px] font-semibold">项目背景</h2>
+              <div class="mt-3 flex flex-col gap-4 text-[14px] leading-[1.85] text-muted">
+                <p class="m-0">作为一名个人开发者，我曾在项目开发中面对多个功能相近的 GitHub 开源方案，却很难判断哪个更适合自己。只看项目介绍和 Star 数，我仍不知道该选哪一个，还得逐个查看 Commit、Issue、PR 和 Release，手动梳理项目的维护与协作情况。</p>
+                <p class="m-0">为了减少选型时的反复查找，我创建了 RepoVantage。它从 GitHubDA 逐步发展而来，把开发活动、Issue 与 PR 处理、版本发布整理成趋势与时间线，并支持按一致的观察范围比较多个仓库。</p>
               </div>
-              <p class="mb-0 mt-2 text-[12px] leading-[1.7] text-muted">这是常见的团队选型情境示例，不代表 RepoVantage 的真实创始经历。</p>
-              <div class="mt-4 flex flex-col gap-4 text-[14px] leading-[1.85] text-muted">
-                <p class="m-0">一个团队准备为新项目选择开源组件，搜索后发现几个功能相近的 GitHub 仓库。它们都有介绍文档，也有不同数量的 Stars 和 Forks。但要进一步了解这些项目，还会遇到许多具体问题：最近是否持续有开发活动？已经关闭的 Issue 通常经历了多长时间？PR 的协作情况如何？过去一年发布过哪些版本，发布之间的间隔又是怎样的？</p>
-                <p class="m-0">这些信息虽然都能在 GitHub 上找到，却分布在提交记录、Issue、PR 和 Release 等不同页面。查看一个仓库需要来回切换；比较多个仓库时，还需要手动整理时间范围和统计口径。仅看某个数字或某一天的状态，也很难理解项目在一段时间内的变化。</p>
-                <p class="m-0">RepoVantage 希望把这些分散的信息组织成更容易阅读和比较的数据。用户输入公开仓库后，系统采集可用的开发与协作数据，通过趋势、分布和时间线展示项目在所选时间范围内发生了什么。用户既可以观察单个项目，也可以在满足数据条件时比较多个项目，或围绕选定样本开展研究。</p>
+              <h3 class="mb-0 mt-5 border-t border-line pt-4 text-[13px] font-semibold text-ink">使用示例：团队选择开源组件</h3>
+              <div class="mt-3 flex flex-col gap-4 text-[14px] leading-[1.85] text-muted">
+                <p class="m-0">例如，挑选开源组件时，可以同时观察几个候选仓库的近期 Commit 活动、Issue 与 PR 处理时长和 Release 节奏，先找出值得继续了解的项目。</p>
+                <p class="m-0">如果发现某个项目的更新减少，或版本间隔明显拉长，再查看趋势和版本记录，并结合功能、许可证与安全性判断它是否适用。</p>
               </div>
             </section>
 
