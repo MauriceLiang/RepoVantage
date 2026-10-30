@@ -120,10 +120,6 @@ const taskModuleLabel: Record<string, string> = {
   profile: '仓库概况', commits: 'Commit 采集', issues: 'Issue 采集', pulls: 'PR 采集', releases: 'Release 采集',
   collect_repository: '仓库采集', repository: '仓库分析',
 }
-const taskEmptyState = computed(() => tasks.value?.length
-  ? { badge: '队列空闲', title: '当前没有待处理任务', description: '最近任务均已结束，可在任务中心查看记录。' }
-  : { badge: '等待开始', title: '还没有分析任务', description: '添加仓库并开始分析后，采集进度会显示在这里。' })
-
 function taskProgress(task: TaskItem): number | null {
   const value = task.progressPercent
   if (task.progressKind !== 'stages' || typeof value !== 'number' || !Number.isFinite(value)) return null
@@ -359,21 +355,6 @@ async function submit() {
                 <span class="shrink-0 font-mono text-[10.5px] tabular-nums text-muted">{{ Math.round(taskProgress(task)!) }}%</span>
               </div>
             </RouterLink>
-          </div>
-          <div v-else class="flex h-full items-center py-2">
-            <div class="flex w-full items-start gap-3 rounded-lg border border-line bg-soft/30 p-3.5">
-              <span class="flex size-9 shrink-0 items-center justify-center rounded-full border border-line bg-panel text-s3">
-                <Activity :size="17" />
-              </span>
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <p class="m-0 text-[13px] font-semibold text-ink">{{ taskEmptyState.title }}</p>
-                  <GdBadge variant="plain">{{ taskEmptyState.badge }}</GdBadge>
-                </div>
-                <p class="mb-0 mt-1 text-[11.5px] leading-relaxed text-muted">{{ taskEmptyState.description }}</p>
-                <RouterLink v-if="!tasks?.length" to="/repositories" class="gd-link mt-2 inline-flex text-[11.5px]">前往仓库 <ArrowRight :size="12" /></RouterLink>
-              </div>
-            </div>
           </div>
         </div>
         <div class="mt-auto flex items-center justify-between border-t border-line pt-2.5">
