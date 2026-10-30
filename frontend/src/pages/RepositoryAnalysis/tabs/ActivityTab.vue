@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import RankChart from '@/components/charts/RankChart.vue'
+import AuthorConcentrationChart from '@/components/charts/AuthorConcentrationChart.vue'
+import CalendarHeatmap from '@/components/charts/CalendarHeatmap.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -27,11 +28,6 @@ const pageCount = computed(() => Math.max(1, Math.ceil((activity.value?.total ??
 const firstRecord = computed(() => activity.value?.total ? (page.value - 1) * pageSize + 1 : 0)
 const lastRecord = computed(() => Math.min(page.value * pageSize, activity.value?.total ?? 0))
 const dailyPoints = computed<TimePoint[]>(() => (activity.value?.dailyCounts ?? []).map(({ date, count }) => ({ date, value: count })))
-const rankedAuthors = computed(() => (activity.value?.authors ?? []).map((author) => ({
-  label: `${author.author}${author.anonymous ? ' · 未关联账号' : ''}`,
-  value: author.commits,
-  muted: author.isBot,
-})))
 const activeDays = computed(() => activity.value?.dailyCounts.length ?? 0)
 
 async function loadActivity() {
@@ -39,7 +35,7 @@ async function loadActivity() {
   loading.value = true
   loadError.value = ''
   try {
-    const result = await source.getCommitActivity(props.analysis.repository.id, page.value, pageSize, appliedSearch.value)
+    const result = await source.getCommitActivity(props.analysis.repository.id, page.value, pageSize, appliedSearch.value, undefined, props.analysis.windowAvailability.requestedDays)
     if (version === requestVersion) activity.value = result
   } catch (cause) {
     if (version === requestVersion) {
@@ -51,7 +47,11 @@ async function loadActivity() {
   }
 }
 
-watch([() => props.analysis.repository.id, page, appliedSearch], () => { void loadActivity() }, { immediate: true })
+watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays], () => {
+  page.value = 1
+  activity.value = null
+}, { flush: 'sync' })
+watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays, page, appliedSearch], () => { void loadActivity() }, { immediate: true })
 
 function selectWeek(dataIndex: number) {
   const point = weeklyPoints.value[dataIndex]
@@ -68,6 +68,12 @@ function applySearch() {
   }
   page.value = 1
   appliedSearch.value = next
+}
+
+function filterAuthor(author: string) {
+  searchInput.value = author
+  if (page.value !== 1) page.value = 1
+  appliedSearch.value = author
 }
 
 function formatDate(value: string | null | undefined) {
@@ -101,11 +107,11 @@ function formatTime(value: string) {
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-2">
-    <GdCard class="h-[350px] min-h-0 overflow-hidden">
+    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="commit-heatmap-card">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">每日提交节奏</h3>
-          <p class="mt-0.5 text-[12px] text-muted">仅绘制归档中实际出现提交的日期 · UTC</p>
+          <h3 class="m-0 text-[15.5px] font-semibold">每日提交热力图</h3>
+          <p class="mt-0.5 text-[12px] text-muted">UTC · 拖动图例筛选提交次数；灰格可能为无归档提交或筛选范围外</p>
         </div>
         <span class="shrink-0 text-[11px] text-muted">{{ activity?.commitCount.toLocaleString('zh-CN') ?? '—' }} 条 · {{ activeDays }} 个活跃日</span>
       </div>
@@ -116,25 +122,24 @@ function formatTime(value: string) {
         <GdButton variant="outline" size="sm" @click="loadActivity">重新加载</GdButton>
       </div>
       <div v-else-if="activity && !activity.available" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] leading-relaxed text-muted">{{ activity.note }}</div>
-      <div v-else-if="activity && !activity.dailyCounts.length" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">本次采集范围内没有可展示的逐条 Commit。</div>
-      <TrendChart v-else-if="activity" :points="dailyPoints" unit="次" :height="225" />
+      <div v-else-if="activity && !activity.dailyCounts.length && (!activity.windowStart || !activity.windowEnd)" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">本次采集范围内没有可展示的逐条 Commit。</div>
+      <CalendarHeatmap v-else-if="activity" :points="dailyPoints" :window-start="activity.windowStart" :window-end="activity.windowEnd" :height="235" />
       <p v-if="activity?.note" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity.note }}</p>
     </GdCard>
 
-    <GdCard class="h-[350px] min-h-0 overflow-hidden">
+    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">作者贡献排行</h3>
-          <p class="mt-0.5 text-[12px] text-muted">按本次归档中可识别的作者身份聚合</p>
+          <h3 class="m-0 text-[15.5px] font-semibold">作者贡献集中度</h3>
+          <p class="mt-0.5 text-[12px] text-muted">比较归档提交在可识别作者之间的分布</p>
         </div>
-        <span class="shrink-0 text-[11px] text-muted">{{ activity?.authorCount.toLocaleString('zh-CN') ?? '—' }} 位作者</span>
+        <GdCoverageNote v-if="activity" :coverage="activity.coverage" compact />
       </div>
-      <div v-if="activity && activity.authors.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-        <RankChart :items="rankedAuthors" color="#CE3F7C" value-suffix=" 次" :height="Math.max(180, activity.authors.length * 30)" />
-      </div>
+      <AuthorConcentrationChart v-if="activity && activity.authors.length" class="min-h-0 flex-1" :authors="activity.authors" :distribution="activity.authorDistribution" :total-commits="activity.commitCount" :unidentified-commit-count="activity.unidentifiedCommitCount" @select-author="filterAuthor" />
       <div v-else-if="loading" class="flex min-h-0 flex-1 items-center justify-center text-[12px] text-muted" role="status">正在计算作者贡献…</div>
+      <div v-else-if="loadError" class="flex min-h-0 flex-1 items-center justify-center text-center text-[12px] text-danger" role="alert">{{ loadError }}</div>
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前没有可识别的作者记录。</div>
-      <p class="m-0 text-[10.5px] leading-relaxed text-muted">图表展示提交数最多的前 20 位；未关联 GitHub 账号的提交作者按 Git 提交信息中的名称归并，Bot 单独标记。</p>
+      <p v-if="activity?.available && activity.authors.length" class="m-0 text-[10.5px] leading-relaxed text-muted">含 Bot；未关联账号按 Git 名称归并。{{ activity.unidentifiedCommitCount === null ? '身份缺失数未知。' : `身份无法识别的 ${activity.unidentifiedCommitCount} 条提交未计入集中度。` }}点击排行可搜索明细。</p>
     </GdCard>
   </div>
 

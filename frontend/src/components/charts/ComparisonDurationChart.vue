@@ -17,26 +17,35 @@ const props = withDefaults(defineProps<{ items: ComparisonDurationItem[]; height
 const ui = useUiStore()
 const option = computed<EChartsOption>(() => {
   const t = chartTheme(ui.isDark)
+  const items = [...props.items].sort((a, b) => {
+    const aGap = a.issueP50 === null || a.prP50 === null ? -1 : Math.abs(a.prP50 - a.issueP50)
+    const bGap = b.issueP50 === null || b.prP50 === null ? -1 : Math.abs(b.prP50 - b.issueP50)
+    return bGap - aGap || a.label.localeCompare(b.label)
+  })
+  const valueFor = (item: ComparisonDurationItem | undefined, metric: 'issueP50' | 'prP50', sample: 'issueSample' | 'prSample') =>
+    item?.[metric] === null || item?.[metric] === undefined
+      ? '—'
+      : `${item[metric]!.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天 · n=${item[sample]}`
   return {
     animation: false,
-    grid: { left: 110, right: 28, top: 12, bottom: 42 },
+    grid: { left: 150, right: 24, top: 24, bottom: 42 },
     legend: {
       bottom: 0, left: 0, icon: 'roundRect', itemWidth: 8, itemHeight: 8, itemGap: 16,
       textStyle: { color: t.muted, fontSize: 11, fontFamily },
-      data: ['Issue 关闭 P50', 'PR 合并 P50'],
+      data: ['Issue P50', 'PR P50'],
     },
     tooltip: {
-      trigger: 'axis', axisPointer: { type: 'shadow' },
+      trigger: 'item',
       backgroundColor: t.panel, borderColor: t.border, borderWidth: 1, padding: [9, 11],
       textStyle: { color: t.ink, fontSize: 11.5, fontFamily },
       extraCssText: `border-radius:8px;box-shadow:${t.dark ? '0 8px 24px rgba(0,0,0,.5)' : '0 6px 18px rgba(0,0,0,.12)'};`,
       formatter: (params: unknown) => {
-        const rows = params as { dataIndex: number; axisValue: string }[]
-        const item = props.items[rows[0]?.dataIndex]
+        const point = params as { data: { name?: string } }
+        const item = items.find((entry) => entry.label === point.data.name)
         if (!item) return ''
-        const value = (name: string, days: number | null, sample: number) =>
-          `<div style="display:flex;justify-content:space-between;gap:18px"><span>${name}</span><b>${days === null ? '—' : `${days.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天`} · n=${sample}</b></div>`
-        return `<div style="color:${t.muted};font-size:10.5px;margin-bottom:4px">${item.label}</div>${value('Issue 关闭 P50', item.issueP50, item.issueSample)}${value('PR 合并 P50', item.prP50, item.prSample)}`
+        const delta = item.issueP50 === null || item.prP50 === null ? null : item.prP50 - item.issueP50
+        const deltaLabel = delta === null ? '差值不可用' : `${delta > 0 ? 'PR 较慢' : delta < 0 ? 'Issue 较慢' : '耗时相同'}${delta === 0 ? '' : ` ${Math.abs(delta).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天`}`
+        return `<div style="color:${t.muted};font-size:10.5px;margin-bottom:4px">${item.label}</div><div>Issue 关闭 P50：<b>${valueFor(item, 'issueP50', 'issueSample')}</b></div><div>PR 合并 P50：<b>${valueFor(item, 'prP50', 'prSample')}</b></div><div style="margin-top:3px;color:${t.muted}">${deltaLabel}</div>`
       },
     },
     xAxis: {
@@ -45,20 +54,28 @@ const option = computed<EChartsOption>(() => {
       splitLine: { lineStyle: { color: t.grid } },
     },
     yAxis: {
-      type: 'category', inverse: true, data: props.items.map((item) => item.label),
+      type: 'category', inverse: true, data: items.map((item) => item.label),
       axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { color: t.muted, fontSize: 10.5, fontFamily, width: 96, overflow: 'truncate' },
+      axisLabel: { color: t.muted, fontSize: 10.5, fontFamily, width: 136, overflow: 'truncate' },
     },
     series: [
+      ...items.filter((item) => item.issueP50 !== null && item.prP50 !== null).map((item) => ({
+        name: `${item.label} P50 差距`, type: 'line' as const, symbol: 'none', silent: true, z: 1,
+        data: [
+          { name: item.label, value: [item.issueP50, item.label] },
+          { name: item.label, value: [item.prP50, item.label] },
+        ],
+        lineStyle: { color: t.border, width: 4 },
+      })),
       {
-        name: 'Issue 关闭 P50', type: 'bar', barMaxWidth: 13, barGap: '24%',
-        data: props.items.map((item) => item.issueP50),
-        itemStyle: { color: t.series[1], borderRadius: [0, 3, 3, 0] },
+        name: 'Issue P50', type: 'scatter', symbol: 'circle', symbolSize: 12, z: 3,
+        data: items.filter((item) => item.issueP50 !== null).map((item) => ({ name: item.label, value: [item.issueP50, item.label] })),
+        itemStyle: { color: t.series[1], borderColor: t.panel, borderWidth: 2 },
       },
       {
-        name: 'PR 合并 P50', type: 'bar', barMaxWidth: 13,
-        data: props.items.map((item) => item.prP50),
-        itemStyle: { color: t.series[2], borderRadius: [0, 3, 3, 0] },
+        name: 'PR P50', type: 'scatter', symbol: 'diamond', symbolSize: 12, z: 3,
+        data: items.filter((item) => item.prP50 !== null).map((item) => ({ name: item.label, value: [item.prP50, item.label] })),
+        itemStyle: { color: t.series[2], borderColor: t.panel, borderWidth: 2 },
       },
     ],
   }

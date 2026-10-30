@@ -32,7 +32,7 @@ export interface RepositoryDataSource {
    * fields remain null and are never inferred from totals.
    */
   getAnalysis(id: string, window: TimeWindow, granularity: Granularity): Promise<RepositoryAnalysis>
-  getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string): Promise<CommitActivityPage>
+  getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
   getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
   getIssueOnlineDetail(id: string, issueNumber: number): Promise<IssueOnlineDetail>

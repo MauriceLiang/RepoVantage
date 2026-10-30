@@ -3,6 +3,7 @@ import { BookOpen, Download, LoaderCircle } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import ResearchGroupComboChart from '@/components/charts/ResearchGroupComboChart.vue'
+import ResearchQualityChart from '@/components/charts/ResearchQualityChart.vue'
 import ScatterChart from '@/components/charts/ScatterChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -37,7 +38,11 @@ const groupChartItems = computed(() => data.value?.groups.map((group) => ({
 })) ?? [])
 const groupChartHeight = computed(() => Math.max(190, groupChartItems.value.length * 32))
 const groupsWithoutIssueSamples = computed(() => groupChartItems.value.filter((group) => group.issueSampleSize === 0).length)
-const qualityItems = computed(() => (data.value?.quality ?? []).filter((quality) => quality.collected).map((quality) => ({ label: quality.field, value: quality.missingRate })))
+const qualityItems = computed(() => (data.value?.quality ?? []).flatMap((quality) =>
+  quality.missingCount === null || quality.totalRecords === null
+    ? []
+    : [{ field: quality.field, missingCount: quality.missingCount, totalRecords: quality.totalRecords }],
+))
 const groups = computed(() => (data.value?.groups ?? []).map((group) => group.label))
 
 function setMode(value: string | number) {
@@ -211,7 +216,7 @@ async function importFeatured() {
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 class="m-0 text-[15.5px] font-semibold">Issue 与 PR 协作耗时</h3>
-            <p class="mt-0.5 text-[12px] text-muted">每个点是一个仓库：Issue 关闭耗时中位数与 PR 合并耗时中位数（天）</p>
+            <p class="mt-0.5 text-[12px] text-muted">每个点是一个仓库；气泡越大表示两项指标中较小的有效样本数越多，虚线为样本中位数分界</p>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-[11.5px]">
             <span class="font-mono">Spearman ρ = {{ data.scatter.spearman ?? '—' }}</span>
@@ -220,17 +225,17 @@ async function importFeatured() {
         </div>
         <ScatterChart v-if="data.scatter.points.length" :points="data.scatter.points" :groups="groups" :height="280" />
         <p v-else class="py-12 text-center text-[12px] text-muted">没有同时具备 Issue 与 PR 耗时的仓库，暂不绘制散点图。</p>
+        <p v-if="data.scatter.points.length" class="m-0 text-[10.5px] text-muted">悬浮可查看 Issue / PR 各自有效样本量；中位数分界仅用于描述样本分布，不代表目标阈值或因果关系。</p>
       </GdCard>
 
       <GdCard>
         <div class="flex items-start justify-between gap-3">
           <div>
             <h3 class="m-0 text-[15.5px] font-semibold">数据质量</h3>
-            <p class="mt-0.5 text-[12px] text-muted">基础资料缺失率与事件指标有效样本；没有满足口径的数据会列出原因</p>
+            <p class="mt-0.5 text-[12px] text-muted">条形显示仓库资料已具备 / 缺失比例；分母是数据集成员总数。事件指标有效样本见下方</p>
           </div>
         </div>
-        <RankChart v-if="qualityItems.length" :items="qualityItems" :height="190" value-suffix="%" color="#E2683C" />
-        <p v-else class="py-6 text-center text-[12px] text-muted">后端没有返回字段缺失统计。</p>
+        <ResearchQualityChart :items="qualityItems" :height="190" />
         <div v-if="data.metricQuality.length" class="grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
           <div v-for="metric in data.metricQuality" :key="metric.field" class="rounded-md bg-soft/50 px-2.5 py-2 text-[11px]">
             <div class="font-medium">{{ metric.field }} · 有效 {{ metric.validSamples }} / {{ data.repositoryCount }}</div>

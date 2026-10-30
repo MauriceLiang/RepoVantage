@@ -46,7 +46,7 @@ const comparisonBasis = computed(() => data.value?.comparisonBasis)
 const comparisonNotes = computed(() => (data.value?.notes ?? []).filter((note) => !entries.value.some((entry) => entry.windowReason && note === `${entry.label}：${entry.windowReason}`)))
 const short = (label: string) => label.split('/')[1]
 const durationItems = computed(() => entries.value.map((entry) => ({
-  label: short(entry.label),
+  label: entry.label,
   issueP50: entry.issueP50,
   issueSample: entry.issueSample,
   prP50: entry.prP50,
@@ -154,7 +154,7 @@ async function exportComparison() {
       </div>
       <div v-if="loading" class="h-[280px] animate-pulse rounded bg-track/60" />
       <p v-if="error" class="py-8 text-center text-[12px] text-danger">比较数据加载失败：{{ error }}</p>
-      <ComparisonChart v-else-if="entries.some((entry) => entry.points.length)" :entries="entries.map((e) => ({ label: e.label.split('/')[1], color: e.color, points: e.points }))" :height="280" />
+      <ComparisonChart v-else-if="entries.some((entry) => entry.points.length)" :entries="entries.map((e) => ({ label: e.label, color: e.color, points: e.points }))" :height="280" />
       <p v-else-if="!loading" class="py-8 text-center text-[12px] text-muted">{{ comparisonMode === 'same_period' ? comparisonEmptyMessage : '各仓库自身窗口内都没有可用的完整 Commit 周。' }}</p>
       <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
         <span>单位：次 · SHA 去重 · 各仓库均为默认分支</span>
@@ -166,7 +166,7 @@ async function exportComparison() {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
-          <p class="mt-0.5 text-[12px] text-muted">每个仓库并列展示 Issue 关闭与 PR 合并 P50 · 同一“天”刻度</p>
+          <p class="mt-0.5 text-[12px] text-muted">哑铃线连接同一仓库的 Issue 与 PR P50 · 同一“天”刻度 · 点间距离表示耗时差</p>
         </div>
       </div>
       <ComparisonDurationChart :items="durationItems" :height="260" />

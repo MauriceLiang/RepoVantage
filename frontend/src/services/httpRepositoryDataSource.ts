@@ -141,10 +141,20 @@ function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysi
   })
   const scatter: ResearchScatterPoint[] = rows.flatMap((row) => {
     const values = object(row.values)
+    const metricQuality = object(row.metric_quality)
+    const issueQuality = object(metricQuality.issue_median_hours)
+    const prQuality = object(metricQuality.pr_median_hours)
     const issue = numberOrNull(values.issue_median_hours)
     const pr = numberOrNull(values.pr_median_hours)
     if (issue === null || pr === null) return []
-    return [{ repository: String(row.full_name), issueCloseDays: issue / 24, prMergeDays: pr / 24, group: String(row.language ?? '未知') }]
+    return [{
+      repository: String(row.full_name),
+      issueCloseDays: issue / 24,
+      prMergeDays: pr / 24,
+      issueSample: Number(issueQuality.valid_samples ?? 0),
+      prSample: Number(prQuality.valid_samples ?? 0),
+      group: String(row.language ?? '未知'),
+    }]
   })
   const correlation = object(insights.correlation)
   const summary = object(insights.summary)
@@ -200,11 +210,22 @@ function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysi
       pValue: numberOrNull(correlation.p_value),
       note: String(correlation.note ?? '仅在有效配对样本中计算'),
     },
-    quality: array(quality.missing_fields).map((field) => ({
-      field: String(field.field ?? ''),
-      missingRate: numberOrNull(field.rate) === null ? 0 : Number((field.rate * 100).toFixed(1)),
-      collected: numberOrNull(field.rate) !== null,
-    })),
+    quality: array(quality.missing_fields).map((field) => {
+      const missingCount = numberOrNull(field.count)
+      const totalRecords = numberOrNull(quality.records_total)
+      const rate = numberOrNull(field.rate)
+      const fieldLabels: Record<string, string> = {
+        language: '主要语言', stars: 'Stars', forks: 'Forks', pushed_at: '最近推送时间', created_at: '创建时间',
+      }
+      return {
+        field: fieldLabels[String(field.field ?? '')] ?? String(field.field ?? ''),
+        missingRate: rate === null
+          ? missingCount === null || totalRecords === null || totalRecords <= 0 ? null : Number((missingCount / totalRecords * 100).toFixed(1))
+          : Number((rate * 100).toFixed(1)),
+        missingCount,
+        totalRecords,
+      }
+    }),
     metricQuality,
     limitations: Array.isArray(insights.limitations) ? insights.limitations.map(String) : [],
   }
@@ -613,10 +634,11 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string): Promise<CommitActivityPage> {
+  async getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage> {
     const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
     if (search.trim()) params.set('search', search.trim())
     if (weekStart) params.set('week_start', weekStart)
+    if (windowDays) params.set('window_days', String(windowDays))
     const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/commits?${params}`)
     const rawCoverage = object(result.coverage)
     const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
@@ -648,6 +670,14 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         isBot: item.is_bot === true,
         anonymous: item.anonymous === true,
       })),
+      authorDistribution: Array.isArray(result.author_distribution) ? array(result.author_distribution).flatMap((item) => {
+        const commits = numberOrNull(item.commits)
+        const authors = numberOrNull(item.authors)
+        return commits !== null && authors !== null && Number.isInteger(commits) && Number.isInteger(authors) && commits > 0 && authors > 0
+          ? [{ commits, authors }]
+          : []
+      }) : null,
+      unidentifiedCommitCount: numberOrNull(result.unidentified_commit_count),
     }
   }
 

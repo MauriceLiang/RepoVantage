@@ -74,6 +74,7 @@ function openWeek(payload: { date: string; count: number }) {
     repoId: repoId.value,
     weekLabel: payload.date,
     count: String(payload.count),
+    windowDays: String(analysisStore.timeWindow),
   })
 }
 </script>

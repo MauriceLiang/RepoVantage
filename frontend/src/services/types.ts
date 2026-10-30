@@ -146,6 +146,8 @@ export interface CommitActivityPage {
   authorCount: number
   dailyCounts: { date: string; count: number }[]
   authors: AuthorContribution[]
+  authorDistribution: { commits: number; authors: number }[] | null
+  unidentifiedCommitCount: number | null
 }
 
 export interface IssueRecord {
@@ -378,6 +380,8 @@ export interface ResearchScatterPoint {
   repository: string
   issueCloseDays: number
   prMergeDays: number
+  issueSample: number
+  prSample: number
   group: string
 }
 
@@ -409,7 +413,7 @@ export interface ResearchDataset {
     pValue: number | null
     note: string
   }
-  quality: { field: string; missingRate: number; collected: boolean }[]
+  quality: { field: string; missingRate: number | null; missingCount: number | null; totalRecords: number | null }[]
   metricQuality: { field: string; validSamples: number; missingCount: number; missingRate: number | null; reasons: string[] }[]
   limitations: string[]
 }

@@ -268,52 +268,93 @@ export function comparisonOption(entries: { label: string; color: string; points
 }
 
 export function scatterOption(points: ResearchScatterPoint[], groups: string[], colors: string[], t: ChartTheme): EChartsOption {
+  const xValues = points.map((point) => point.issueCloseDays).sort((a, b) => a - b)
+  const yValues = points.map((point) => point.prMergeDays).sort((a, b) => a - b)
+  const medianOf = (values: number[]) => {
+    if (!values.length) return null
+    const middle = Math.floor(values.length / 2)
+    return values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2
+  }
+  const issueMedian = medianOf(xValues)
+  const prMedian = medianOf(yValues)
   return {
     animation: false,
     grid: { left: 44, right: 16, top: 16, bottom: 46 },
-    legend: { bottom: 0, left: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 16, textStyle: { color: t.muted, fontSize: 11, fontFamily } },
+    legend: { bottom: 0, left: 0, icon: 'circle', itemWidth: 8, itemHeight: 8, itemGap: 16, textStyle: { color: t.muted, fontSize: 11, fontFamily }, data: groups },
     tooltip: {
       ...tip(t),
       formatter: (params: unknown) => {
-        const p = (params as { data: { name: string; value: number[] } }[])[0]
-        return `<div style="font-family:${MONO};font-size:11px">${p.data.name}</div><div style="color:${t.muted};font-size:11px;margin-top:3px">Issue 关闭中位数 ${p.data.value[0]} 天</div><div style="font-size:11px">PR 合并中位数 ${p.data.value[1]} 天</div>`
+        const p = (Array.isArray(params) ? params[0] : params) as { data: { name: string; value: number[] } }
+        const point = points.find((item) => item.repository === p.data.name)
+        return `<div style="font-family:${MONO};font-size:11px">${p.data.name}</div><div style="color:${t.muted};font-size:11px;margin-top:3px">Issue 关闭 P50：${p.data.value[0].toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天 · n=${point?.issueSample ?? '—'}</div><div style="font-size:11px">PR 合并 P50：${p.data.value[1].toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天 · n=${point?.prSample ?? '—'}</div>`
       },
     },
     xAxis: { type: 'value', name: 'Issue 关闭天数', nameTextStyle: { color: t.muted, fontSize: 10 }, ...axis(t) },
     yAxis: { type: 'value', name: 'PR 合并天数', nameTextStyle: { color: t.muted, fontSize: 10 }, ...axis(t), axisLine: { show: false } },
-    series: groups.map((g, i) => ({
-      name: g, type: 'scatter', symbolSize: 7,
-      data: points.filter((p) => p.group === g).map((p) => ({ name: p.repository, value: [p.issueCloseDays, p.prMergeDays] })),
-      itemStyle: { color: colors[i] ?? t.series[i], opacity: 0.8 },
-    })),
+    series: [
+      ...groups.map((g, i) => ({
+        name: g, type: 'scatter' as const,
+        symbolSize: (value: number[]) => Math.min(24, 8 + Math.sqrt(Math.max(0, value[2] ?? 0)) * 1.5),
+        data: points.filter((p) => p.group === g).map((p) => ({ name: p.repository, value: [p.issueCloseDays, p.prMergeDays, Math.min(p.issueSample, p.prSample)] })),
+        itemStyle: { color: colors[i] ?? t.series[i], opacity: 0.8 },
+      })),
+      ...(issueMedian !== null && prMedian !== null ? [{
+        name: '样本中位数', type: 'line' as const, data: [], symbol: 'none', silent: true,
+        tooltip: { show: false },
+        markLine: {
+          silent: true, symbol: 'none',
+          lineStyle: { color: t.muted, type: 'dashed' as const, width: 1 },
+          label: { show: false },
+          data: [{ xAxis: issueMedian }, { yAxis: prMedian }],
+        },
+      }] : []),
+    ],
   }
 }
 
-export function calendarOption(points: TimePoint[], t: ChartTheme): EChartsOption {
-  const max = Math.max(...points.flatMap((p) => p.value === null ? [] : [p.value]), 1)
-  const start = points[0]?.date ?? ''
-  const end = points[points.length - 1]?.date ?? ''
+export function calendarOption(points: TimePoint[], t: ChartTheme, windowStart?: string | null, windowEnd?: string | null, width = 0): EChartsOption {
+  const dates = points.map((point) => point.date).filter((value) => Number.isFinite(Date.parse(value))).sort()
+  const startTime = windowStart ? Date.parse(windowStart) : NaN
+  const endTime = windowEnd ? Date.parse(windowEnd) : NaN
+  const validWindow = Number.isFinite(startTime) && Number.isFinite(endTime) && endTime > startTime
+  const start = validWindow ? new Date(startTime).toISOString().slice(0, 10) : dates[0] ?? ''
+  const end = validWindow ? new Date(endTime - 1).toISOString().slice(0, 10) : dates[dates.length - 1] ?? ''
+  const visiblePoints = points.filter((point) => point.date >= start && point.date <= end && point.value !== null)
+  const max = Math.max(...visiblePoints.map((point) => point.value ?? 0), 1)
+  const startDay = Date.parse(`${start}T00:00:00Z`)
+  const endDay = Date.parse(`${end}T00:00:00Z`)
+  const days = Number.isFinite(startDay) && Number.isFinite(endDay) ? Math.floor((endDay - startDay) / 86400000) + 1 : 1
+  const weeks = Math.max(1, Math.ceil((new Date(startDay).getUTCDay() + days) / 7))
+  const cellSize = width > 0 ? Math.max(5, Math.min(20, Math.floor((width - 48) / weeks))) : 14
+  const left = width > 0 ? Math.max(24, Math.floor((width - weeks * cellSize) / 2)) : 24
   return {
     animation: false,
     tooltip: {
       ...tip(t),
       formatter: (params: unknown) => {
-        const p = (params as { value: [string, number] }[])[0]
+        const p = (Array.isArray(params) ? params[0] : params) as { value?: [string, number] } | undefined
+        if (!p?.value) return ''
         return `<div style="font-family:${MONO};font-size:11px">${p.value[0]}</div><div style="font-size:11px;margin-top:2px">${p.value[1]} 次提交</div>`
       },
     },
-    visualMap: { show: false, min: 0, max, inRange: { color: t.heat } },
+    visualMap: {
+      show: visiblePoints.length > 0, type: 'continuous', min: 0, max, right: 14, bottom: 4, orient: 'horizontal',
+      calculable: true, precision: 2, itemWidth: 8, itemHeight: 105, text: ['多', '少'], textGap: 9,
+      textStyle: { color: t.muted, fontSize: 9 },
+      inRange: { color: t.heat },
+      outOfRange: { color: t.dark ? '#46464e' : '#cbd1d7' },
+    },
     calendar: {
-      range: [start, end], left: 24, right: 8, top: 10, bottom: 12,
-      cellSize: ['auto', 14], splitLine: { show: false },
-      itemStyle: { color: t.panel, borderColor: t.panel, borderWidth: 2 },
+      range: [start, end], left, top: 26,
+      cellSize: [cellSize, cellSize], splitLine: { show: false },
+      itemStyle: { color: t.dark ? '#34343b' : '#e5e9ed', borderColor: t.panel, borderWidth: 2 },
       dayLabel: { color: t.muted, fontSize: 9, nameMap: ['日', '一', '二', '三', '四', '五', '六'] },
-      monthLabel: { show: false },
+      monthLabel: { show: true, color: t.ink, fontSize: 9.5, nameMap: 'cn' },
       yearLabel: { show: false },
     },
     series: [{
       type: 'heatmap', coordinateSystem: 'calendar',
-      data: points.flatMap((p) => p.value === null ? [] : [[p.date, p.value]]),
+      data: visiblePoints.map((point) => [point.date, point.value]),
       itemStyle: { borderRadius: 2, borderColor: t.panel, borderWidth: 2 },
     }],
   }

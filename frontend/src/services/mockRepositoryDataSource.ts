@@ -508,11 +508,18 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }))
   }
 
-  async getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string): Promise<CommitActivityPage> {
+  async getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage> {
     const seed = repoSeed(id) ?? REPOSITORIES[0]
-    const available = seed.coverage.state !== 'missing'
-    const weeks = weekStart ? [weekStart] : buckets(seed, 90).map((bucket) => bucket.date)
-    const items = available ? (await Promise.all(weeks.map((week) => this.getWeekCommits(id, week)))).flat() : []
+    const available = seed.coverage.state !== 'missing' && (!windowDays || windowAvailableDays(seed) >= windowDays)
+    const selectedWindow = windowRange(seed, windowDays ?? 90)
+    const weeks = weekStart ? [weekStart] : seed.weeklyCommits.map((_, index) => addWeeks(seed.firstWeek, index))
+      .filter((date) => addDays(date, 7) > selectedWindow.start && date < selectedWindow.end)
+    const window = weekStart
+      ? { start: weekStart, end: addDays(weekStart, 7) }
+      : selectedWindow
+    const items = available ? (await Promise.all(weeks.map((week) => this.getWeekCommits(id, week)))).flat()
+      .filter((item) => item.date.slice(0, 10) >= window.start && item.date.slice(0, 10) < window.end
+        && (!windowDays || item.date.slice(0, 10) >= selectedWindow.start && item.date.slice(0, 10) < selectedWindow.end)) : []
     items.sort((a, b) => b.date.localeCompare(a.date) || b.sha.localeCompare(a.sha))
     const normalizedSearch = search.trim().toLocaleLowerCase()
     const filtered = items.filter((item) => !normalizedSearch || item.title.toLocaleLowerCase().includes(normalizedSearch) || item.author.toLocaleLowerCase().includes(normalizedSearch) || item.sha.toLocaleLowerCase().includes(normalizedSearch))
@@ -525,9 +532,10 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       author.commits += 1
       authors.set(item.author, author)
     })
-    const window = weekStart
-      ? { start: weekStart, end: addDays(weekStart, 7) }
-      : windowRange(seed, 90)
+    const authorDistribution = new Map<number, number>()
+    authors.forEach(({ author, commits }) => {
+      if (author !== 'anonymous') authorDistribution.set(commits, (authorDistribution.get(commits) ?? 0) + 1)
+    })
     return {
       items: filtered.slice((page - 1) * perPage, page * perPage),
       page,
@@ -542,6 +550,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       authorCount: authors.size,
       dailyCounts: [...daily.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, count]) => ({ date, count })),
       authors: [...authors.values()].sort((a, b) => b.commits - a.commits || a.author.localeCompare(b.author)).slice(0, 20),
+      authorDistribution: [...authorDistribution.entries()].sort(([a], [b]) => a - b).map(([commits, count]) => ({ commits, authors: count })),
+      unidentifiedCommitCount: authors.get('anonymous')?.commits ?? 0,
     }
   }
 
@@ -849,6 +859,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         repository: `sample-${String(i + 1).padStart(2, '0')}`,
         issueCloseDays,
         prMergeDays: Number(Math.max(0.4, Math.min(7.6, raw)).toFixed(1)),
+        issueSample: 12 + (i * 17) % 89,
+        prSample: 10 + (i * 23) % 83,
         group: ['TypeScript', 'JavaScript', '其他'][i % 3],
       }
     })
@@ -881,12 +893,11 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         note: '样本内弱正相关，不表示因果',
       },
       quality: [
-        { field: 'merged_at', missingRate: 8.1, collected: true },
-        { field: 'closed_at', missingRate: 5.2, collected: true },
-        { field: 'release 关联', missingRate: 12.4, collected: true },
-        { field: '作者身份', missingRate: 3.4, collected: true },
-        { field: 'license', missingRate: 0.8, collected: true },
-        { field: 'first_response', missingRate: 38.6, collected: false },
+        { field: '主要语言', missingRate: 0, missingCount: 0, totalRecords: 86 },
+        { field: 'Stars', missingRate: 1.2, missingCount: 1, totalRecords: 86 },
+        { field: 'Forks', missingRate: 2.3, missingCount: 2, totalRecords: 86 },
+        { field: '最近推送时间', missingRate: 4.7, missingCount: 4, totalRecords: 86 },
+        { field: '创建时间', missingRate: 0, missingCount: 0, totalRecords: 86 },
       ],
       metricQuality: [
         { field: '每周 Commit 均值', validSamples: 86, missingCount: 0, missingRate: 0, reasons: [] },
