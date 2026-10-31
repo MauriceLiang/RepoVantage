@@ -1,10 +1,11 @@
 import csv
 import io
 import json
+from collections import Counter
 from datetime import timedelta
+from statistics import median
 from typing import Any
 
-import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -96,7 +97,7 @@ def overview(session: Session, scope: str, dataset_id: str | None, language: str
     analyzable = [row for row in all_rows if row["analyzable"]]
     stars = [row["stars"] for row in analyzable if row["stars"] is not None]
     recent = sum(_recently_pushed(row) is True for row in analyzable)
-    languages = pd.Series([row["repository"].language for row in all_rows if row["repository"].language]).value_counts(sort=True)
+    languages = Counter(row["repository"].language for row in all_rows if row["repository"].language)
     star_values = [row["stars"] for row in analyzable if row["stars"] is not None]
     buckets = {
         "0-999": sum(0 <= value <= 999 for value in star_values),
@@ -110,10 +111,10 @@ def overview(session: Session, scope: str, dataset_id: str | None, language: str
         "kpis": {
             "repositories_total": total,
             "repositories_analyzed": len(analyzable),
-            "stars_median": float(pd.Series(stars).median()) if stars else None,
+            "stars_median": float(median(stars)) if stars else None,
             "recently_pushed_90d_count": recent if analyzable else None,
         },
-        "language_distribution": [{"language": str(key), "count": int(value)} for key, value in languages.items()],
+        "language_distribution": [{"language": language, "count": count} for language, count in languages.most_common()],
         "stars_distribution": distribution,
         "source_metadata": _source_metadata(all_rows, dataset_id if scope == "research" else None, total),
     }
@@ -125,33 +126,39 @@ def research_statistics(session: Session, dataset_id: str, language: str | None,
     usable = [row for row in rows if row["analyzable"]]
     stars = [row["stars"] for row in usable if row["stars"] is not None]
     forks = [row["forks"] for row in usable if row["forks"] is not None]
-    frame = pd.DataFrame([{
-        "language": row["repository"].language or "Unknown",
-        "stars": row["stars"],
-        "forks": row["forks"],
-        "age_days": row["metrics"].get("age_days"),
-        "recent": _recently_pushed(row),
-    } for row in usable])
-    if not frame.empty:
+
+    def _group_of(row: dict[str, Any]) -> str | None:
+        """对应原 pd.cut 分箱（右闭区间），分组键缺失的成员不进入任何分组。"""
         if group_by == "star_tier":
-            frame["group"] = pd.cut(frame["stars"], bins=[-1, 999, 9999, float("inf")], labels=["0-999", "1000-9999", "10000+"]).astype("string")
-        elif group_by == "age_tier":
-            frame["group"] = pd.cut(frame["age_days"], bins=[-1, 365, 1825, float("inf")], labels=["0-1y", "1-5y", "5y+"]).astype("string")
-        else:
-            frame["group"] = frame["language"]
-        grouped = frame.groupby("group", dropna=True, observed=True)
-        groups = []
-        for key, group in grouped:
-            recent = group["recent"].dropna()
-            groups.append({
-                "group": str(key),
-                "n": int(len(group)),
-                "stars_median": float(group["stars"].median()) if group["stars"].notna().any() else None,
-                "forks_median": float(group["forks"].median()) if group["forks"].notna().any() else None,
-                "recently_pushed_90d_pct": round(float(recent.mean() * 100), 1) if len(recent) else None,
-            })
-    else:
-        groups = []
+            value = row["stars"]
+            if value is None:
+                return None
+            return "0-999" if value <= 999 else "1000-9999" if value <= 9999 else "10000+"
+        if group_by == "age_tier":
+            value = row["metrics"].get("age_days")
+            if value is None:
+                return None
+            return "0-1y" if value <= 365 else "1-5y" if value <= 1825 else "5y+"
+        return row["repository"].language or "Unknown"
+
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for row in usable:
+        key = _group_of(row)
+        if key is not None:
+            grouped.setdefault(key, []).append(row)
+    groups = []
+    for key in sorted(grouped):
+        members = grouped[key]
+        member_stars = [member["stars"] for member in members if member["stars"] is not None]
+        member_forks = [member["forks"] for member in members if member["forks"] is not None]
+        recents = [recent for member in members if (recent := _recently_pushed(member)) is not None]
+        groups.append({
+            "group": key,
+            "n": len(members),
+            "stars_median": float(median(member_stars)) if member_stars else None,
+            "forks_median": float(median(member_forks)) if member_forks else None,
+            "recently_pushed_90d_pct": round(sum(recents) / len(recents) * 100, 1) if recents else None,
+        })
     correlation = spearman_summary(
         [row["stars"] for row in usable],
         [row["forks"] for row in usable],

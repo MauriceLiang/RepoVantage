@@ -17,8 +17,6 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from dotenv import dotenv_values, set_key
-
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -30,16 +28,52 @@ WORKER_START_TIMEOUT_SECONDS = 30
 SHUTDOWN_TIMEOUT_SECONDS = 10
 
 
+def _read_env_value(path: Path, key: str) -> str | None:
+    """读取 .env 中单个键的值；跳过注释行，去掉成对引号。"""
+    if not path.exists():
+        return None
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        name, _, raw = line.partition("=")
+        if name.strip().removeprefix("export ").strip() != key:
+            continue
+        value = raw.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+        return value
+    return None
+
+
+def _write_env_value(path: Path, key: str, value: str) -> None:
+    """原地更新 .env 中的键（保留其余内容与顺序）；不存在时追加到末尾。"""
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        name, _, _ = line.partition("=")
+        if name.strip().removeprefix("export ").strip() == key:
+            lines[index] = f"{key}={value}"
+            break
+    else:
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines.append(f"{key}={value}")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def ensure_api_key() -> None:
     if not ENV_FILE.exists():
         shutil.copyfile(ENV_EXAMPLE, ENV_FILE)
 
-    configured_key = os.environ.get("INTERNAL_API_KEY") or dotenv_values(ENV_FILE).get("INTERNAL_API_KEY")
+    configured_key = os.environ.get("INTERNAL_API_KEY") or _read_env_value(ENV_FILE, "INTERNAL_API_KEY")
     if configured_key and configured_key != SAMPLE_API_KEY:
         return
 
     generated_key = secrets.token_urlsafe(32)
-    set_key(str(ENV_FILE), "INTERNAL_API_KEY", generated_key, quote_mode="never")
+    _write_env_value(ENV_FILE, "INTERNAL_API_KEY", generated_key)
     os.chmod(ENV_FILE, 0o600)
     os.environ["INTERNAL_API_KEY"] = generated_key
     print("已在 .env 中生成本机 INTERNAL_API_KEY。", flush=True)
@@ -197,7 +231,7 @@ def main() -> int:
             child_env,
         )
         processes.append(("Worker", worker))
-        api_key = os.environ.get("INTERNAL_API_KEY") or dotenv_values(ENV_FILE).get("INTERNAL_API_KEY") or ""
+        api_key = os.environ.get("INTERNAL_API_KEY") or _read_env_value(ENV_FILE, "INTERNAL_API_KEY") or ""
         wait_for_worker(api, worker, api_url, api_key, stop)
 
         wait_for_http("Vue 前端", f"{api_url}/", api, stop)
