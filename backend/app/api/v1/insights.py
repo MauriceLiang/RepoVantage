@@ -36,9 +36,10 @@ def commit_activity(
     per_page: int = Query(default=20, ge=1, le=100),
     search: str = Query(default="", max_length=100),
     week_start: date | None = Query(default=None),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_commit_activity(session, repository_id, page=page, per_page=per_page, search=search, week_start=week_start)
+    result = repository_commit_activity(session, repository_id, page=page, per_page=per_page, search=search, week_start=week_start, window_days=window_days)
     items = result["items"]
     total = result["total"]
     result.update({"items": items, "page": page, "per_page": per_page})

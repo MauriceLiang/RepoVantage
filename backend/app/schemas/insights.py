@@ -197,6 +197,11 @@ class CommitAuthorContribution(BaseModel):
     anonymous: bool
 
 
+class CommitAuthorDistribution(BaseModel):
+    commits: int = Field(ge=1)
+    authors: int = Field(ge=1)
+
+
 class CommitRecord(BaseModel):
     sha: str
     title: str
@@ -217,6 +222,8 @@ class CommitActivityPage(BaseModel):
     author_count: int = Field(ge=0)
     daily_counts: list[CommitDailyCount]
     authors: list[CommitAuthorContribution]
+    author_distribution: list[CommitAuthorDistribution] = Field(default_factory=list)
+    unidentified_commit_count: int = Field(default=0, ge=0)
     items: list[CommitRecord]
     page: int = Field(ge=1)
     per_page: int = Field(ge=1, le=100)

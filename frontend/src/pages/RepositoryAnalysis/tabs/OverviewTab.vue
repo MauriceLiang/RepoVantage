@@ -55,10 +55,10 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <span class="rounded-md bg-track px-2 py-1 text-[11.5px] text-ink/70">{{ analysis.commits.limitation }}</span>
       </div>
     </div>
-    <TrendChart :points="commitsPoints" :unit="analysis.commits.unit" :height="260" @select="(p) => selectCommit(p.dataIndex)" />
+    <TrendChart :points="commitsPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(p) => selectCommit(p.dataIndex)" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>单位：{{ analysis.commits.unit }} · 提交 SHA 去重 · 时区 UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
-      <span>点击柱查看该周已采集的 Commit 明细</span>
+      <span>单位：{{ analysis.commits.unit }} · 柱为每周提交数，折线为连续 4 个完整周的均值 · SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span>点击周数据查看该周已采集的 Commit 明细</span>
     </div>
   </GdCard>
 

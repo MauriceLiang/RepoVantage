@@ -44,10 +44,10 @@ async function refresh(scopeKind: 'quick' | 'window' = 'quick') {
   try {
     const windowDays = analysisStore.timeWindow
     await source.refreshRepository(repoId.value, { scopeKind, windowDays })
-    ui.toast(`已排队：${windowDays} 天 · ${scopeKind === 'window' ? '完整窗口采集' : '快速采集'}，可在任务页查看进度`)
+    ui.toast(`已排队：${windowDays} 天 · ${scopeKind === 'window' ? '完整窗口采集' : '快速采集'}，可在任务页查看进度`, 'warning')
     void router.push('/tasks')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '启动采集失败')
+    ui.toast(cause instanceof Error ? cause.message : '启动采集失败', 'error')
   } finally {
     refreshing.value = false
   }
@@ -63,7 +63,7 @@ async function clearCurrentRepositoryData() {
     await reload()
     ui.toast('已清除该仓库的本地采集与分析数据')
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '清除仓库数据失败')
+    ui.toast(cause instanceof Error ? cause.message : '清除仓库数据失败', 'error')
   } finally {
     clearing.value = false
   }
@@ -74,6 +74,7 @@ function openWeek(payload: { date: string; count: number }) {
     repoId: repoId.value,
     weekLabel: payload.date,
     count: String(payload.count),
+    windowDays: String(analysisStore.timeWindow),
   })
 }
 </script>

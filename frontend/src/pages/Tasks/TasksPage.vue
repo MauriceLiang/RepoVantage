@@ -57,10 +57,10 @@ async function retry(task: TaskItem) {
   retrying.value = task.id
   try {
     await source.retryTask(task.id)
-    ui.toast(`已重新排队：${task.repository}`)
+    ui.toast(`已重新排队：${task.repository}`, 'warning')
     await reload()
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '重试任务失败')
+    ui.toast(cause instanceof Error ? cause.message : '重试任务失败', 'error')
   } finally {
     retrying.value = null
   }
@@ -132,16 +132,17 @@ function taskDetail(task: TaskItem): string {
           <h3 class="m-0 text-[15.5px] font-semibold">任务记录</h3>
           <p class="mt-0.5 text-[12px] text-muted">任务进度来自服务端阶段或实际暂存记录数；未知进度不填充百分比。</p>
         </div>
-        <GdButton variant="outline" size="sm" :disabled="loading" @click="refresh">刷新</GdButton>
+        <GdButton variant="outline" size="sm" :disabled="loading && !tasks.length" @click="refresh">刷新</GdButton>
       </div>
 
-      <div v-if="error" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 text-[12px] text-danger">任务加载失败：{{ error }}</div>
-      <div v-else-if="loading" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div v-if="error && !tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-3 text-[12px] text-danger">任务加载失败：{{ error }}</div>
+      <div v-else-if="loading && !tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div v-for="i in 4" :key="i" class="h-16 animate-pulse rounded bg-track/60" />
       </div>
       <div v-else-if="!tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-10 text-center text-[12px] text-muted">当前没有任务。可以从仓库页添加仓库或导入精选数据。</div>
 
       <template v-else>
+        <p v-if="error" class="mb-2 text-[11px] text-danger">刷新失败，仍显示上次获取的任务状态：{{ error }}</p>
         <div class="hidden grid-cols-[minmax(190px,1.6fr)_96px_92px_minmax(280px,1.8fr)_64px_92px] items-center gap-4 border-b border-line px-1 pb-2 text-[11.5px] text-muted lg:grid">
           <span>任务 / 类型</span><span>状态</span><span>更新时间</span><span>当前阶段</span><span class="text-right">进度</span><span />
         </div>

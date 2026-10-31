@@ -1,5 +1,5 @@
 import type {
-  CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, Granularity, ReleaseDetails, RepositoryAnalysis, RepositorySummary,
+  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, Granularity, ReleaseDetails, RepositoryAnalysis, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, TaskItem, TimeWindow,
 } from './types'
 
@@ -17,8 +17,8 @@ export interface RepositoryDataSource {
   getFeaturedDatasetStatus(): Promise<FeaturedDatasetStatus>
   importFeaturedDataset(): Promise<FeaturedDatasetImportResult>
   exportFeaturedDataset(): Promise<Blob>
-  /** Percent change in commits across two complete four-week windows; null when unavailable or the baseline is zero. */
-  getActivityChangePercent(id: string): Promise<number | null>
+  /** Current local Commit trend and its reason when a percent change is unavailable. */
+  getActivityTrend(id: string): Promise<ActivityTrend>
   searchRepositories(query: string): Promise<(RepositorySummary & { alreadyInLibrary: boolean })[]>
   addRepository(input: string): Promise<{ repositoryId: string; taskId: string | null; existing: boolean }>
   removeRepository(id: string): Promise<void>
@@ -32,7 +32,7 @@ export interface RepositoryDataSource {
    * fields remain null and are never inferred from totals.
    */
   getAnalysis(id: string, window: TimeWindow, granularity: Granularity): Promise<RepositoryAnalysis>
-  getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string): Promise<CommitActivityPage>
+  getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
   getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
   getIssueOnlineDetail(id: string, issueNumber: number): Promise<IssueOnlineDetail>

@@ -9,6 +9,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
+    "test:author-concentration": "node scripts/test-author-concentration.mjs",
     "capture": "node scripts/capture.mjs",
     "test:e2e:analysis-window": "node scripts/e2e-analysis-window.mjs"
   },

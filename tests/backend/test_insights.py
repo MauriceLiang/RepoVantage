@@ -530,6 +530,8 @@ def test_commit_activity_archive_search_pagination_week_and_author_privacy(backe
     assert page['available'] is True
     assert page['coverage']['state'] == 'partial'
     assert page['commit_count'] == 3 and page['author_count'] == 3
+    assert page['author_distribution'] == [{'commits': 1, 'authors': 3}]
+    assert page['unidentified_commit_count'] == 0
     assert page['total'] == 3 and len(page['items']) == 2
     assert [item['sha'] for item in page['items']] == [f'{1003:040x}', f'{1002:040x}']
     assert page['daily_counts'] == [
@@ -548,6 +550,101 @@ def test_commit_activity_archive_search_pagination_week_and_author_privacy(backe
     selected_week = client.get('/api/v1/repositories/123/commits?week_start=2026-08-17', headers=HEADERS).json()['data']
     assert selected_week['commit_count'] == 2
     assert {item['sha'] for item in selected_week['items']} == {f'{1001:040x}', f'{1002:040x}'}
+
+
+def test_commit_author_distribution_includes_all_identified_authors(backend_client, monkeypatch, tmp_path):
+    from backend.app.pipeline.raw_archive import archive_json
+
+    client, factory, _ = backend_client
+    client.post('/api/v1/library/repositories', json={'full_name': 'example/project', 'auto_analyze': False}, headers=HEADERS)
+    empty = client.get('/api/v1/repositories/123/commits', headers=HEADERS).json()['data']
+    assert empty['author_distribution'] == [] and empty['unidentified_commit_count'] == 0
+
+    raw = fixture()
+    raw['commits'] = [
+        {
+            'sha': f'{1000 + i:040x}',
+            'commit': {'committer': {'date': iso_z(START + timedelta(days=i % 3))}, 'author': {'name': f'Author {i}'}, 'message': 'change'},
+            'author': {'id': i + 1, 'login': f'author{i}', 'type': 'User'},
+        }
+        for i in range(22)
+    ]
+    for i in range(4):
+        raw['commits'].append({
+            'sha': f'{2000 + i:040x}',
+            'commit': {'committer': {'date': iso_z(START + timedelta(days=4))}, 'author': {'name': 'Author 0'}, 'message': 'repeat'},
+            'author': {'id': 1, 'login': 'author0', 'type': 'User'},
+        })
+    raw['commits'].append({
+        'sha': f'{3000:040x}',
+        'commit': {'committer': {'date': iso_z(START + timedelta(days=5))}, 'message': 'unidentified'},
+        'author': None,
+    })
+    archive_dir = tmp_path / 'raw'
+    archive_dir.mkdir()
+    monkeypatch.setattr('backend.app.pipeline.raw_archive.get_settings', lambda: type('Settings', (), {'raw_data_path': archive_dir})())
+    archive_path = archive_json(123, 'author-distribution', 'activity', {'commits': [json.dumps(raw['commits'])]})
+    sources = {module: {'coverage': 'complete'} for module in raw}
+    with factory() as session:
+        persist_insights(session, 123, 'author-distribution', raw, sources, START, END, [archive_path])
+        session.commit()
+
+    page = client.get('/api/v1/repositories/123/commits?search=unidentified', headers=HEADERS).json()['data']
+    assert page['commit_count'] == 27 and page['total'] == 1
+    assert len(page['authors']) == 20
+    assert page['author_distribution'] == [{'commits': 1, 'authors': 21}, {'commits': 5, 'authors': 1}]
+    assert page['unidentified_commit_count'] == 1
+
+
+def test_commit_activity_uses_run_covering_selected_window(backend_client, monkeypatch, tmp_path):
+    from backend.app.pipeline.raw_archive import archive_json
+
+    client, factory, _ = backend_client
+    client.post('/api/v1/library/repositories', json={'full_name': 'example/project', 'auto_analyze': False}, headers=HEADERS)
+    archive_dir = tmp_path / 'raw'
+    archive_dir.mkdir()
+    monkeypatch.setattr('backend.app.pipeline.raw_archive.get_settings', lambda: type('Settings', (), {'raw_data_path': archive_dir})())
+
+    def commit(number, days_ago):
+        return {'sha': f'{number:040x}', 'commit': {'committer': {'date': iso_z(END - timedelta(days=days_ago))}, 'message': 'change'}, 'author': {'id': number, 'login': f'user{number}', 'type': 'User'}}
+
+    wide = fixture()
+    wide['commits'] = [commit(3001, 60), commit(3002, 10)]
+    short = fixture()
+    short['commits'] = [commit(3002, 10), commit(4001, 5)]
+    sources = {module: {'coverage': 'complete'} for module in wide}
+    wide_path = archive_json(123, 'wide-run', 'activity', {'commits': [json.dumps(wide['commits'])]})
+    short_path = archive_json(123, 'short-run', 'activity', {'commits': [json.dumps(short['commits'])]})
+    with factory() as session:
+        wide_run = persist_insights(session, 123, 'wide-run', wide, sources, END - timedelta(days=90), END, [wide_path])
+        short_run = persist_insights(session, 123, 'short-run', short, sources, END - timedelta(days=30), END, [short_path])
+        session.scalar(select(RepositoryInsightRun).where(RepositoryInsightRun.run_id == wide_run['run_id'])).analyzed_at = datetime(2026, 10, 1)
+        session.scalar(select(RepositoryInsightRun).where(RepositoryInsightRun.run_id == short_run['run_id'])).analyzed_at = datetime(2026, 10, 2)
+        session.commit()
+
+    short_page = client.get('/api/v1/repositories/123/commits?window_days=30', headers=HEADERS).json()['data']
+    wide_page = client.get('/api/v1/repositories/123/commits?window_days=90', headers=HEADERS).json()['data']
+    assert short_page['window_start'] == iso_z(END - timedelta(days=30))
+    assert [item['sha'] for item in short_page['items']] == [f'{4001:040x}', f'{3002:040x}']
+    assert wide_page['window_start'] == iso_z(END - timedelta(days=90))
+    assert {item['sha'] for item in wide_page['items']} == {f'{3001:040x}', f'{3002:040x}'}
+    missing = client.get('/api/v1/repositories/123/commits?window_days=180', headers=HEADERS).json()['data']
+    assert missing['available'] is False and '180 天' in missing['note']
+    assert client.get('/api/v1/repositories/123/commits?window_days=45', headers=HEADERS).status_code == 422
+    long = fixture()
+    long['commits'] = [commit(5001, 120), commit(5002, 5)]
+    long_path = archive_json(123, 'long-run', 'activity', {'commits': [json.dumps(long['commits'])]})
+    with factory() as session:
+        long_run = persist_insights(session, 123, 'long-run', long, sources, END - timedelta(days=180), END, [long_path])
+        session.scalar(select(RepositoryInsightRun).where(RepositoryInsightRun.run_id == long_run['run_id'])).analyzed_at = datetime(2026, 9, 30)
+        session.commit()
+    long_page = client.get('/api/v1/repositories/123/commits?window_days=180', headers=HEADERS).json()['data']
+    assert long_page['window_start'] == iso_z(END - timedelta(days=180))
+    assert {item['sha'] for item in long_page['items']} == {f'{5001:040x}', f'{5002:040x}'}
+    week = (END - timedelta(days=10)).date()
+    week -= timedelta(days=week.weekday())
+    week_page = client.get(f'/api/v1/repositories/123/commits?window_days=90&week_start={week}', headers=HEADERS).json()['data']
+    assert [item['sha'] for item in week_page['items']] == [f'{3002:040x}']
 
 
 def test_recalculation_tracks_current_event_sources_without_rewriting_coverage_proof(backend_client, monkeypatch):

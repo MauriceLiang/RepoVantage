@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import RankChart from '@/components/charts/RankChart.vue'
+import ReleaseCadenceChart from '@/components/charts/ReleaseCadenceChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdCard from '@/components/ui/GdCard.vue'
@@ -14,14 +14,22 @@ const dataSource = useDataSource()
 let releaseDetailRequest = 0
 
 const yearReleases = computed(() => props.analysis.releases)
-const intervalItems = computed(() => props.analysis.releaseIntervals.map((r, i) => ({ label: `间隔 ${i + 1}`, value: Number(r.days.toFixed(1)) })))
-const intervalChartHeight = computed(() => Math.max(190, intervalItems.value.length * 24))
+const cadenceItems = computed(() => yearReleases.value
+  .filter((release) => !release.prerelease && release.intervalDays !== null)
+  .map((release) => ({ tag: release.tag, date: release.publishedAt, days: release.intervalDays as number })))
 const identifierLabel = computed(() => yearReleases.value[0]?.identifierType === 'release_id' ? 'Release ID' : '版本')
 const sorted = computed(() => [...yearReleases.value].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt)))
 const median = computed(() => {
-  const days = props.analysis.releaseIntervals.map((r) => r.days).sort((a, b) => a - b)
-  return days.length ? days[Math.floor(days.length / 2)] : null
+  const days = cadenceItems.value.map((r) => r.days).sort((a, b) => a - b)
+  if (!days.length) return null
+  const middle = Math.floor(days.length / 2)
+  return days.length % 2 ? days[middle] : (days[middle - 1] + days[middle]) / 2
 })
+
+function openReleaseByTag(tag: string) {
+  const release = yearReleases.value.find((item) => item.tag === tag)
+  if (release) void openRelease(release)
+}
 
 async function openRelease(release: ReleaseRecord) {
   const requestId = ++releaseDetailRequest
@@ -70,12 +78,11 @@ async function openRelease(release: ReleaseRecord) {
           <h3 class="m-0 text-[15.5px] font-semibold">相邻发布间隔</h3>
           <p class="mt-0.5 text-[12px] text-muted">近 365 天正式 Release · 按发布时间排序后的相邻天数</p>
         </div>
-        <span class="font-mono text-[11.5px] text-muted">n={{ analysis.releaseIntervals.length }} · P50 {{ median?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</span>
+        <span class="font-mono text-[11.5px] text-muted">n={{ cadenceItems.length }} · P50 {{ median?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</span>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-        <RankChart :items="intervalItems" color="#E2683C" value-suffix=" 天" :height="intervalChartHeight" />
-      </div>
-      <p class="text-[11px] text-muted">相邻间隔至少需要 2 次正式发布；样本不足时只列出记录。</p>
+      <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :median="median" :height="290" @select="openReleaseByTag" />
+      <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">相邻间隔至少需要 2 次正式发布；当前没有可比较的连续版本。</div>
+      <p class="m-0 text-[11px] text-muted">横轴为发布日期，纵轴为距上个正式版本的天数；虚线为样本 P50。点击数据点查看该版本说明。</p>
     </GdCard>
 
     <GdCard class="h-[420px] overflow-hidden">

@@ -45,7 +45,9 @@ async function loadWeekCommits() {
   commitLoading.value = true
   commitError.value = ''
   try {
-    const result = await dataSource.getCommitActivity(repositoryId, commitPage.value, 20, '', weekStart)
+    const windowDays = Number(payload.value.windowDays)
+    const selectedWindow = windowDays === 30 || windowDays === 90 || windowDays === 180 ? windowDays : undefined
+    const result = await dataSource.getCommitActivity(repositoryId, commitPage.value, 20, '', weekStart, selectedWindow)
     if (requestId === commitRequest && ui.drawerKind === 'commits') commitActivity.value = result
   } catch (error) {
     if (requestId === commitRequest && ui.drawerKind === 'commits') commitError.value = error instanceof Error ? error.message : 'Commit 明细加载失败'
@@ -55,13 +57,13 @@ async function loadWeekCommits() {
 }
 
 watch(
-  () => ui.drawerKind === 'commits' ? `${payload.value.repositoryId ?? payload.value.repoId ?? ''}:${payload.value.weekLabel ?? ''}` : '',
+  () => ui.drawerKind === 'commits' ? `${payload.value.repositoryId ?? payload.value.repoId ?? ''}:${payload.value.weekLabel ?? ''}:${payload.value.windowDays ?? ''}` : '',
   (key) => {
     commitRequest += 1
     commitActivity.value = null
     commitPage.value = 1
     commitError.value = ''
-    if (key && key !== ':') void loadWeekCommits()
+    if (key && key !== '::') void loadWeekCommits()
   },
   { immediate: true },
 )

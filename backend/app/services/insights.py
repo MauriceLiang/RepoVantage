@@ -146,6 +146,13 @@ def _observed_event_counts(events: dict[str, list[dict]], start, end) -> dict[st
     }
 
 
+def _select_insight_run(runs, window_days):
+    return next((
+        run for run in runs
+        if window_days is None or run.window_start <= run.window_end - timedelta(days=window_days)
+    ), None)
+
+
 def repository_insights(session, repository_id, window_days=90):
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -160,10 +167,7 @@ def repository_insights(session, repository_id, window_days=90):
         (max(0, int((run.window_end - run.window_start).total_seconds() // 86400)) for run in runs),
         default=0,
     )
-    run = runs[0] if window_days is None and runs else next((
-        candidate for candidate in runs
-        if window_days is not None and candidate.window_start <= candidate.window_end - timedelta(days=window_days)
-    ), None)
+    run = _select_insight_run(runs, window_days)
     if run is None:
         reason = (
             f"当前尚无可用的事件级分析数据。请选择快速或完整窗口采集 {window_days or 90} 天范围后重试。"
@@ -300,26 +304,32 @@ def repository_release_detail(session, repository_id, release_id):
     raise AppError(404, "RESOURCE_NOT_FOUND", "当前采集归档中没有该 Release 说明，请重新采集仓库数据")
 
 
-def repository_commit_activity(session, repository_id, *, page=1, per_page=20, search=None, week_start: date | None = None):
-    """Return itemized commits and derived summaries from the latest saved archive."""
+def repository_commit_activity(session, repository_id, *, page=1, per_page=20, search=None, week_start: date | None = None, window_days: int | None = None):
+    """Return itemized commits and summaries from the latest archive covering the requested window."""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = session.scalar(select(RepositoryInsightRun).where(
+    if window_days is not None and window_days not in {30, 90, 180}:
+        raise AppError(422, "VALIDATION_ERROR", "分析范围只支持 30、90 或 180 天")
+    runs = session.scalars(select(RepositoryInsightRun).where(
         RepositoryInsightRun.repository_id == repository_id,
         RepositoryInsightRun.metric_version == METRIC_VERSION,
-    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
+    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id))).all()
+    run = _select_insight_run(runs, window_days)
     if run is None:
+        reason = f"当前没有覆盖所选 {window_days} 天的 Commit 采集归档。" if runs and window_days else "尚无可读取的 Commit 采集归档。"
         return {
             "available": False,
-            "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": "请先采集仓库 Commit 数据"},
-            "note": "尚无可读取的 Commit 采集归档。",
+            "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": reason},
+            "note": reason,
             "window_start": None,
             "window_end": None,
             "commit_count": 0,
             "author_count": 0,
             "daily_counts": [],
             "authors": [],
+            "author_distribution": [],
+            "unidentified_commit_count": 0,
             "items": [],
             "total": 0,
         }
@@ -333,14 +343,19 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
     task_ids = task_ids if isinstance(task_ids, list) else []
     archive_paths = archive_paths if isinstance(archive_paths, list) else []
 
-    events = session.scalars(select(RepositoryActivityEvent).where(
-        RepositoryActivityEvent.repository_id == repository_id,
-        RepositoryActivityEvent.event_type == "commit",
-        RepositoryActivityEvent.source_task_id.in_(task_ids) if task_ids else RepositoryActivityEvent.source_task_id == "",
-        RepositoryActivityEvent.event_at.is_not(None),
-        RepositoryActivityEvent.event_at >= run.window_start,
-        RepositoryActivityEvent.event_at < run.window_end,
-    )).all()
+    scope_end = run.window_end
+    scope_start = scope_end - timedelta(days=window_days) if window_days is not None else run.window_start
+    # A later collection can update an event's source task. The selected archive
+    # below determines membership, while the event store supplies its timestamp.
+    events = []
+    if task_ids:
+        events = session.scalars(select(RepositoryActivityEvent).where(
+            RepositoryActivityEvent.repository_id == repository_id,
+            RepositoryActivityEvent.event_type == "commit",
+            RepositoryActivityEvent.event_at.is_not(None),
+            RepositoryActivityEvent.event_at >= scope_start,
+            RepositoryActivityEvent.event_at < scope_end,
+        )).all()
     event_by_sha = {event.source_item_id: event for event in events}
 
     if week_start is not None:
@@ -399,7 +414,8 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
                         "anonymous": not bool(login),
                         "date": iso_z(event.event_at),
                         "url": f"https://github.com/{repository.full_name}/commit/{sha}",
-                        "_author_key": login.casefold() if login else (git_name.casefold() or "anonymous"),
+                        "_author_key": login.casefold() if login else (git_name.casefold() or "\0unidentified"),
+                        "_author_identified": bool(login or git_name),
                     }
     except (OSError, ValueError, TypeError, json.JSONDecodeError, RecursionError) as exc:
         raise AppError(503, "COMMIT_ARCHIVE_UNAVAILABLE", "Commit 采集归档损坏或不可读取，请重新采集仓库数据") from exc
@@ -428,17 +444,19 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
         })
         group["commits"] += 1
     authors = sorted(author_groups.values(), key=lambda item: (-item["commits"], item["author"].casefold()))[:20]
+    identified_counts = Counter(item["_author_key"] for item in records if item["_author_identified"])
+    unidentified_commits = sum(not item["_author_identified"] for item in records)
+    author_distribution = Counter(identified_counts.values())
 
     normalized_search = (search or "").strip().casefold()
     filtered = [item for item in records if not normalized_search or normalized_search in item["title"].casefold() or normalized_search in item["author"].casefold() or normalized_search in item["sha"].casefold()]
     for item in records:
         item.pop("_author_key", None)
-    for item in filtered:
-        item.pop("_author_key", None)
+        item.pop("_author_identified", None)
     if week_start is not None:
         range_start, range_end = week_begin, week_end
     else:
-        range_start, range_end = run.window_start, run.window_end
+        range_start, range_end = scope_start, scope_end
     if not available:
         note = "当前采集没有可读取的 Commit 逐条归档，请重新采集深度活动数据。"
     else:
@@ -455,6 +473,11 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
         "author_count": len(author_groups),
         "daily_counts": [{"date": day, "count": count} for day, count in sorted(daily.items())],
         "authors": authors,
+        "author_distribution": [
+            {"commits": commits, "authors": count}
+            for commits, count in sorted(author_distribution.items())
+        ],
+        "unidentified_commit_count": unidentified_commits,
         "items": filtered[(page - 1) * per_page : page * per_page],
         "total": len(filtered),
     }

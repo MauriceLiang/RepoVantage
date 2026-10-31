@@ -2,7 +2,8 @@
 import { BookOpen, Download, LoaderCircle } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import RankChart from '@/components/charts/RankChart.vue'
+import ResearchGroupComboChart from '@/components/charts/ResearchGroupComboChart.vue'
+import ResearchQualityChart from '@/components/charts/ResearchQualityChart.vue'
 import ScatterChart from '@/components/charts/ScatterChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -29,12 +30,19 @@ const selectedMode = computed(() => data.value?.analysisMode ?? (requestedMode.v
 const activeFeaturedImport = computed(() => ['queued', 'running'].includes(featuredStatus.value?.activeTask?.status ?? ''))
 const featuredImportUnavailable = computed(() => !featuredStatus.value?.available)
 
-const palette = ['#E2683C', '#E5A03A', '#CE3F7C', '#2E8FCB', '#B08310', '#8C6DB0', '#65A765']
-const groupItems = computed(() => (data.value?.groups ?? []).map((group, index) => ({ label: group.label, value: group.count, color: palette[index % palette.length] })))
-const issueMedianItems = computed(() => (data.value?.groups ?? []).flatMap((group, index) => group.medianCloseDays === null ? [] : [{ label: group.label, value: group.medianCloseDays, color: palette[index % palette.length] }]))
-const groupChartHeight = computed(() => Math.max(190, groupItems.value.length * 32))
-const issueMedianChartHeight = computed(() => Math.max(190, issueMedianItems.value.length * 32))
-const qualityItems = computed(() => (data.value?.quality ?? []).filter((quality) => quality.collected).map((quality) => ({ label: quality.field, value: quality.missingRate })))
+const groupChartItems = computed(() => data.value?.groups.map((group) => ({
+  label: group.label,
+  repositoryCount: group.count,
+  issueSampleSize: group.issueSampleSize,
+  medianCloseDays: group.medianCloseDays,
+})) ?? [])
+const groupChartHeight = computed(() => Math.max(190, groupChartItems.value.length * 32))
+const groupsWithoutIssueSamples = computed(() => groupChartItems.value.filter((group) => group.issueSampleSize === 0).length)
+const qualityItems = computed(() => (data.value?.quality ?? []).flatMap((quality) =>
+  quality.missingCount === null || quality.totalRecords === null
+    ? []
+    : [{ field: quality.field, missingCount: quality.missingCount, totalRecords: quality.totalRecords }],
+))
 const groups = computed(() => (data.value?.groups ?? []).map((group) => group.label))
 
 function setMode(value: string | number) {
@@ -47,7 +55,7 @@ async function exportResearchMembers() {
   try {
     downloadBlob(await source.exportRepositories('research', data.value.id, data.value.analysisMode), `${data.value.id}-members.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出样本成员失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出样本成员失败', 'error')
   } finally {
     exporting.value = false
   }
@@ -59,7 +67,7 @@ async function exportResearchStatistics() {
   try {
     downloadBlob(await source.exportResearchStatistics(data.value.id, data.value.analysisMode), `${data.value.id}-statistics.csv`)
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导出统计结果失败')
+    ui.toast(cause instanceof Error ? cause.message : '导出统计结果失败', 'error')
   } finally {
     exporting.value = false
   }
@@ -74,12 +82,12 @@ async function importFeatured() {
     await reloadFeaturedStatus()
     if (result.alreadyCurrent) {
       await reload()
-      ui.toast('精选数据已是当前版本')
+      ui.toast('精选数据已是当前版本', 'warning')
     } else {
-      ui.toast('精选数据导入任务已排队，可在任务中心查看进度')
+      ui.toast('精选数据导入任务已排队，可在任务中心查看进度', 'warning')
     }
   } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导入精选数据失败')
+    ui.toast(cause instanceof Error ? cause.message : '导入精选数据失败', 'error')
   } finally {
     importing.value = false
   }
@@ -189,40 +197,26 @@ async function importFeatured() {
         </div>
       </section>
 
-      <div class="grid gap-4 lg:grid-cols-2">
-        <GdCard class="h-[360px] overflow-hidden">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="m-0 text-[15.5px] font-semibold">按主要语言分组</h3>
-              <p class="mt-0.5 text-[12px] text-muted">研究成员数</p>
-            </div>
-            <span class="font-mono text-[11.5px] text-muted">n={{ data.repositoryCount }}</span>
+      <GdCard class="h-[360px] overflow-hidden">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="m-0 text-[15.5px] font-semibold">语言分组：样本规模与 Issue 耗时</h3>
+            <p class="mt-0.5 text-[12px] text-muted">柱：有有效 Issue 耗时的仓库数 · 点：组内 Issue P50（天）</p>
           </div>
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-            <RankChart :items="groupItems" :height="groupChartHeight" />
-          </div>
-          <p v-if="!data.groups.length" class="text-[11px] text-muted">当前数据集没有可展示的分组。</p>
-        </GdCard>
-
-        <GdCard class="h-[360px] overflow-hidden">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <h3 class="m-0 text-[15.5px] font-semibold">各语言 Issue 关闭耗时</h3>
-              <p class="mt-0.5 text-[12px] text-muted">组内中位数（天）</p>
-            </div>
-          </div>
-          <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-            <RankChart :items="issueMedianItems" :height="issueMedianChartHeight" value-suffix=" 天" />
-          </div>
-          <p v-if="!issueMedianItems.length" class="text-[11px] text-muted">没有具备有效 Issue 耗时样本的语言组。</p>
-        </GdCard>
-      </div>
+          <span class="font-mono text-[11.5px] text-muted">数据集 {{ data.repositoryCount }} 个仓库</span>
+        </div>
+        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
+          <ResearchGroupComboChart v-if="groupChartItems.length" :groups="groupChartItems" :height="groupChartHeight" />
+          <p v-else class="py-12 text-center text-[12px] text-muted">当前数据集没有可展示的分组。</p>
+        </div>
+        <p v-if="groupsWithoutIssueSamples" class="m-0 text-[10.5px] text-muted">{{ groupsWithoutIssueSamples }} 个语言组没有有效 Issue 耗时样本。组内仓库数不等于该指标的有效样本数。</p>
+      </GdCard>
 
       <GdCard>
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h3 class="m-0 text-[15.5px] font-semibold">Issue 与 PR 协作耗时</h3>
-            <p class="mt-0.5 text-[12px] text-muted">每个点是一个仓库：Issue 关闭耗时中位数与 PR 合并耗时中位数（天）</p>
+            <p class="mt-0.5 text-[12px] text-muted">每个点是一个仓库；气泡越大表示两项指标中较小的有效样本数越多，虚线为样本中位数分界</p>
           </div>
           <div class="flex flex-wrap items-center gap-2 text-[11.5px]">
             <span class="font-mono">Spearman ρ = {{ data.scatter.spearman ?? '—' }}</span>
@@ -231,17 +225,17 @@ async function importFeatured() {
         </div>
         <ScatterChart v-if="data.scatter.points.length" :points="data.scatter.points" :groups="groups" :height="280" />
         <p v-else class="py-12 text-center text-[12px] text-muted">没有同时具备 Issue 与 PR 耗时的仓库，暂不绘制散点图。</p>
+        <p v-if="data.scatter.points.length" class="m-0 text-[10.5px] text-muted">悬浮可查看 Issue / PR 各自有效样本量；中位数分界仅用于描述样本分布，不代表目标阈值或因果关系。</p>
       </GdCard>
 
       <GdCard>
         <div class="flex items-start justify-between gap-3">
           <div>
             <h3 class="m-0 text-[15.5px] font-semibold">数据质量</h3>
-            <p class="mt-0.5 text-[12px] text-muted">基础资料缺失率与事件指标有效样本；没有满足口径的数据会列出原因</p>
+            <p class="mt-0.5 text-[12px] text-muted">条形显示仓库资料已具备 / 缺失比例；分母是数据集成员总数。事件指标有效样本见下方</p>
           </div>
         </div>
-        <RankChart v-if="qualityItems.length" :items="qualityItems" :height="190" value-suffix="%" color="#E2683C" />
-        <p v-else class="py-6 text-center text-[12px] text-muted">后端没有返回字段缺失统计。</p>
+        <ResearchQualityChart :items="qualityItems" :height="190" />
         <div v-if="data.metricQuality.length" class="grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
           <div v-for="metric in data.metricQuality" :key="metric.field" class="rounded-md bg-soft/50 px-2.5 py-2 text-[11px]">
             <div class="font-medium">{{ metric.field }} · 有效 {{ metric.validSamples }} / {{ data.repositoryCount }}</div>
