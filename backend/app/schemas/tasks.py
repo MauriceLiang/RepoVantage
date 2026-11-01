@@ -63,8 +63,3 @@ class RetryResponse(DTO):
     task_id: str
     retry_of: str
     status: Literal["queued"]
-
-
-class TaskListFilter(DTO):
-    status: str | None = None
-    repository_id: int | None = None

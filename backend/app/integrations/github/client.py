@@ -311,6 +311,14 @@ class GitHubClient:
         collect_raw_pages: bool = True,
         stop_after_page: Callable[[list[dict[str, Any]]], bool] | None = None,
     ) -> PaginatedResult:
+        """Read GitHub pages, optionally resuming and reporting each saved page.
+
+        Offsets make callback counters continuous across attempts; the page budget
+        applies to this call. A validated GitHub next URL is required for resume.
+        Request failures return the pages already observed with incomplete coverage;
+        invalid pagination URLs and callback failures still raise. Callers may stop
+        early when their query-specific condition is met.
+        """
         rows: list[dict[str, Any]] = []
         archives: list[str] = []
         if page_offset < 0 or records_offset < 0:

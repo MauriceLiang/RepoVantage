@@ -42,8 +42,9 @@ def persist_insights(session: Session, repository_id: int, task_id: str, rows: d
     if existing:
         return json.loads(existing.result_json)
     now = utc_now()
-    # Same transaction as run and legacy snapshots. Never calculate from a mutable union
-    # of historical observations; this run uses only its own collected inputs.
+    # Persist events and the run in the caller's transaction. Ordinary runs calculate
+    # from this task's input; incremental/backfill runs explicitly rebuild from the
+    # deduplicated local event store after the upsert below.
     for events in normalized.values():
         for offset in range(0, len(events), 250):
             batch = [{**e, "repository_id": repository_id, "source_task_id": task_id, "first_seen_at": now, "last_seen_at": now} for e in events[offset:offset + 250]]
@@ -382,20 +383,10 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
                 missing_archive = True
                 continue
             archive_found = True
-            commit_archive = archive.get("commits")
-            pages = iter_module_pages(commit_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("commit archive page exceeds size limit")
-                    page_items = json.loads(raw_page)
-                else:
-                    page_items = raw_page
-                if not isinstance(page_items, list) or len(page_items) > 1000:
+            for page_items in iter_module_pages(archive.get("commits")):
+                if len(page_items) > 1000:
                     raise ValueError("invalid commit archive page")
                 for raw_item in page_items:
-                    if not isinstance(raw_item, dict):
-                        continue
                     sha = raw_item.get("sha")
                     event = event_by_sha.get(sha) if isinstance(sha, str) else None
                     if event is None:
@@ -535,19 +526,11 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
                 missing_archive = True
                 continue
             archive_found = True
-            issue_archive = archive.get("issues")
-            pages = iter_module_pages(issue_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("issue archive page exceeds size limit")
-                    page = json.loads(raw_page)
-                else:
-                    page = raw_page
-                if not isinstance(page, list) or len(page) > 1000:
+            for page in iter_module_pages(archive.get("issues")):
+                if len(page) > 1000:
                     raise ValueError("invalid issue archive page")
                 for raw_item in page:
-                    if not isinstance(raw_item, dict) or "pull_request" in raw_item:
+                    if "pull_request" in raw_item:
                         continue
                     identifier = raw_item.get("id")
                     if type(identifier) is not int or str(identifier) not in event_by_id:
@@ -666,19 +649,10 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
             if pull_archive is None:
                 continue
             pull_data_found = True
-            pages = iter_module_pages(pull_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("pull request archive page exceeds size limit")
-                    page = json.loads(raw_page)
-                else:
-                    page = raw_page
-                if not isinstance(page, list) or len(page) > 1000:
+            for page in iter_module_pages(pull_archive):
+                if len(page) > 1000:
                     raise ValueError("invalid pull request archive page")
                 for raw_item in page:
-                    if not isinstance(raw_item, dict):
-                        continue
                     identifier = raw_item.get("id")
                     if type(identifier) is not int or str(identifier) not in event_by_id:
                         continue
@@ -752,6 +726,27 @@ def repository_pull_request_detail(session, repository_id, pull_number):
     raise AppError(404, "RESOURCE_NOT_FOUND", "本次采集归档中没有该 Pull Request")
 
 
+def _online_comments(comment_count, fetch_comments, kind):
+    """Keep the detail available when fetching its optional comments fails."""
+    comments = []
+    if not comment_count:
+        return comments, True, None
+    try:
+        result = fetch_comments()
+        if result.error_code:
+            raise AppError(result.error_status_code or 502, result.error_code, result.error_message or f"读取 {kind} 评论失败", result.error_details)
+        for row in result.items:
+            user = row.get("user") if isinstance(row.get("user"), dict) else {}
+            comments.append({
+                "author": user.get("login") if isinstance(user.get("login"), str) else "已删除用户",
+                "body": row.get("body") if isinstance(row.get("body"), str) else "",
+                "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
+            })
+        return comments, not result.has_next, None
+    except AppError as exc:
+        return comments, False, exc.message
+
+
 def repository_pull_request_online_detail(session, repository_id, pull_number, github):
     repository_pull_request_detail(session, repository_id, pull_number)
     repository = session.get(Repository, repository_id)
@@ -760,25 +755,9 @@ def repository_pull_request_online_detail(session, repository_id, pull_number, g
     raw_labels = raw_pull.get("labels") if isinstance(raw_pull.get("labels"), list) else []
     labels = [label["name"] for label in raw_labels if isinstance(label, dict) and isinstance(label.get("name"), str)]
     comment_count = raw_pull.get("comments") if type(raw_pull.get("comments")) is int and raw_pull.get("comments") >= 0 else 0
-    comments = []
-    comments_complete = True
-    comments_error = None
-    if comment_count:
-        try:
-            result = github.list_pull_request_comments_detailed(repository.full_name, pull_number)
-            if result.error_code:
-                raise AppError(result.error_status_code or 502, result.error_code, result.error_message or "读取 Pull Request 评论失败", result.error_details)
-            for row in result.items:
-                user = row.get("user") if isinstance(row.get("user"), dict) else {}
-                comments.append({
-                    "author": user.get("login") if isinstance(user.get("login"), str) else "已删除用户",
-                    "body": row.get("body") if isinstance(row.get("body"), str) else "",
-                    "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
-                })
-            comments_complete = not result.has_next
-        except AppError as exc:
-            comments_complete = False
-            comments_error = exc.message
+    comments, comments_complete, comments_error = _online_comments(
+        comment_count, lambda: github.list_pull_request_comments_detailed(repository.full_name, pull_number), "Pull Request"
+    )
 
     merged_at = raw_pull.get("merged_at") if isinstance(raw_pull.get("merged_at"), str) else None
     raw_state = raw_pull.get("state")
@@ -820,26 +799,9 @@ def repository_closed_issue_online_detail(session, repository_id, issue_number, 
     raw_labels = raw_issue.get("labels") if isinstance(raw_issue.get("labels"), list) else []
     labels = [label["name"] for label in raw_labels if isinstance(label, dict) and isinstance(label.get("name"), str)]
     comment_count = raw_issue.get("comments") if type(raw_issue.get("comments")) is int and raw_issue.get("comments") >= 0 else 0
-    comments = []
-    comments_complete = True
-    comments_error = None
-    if comment_count:
-        try:
-            result = github.list_issue_comments_detailed(repository.full_name, issue_number)
-            if result.error_code:
-                raise AppError(result.error_status_code or 502, result.error_code, result.error_message or "读取 Issue 评论失败", result.error_details)
-            for row in result.items:
-                user = row.get("user") if isinstance(row.get("user"), dict) else {}
-                author = user.get("login") if isinstance(user.get("login"), str) else "已删除用户"
-                comments.append({
-                    "author": author,
-                    "body": row.get("body") if isinstance(row.get("body"), str) else "",
-                    "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
-                })
-            comments_complete = not result.has_next
-        except AppError as exc:
-            comments_complete = False
-            comments_error = exc.message
+    comments, comments_complete, comments_error = _online_comments(
+        comment_count, lambda: github.list_issue_comments_detailed(repository.full_name, issue_number), "Issue"
+    )
 
     raw_state = raw_issue.get("state")
     return {

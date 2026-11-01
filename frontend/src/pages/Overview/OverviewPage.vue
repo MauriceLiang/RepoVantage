@@ -9,12 +9,10 @@ import GdInput from '@/components/ui/GdInput.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import type { ActivityTrend, RepositorySummary, TaskItem } from '@/services/types'
-import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
 const ui = useUiStore()
-const analysis = useAnalysisStore()
 const source = useDataSource()
 
 const input = ref('')
@@ -152,7 +150,6 @@ async function submit() {
   submitting.value = true
   try {
     const result = await source.addRepository(raw)
-    analysis.remember(result.repositoryId)
     ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
     void router.push(`/repositories/${result.repositoryId}/overview`)
   } catch (error) {

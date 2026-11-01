@@ -37,9 +37,3 @@ def get_session() -> Generator[Session, None, None]:
 def begin_immediate(session: Session) -> None:
     if session.get_bind().dialect.name == "sqlite":
         session.execute(text("BEGIN IMMEDIATE"))
-
-
-def init_db() -> None:
-    from backend.app.persistence import models  # noqa: F401
-
-    Base.metadata.create_all(engine)

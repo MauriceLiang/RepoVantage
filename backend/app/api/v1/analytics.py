@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_session
 from backend.app.api.helpers import envelope
-from backend.app.core.exceptions import AppError
 from backend.app.schemas.analytics import ComparisonResponse, DataQualityResponse, OverviewResponse, StatisticsResponse
 from backend.app.schemas.common import SuccessEnvelope
 from backend.app.schemas.repositories import ComparisonRequest, InsightsComparisonRequest

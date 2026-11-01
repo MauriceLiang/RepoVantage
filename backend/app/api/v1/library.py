@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_github_client, get_session

@@ -5,10 +5,6 @@ from pydantic import Field
 from backend.app.schemas.common import DTO, SourceMetadata
 
 
-class ItemListResponse(DTO):
-    items: list[dict[str, Any]]
-
-
 class RepositoryListResponse(DTO):
     items: list[Any]
 

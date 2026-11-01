@@ -6,8 +6,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy.orm import Session
-
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.exceptions import AppError
 from backend.app.integrations.github.client import GitHubClient, PageObservation, PaginatedResult
@@ -33,6 +31,12 @@ def collect_deep(
     *,
     query_start=None,
 ) -> tuple[dict[str, Any], str, object | None]:
+    """Collect each activity module with per-page checkpoints and resumable archives.
+
+    ``start``/``end`` describe the analysis window; ``query_start`` can be later
+    for an incremental request. The actual query interval is recorded per source,
+    and incomplete pages, limits and rate delays remain distinguishable in coverage.
+    """
     query_start = query_start or start
     start_iso = iso_z(start)
     end_iso = iso_z(end)
@@ -55,6 +59,8 @@ def collect_deep(
         checkpoint = _get_checkpoint(session_factory, task.repository_id, name, fingerprint)
         paths = page_paths(task.repository_id, name, fingerprint)
 
+        # A checkpoint cannot safely resume if its archived pages are missing or
+        # out of order. Extra pages beyond the committed checkpoint are discarded.
         ordered_paths = all(Path(path).name == f"page-{index:06d}.json.gz" for index, path in enumerate(paths, start=1))
         if not ordered_paths or checkpoint["pages_fetched"] > len(paths):
             clear_page_files(task.repository_id, name, fingerprint)

@@ -1,8 +1,10 @@
 import { ref, shallowRef, watch, type WatchSource } from 'vue'
 
 /**
- * Minimal async-data helper used by pages: exposes loading / error / data and a
- * manual reload. Keeps pages free of repetitive try/catch blocks.
+ * Load data immediately and whenever the optional watched source changes.
+ * Only the latest request may update the visible state, so a slow response for
+ * an earlier repository or time window cannot overwrite a newer selection.
+ * Earlier requests are not aborted; reload returns the new request's promise.
  */
 export function useAsyncData<T>(loader: () => Promise<T>, source?: WatchSource) {
   const data = shallowRef<T | null>(null)

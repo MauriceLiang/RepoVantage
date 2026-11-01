@@ -8,7 +8,7 @@ import pytest
 from backend.app.core.clock import iso_z, utc_now
 from backend.app.integrations.github.client import PageObservation, PaginatedResult
 from backend.app.persistence.models import CollectionTask
-from backend.app.pipeline.collection_archive import read_page, write_page
+from backend.app.pipeline.collection_archive import iter_module_records, read_page, write_page
 from backend.app.worker.collection import collect_deep
 
 
@@ -117,6 +117,19 @@ def test_collected_page_requires_matching_sha256(backend_client):
     _client, _factory, _github = backend_client
     stored_path, _digest = write_page(123, "commits", "a" * 64, 1, [{"sha": "b" * 40}], '[{"sha":"' + "b" * 40 + '"}]', "https://api.github.com/repos/example/project/commits", 200)
     assert read_page(stored_path)["record_count"] == 1
+    assert list(iter_module_records({"page_files": [stored_path]})) == [{"sha": "b" * 40}]
     Path(stored_path + ".sha256").unlink()
     with pytest.raises(ValueError, match="checksum is missing"):
-        read_page(stored_path)
+        list(iter_module_records({"page_files": [stored_path]}))
+
+
+@pytest.mark.parametrize("archive", [
+    {"pages": ['[{"id": 1}]', [{"id": 2}]]},
+    ['[{"id": 1}]', [{"id": 2}]],
+])
+def test_record_iterator_preserves_legacy_page_formats_and_rejects_corruption(archive):
+    assert list(iter_module_records(archive)) == [{"id": 1}, {"id": 2}]
+    with pytest.raises(ValueError, match="invalid legacy page JSON"):
+        list(iter_module_records({"pages": ["not-json"]}))
+    with pytest.raises(ValueError, match="invalid legacy page records"):
+        list(iter_module_records({"pages": [[1]]}))

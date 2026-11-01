@@ -17,6 +17,8 @@ const alertLabels: Record<string, string> = {
 const renderedBody = computed(() => {
   const source = props.body.replace(/^>\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*$/gim, (_, type: string) => `> **${alertLabels[type.toUpperCase()]}**`)
   const html = markdown.parse(source, { async: false })
+  // Release and Issue bodies are external content. Sanitize the rendered HTML
+  // before v-html and restrict links/images to the supported URI schemes.
   return DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
     ALLOWED_URI_REGEXP: /^(?:(?:https?:\/\/)|mailto:|\/|#)/i,

@@ -2,7 +2,6 @@
 
 import logging
 import shutil
-from pathlib import Path
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
@@ -37,6 +36,13 @@ def clear_repository_data(
     *,
     remove_from_library: bool = False,
 ) -> dict:
+    """Remove local analysis data for existing repositories in one DB transaction.
+
+    Active collection/import jobs block deletion. Featured-bundle membership is
+    invalidated with the rows so the data can be imported again. Files are removed
+    after the commit: a filesystem failure is reported explicitly and can be retried,
+    but the already committed database deletion cannot be rolled back at that point.
+    """
     ids = sorted(set(repository_ids))
     if not ids or any(repository_id <= 0 for repository_id in ids) or len(ids) > 100:
         raise AppError(422, "VALIDATION_ERROR", "请选择 1–100 个不同的有效仓库")
@@ -56,6 +62,8 @@ def clear_repository_data(
             raise AppError(500, "REPOSITORY_ARCHIVE_PATH_INVALID", "仓库原始归档路径无效")
         archive_directories[repository_id] = (raw_directory, page_directory)
 
+    # Serialize the job checks with deletion so a worker cannot claim a conflicting
+    # task between validation and the database commit.
     begin_immediate(session)
     try:
         repositories = session.scalars(select(Repository).where(Repository.repository_id.in_(ids))).all()

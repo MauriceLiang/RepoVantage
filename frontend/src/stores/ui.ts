@@ -12,6 +12,7 @@ export interface Toast {
   status: ToastStatus
 }
 
+// Preserve existing users' theme after the GitHubDA rename; applyTheme migrates the key.
 const stored = (typeof localStorage !== 'undefined' && (localStorage.getItem('repovantage-theme') ?? localStorage.getItem('githubda-theme'))) as ThemeMode | null
 
 export const useUiStore = defineStore('ui', () => {

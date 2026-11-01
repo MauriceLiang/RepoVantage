@@ -30,5 +30,5 @@ npm run build                    # 类型检查 + 生产构建
 
 ## 数据边界
 
-前端通过 `RepositoryDataSource` 接口访问数据。默认实现使用带 CSRF 校验的本机浏览器 API 会话，不在浏览器中暴露内部 API Key。仅后端实际提供的数据会进入图表；缺少的日级序列、逐条 Issue/PR/Commit 等明细显示为未提供，不用 Mock、估算或演示数补齐。
+前端通过 `RepositoryDataSource` 接口访问数据。默认实现使用带 CSRF 校验的本机浏览器 API 会话，不在浏览器中暴露内部 API Key。仓库分析使用已归档的 Commit、Issue、PR 和 Release 事件；本地逐条记录由详情接口提供，Issue 和 PR 正文可按需在线获取。数据缺失或覆盖不足时显示对应状态，不用 Mock 或估算值补齐。Mock 数据仅在显式选择演示模式时使用。
 

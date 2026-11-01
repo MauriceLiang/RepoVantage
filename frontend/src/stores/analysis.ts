@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Granularity, TimeWindow } from '@/services/types'
+import type { TimeWindow } from '@/services/types'
 
 /** Cross-page analysis preferences (shared by header, tabs and comparison). */
 export const useAnalysisStore = defineStore('analysis', () => {
@@ -8,16 +8,11 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const savedWindow = typeof localStorage === 'undefined' ? null : Number(localStorage.getItem(preferenceKey))
   const timeWindow = ref<TimeWindow>(savedWindow === 30 || savedWindow === 90 || savedWindow === 180 ? savedWindow : 90)
   const collectionScope = ref<'quick' | 'window'>('quick')
-  const granularity = ref<Granularity>('week')
   const compareIds = ref<string[]>([])
-  const recentIds = ref<string[]>([])
 
   function setWindow(value: TimeWindow) {
     timeWindow.value = value
     if (typeof localStorage !== 'undefined') localStorage.setItem(preferenceKey, String(value))
-  }
-  function setGranularity(value: Granularity) {
-    granularity.value = value
   }
   function toggleCompare(id: string) {
     const exists = compareIds.value.includes(id)
@@ -27,9 +22,5 @@ export const useAnalysisStore = defineStore('analysis', () => {
   function setCompare(ids: string[]) {
     compareIds.value = ids.slice(0, 5)
   }
-  function remember(id: string) {
-    recentIds.value = [id, ...recentIds.value.filter((x) => x !== id)].slice(0, 6)
-  }
-
-  return { timeWindow, collectionScope, granularity, compareIds, recentIds, setWindow, setGranularity, toggleCompare, setCompare, remember }
+  return { timeWindow, collectionScope, compareIds, setWindow, toggleCompare, setCompare }
 })

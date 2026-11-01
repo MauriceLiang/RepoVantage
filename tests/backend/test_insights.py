@@ -269,6 +269,18 @@ def test_closed_issue_records_search_pagination_and_safe_csv(backend_client, mon
     assert issue_requests == [("example/project", 103)]
     assert comment_requests == [("example/project", 103)]
 
+    fake_github.list_issue_comments_detailed = lambda *_: SimpleNamespace(
+        error_code="GITHUB_RATE_LIMITED", error_status_code=429, error_message="GitHub 请求额度不足", error_details={}
+    )
+    limited = client.get("/api/v1/repositories/123/issues/103/online", headers=HEADERS).json()["data"]
+    assert limited["body"] == "## Online issue body"
+    assert limited["comments"] == [] and limited["comments_complete"] is False
+    assert limited["comments_error"] == "GitHub 请求额度不足"
+    fake_github.get_issue_detail = lambda *_: {"body": "No comments", "comments": 0}
+    fake_github.list_issue_comments_detailed = lambda *_: pytest.fail("无评论时不应请求评论接口")
+    empty_comments = client.get("/api/v1/repositories/123/issues/103/online", headers=HEADERS).json()["data"]
+    assert empty_comments["comments"] == [] and empty_comments["comments_complete"] is True
+
     exported = client.get("/api/v1/repositories/123/issues/export.csv", headers=HEADERS)
     assert exported.status_code == 200 and "issue_number,title,created_at" in exported.text
     assert "private body" not in exported.text
@@ -356,9 +368,40 @@ def test_pull_request_records_include_unmerged_details_and_fetch_online_only_on_
     assert pull_requests == [("example/project", 31)]
     assert comments_requests == [("example/project", 31)]
 
+    fake_github.list_pull_request_comments_detailed = lambda *_: SimpleNamespace(
+        error_code="GITHUB_RATE_LIMITED", error_status_code=429, error_message="GitHub 请求额度不足", error_details={}
+    )
+    limited = client.get("/api/v1/repositories/123/pull-requests/31/online", headers=HEADERS).json()["data"]
+    assert limited["body"] == "## Online PR body"
+    assert limited["comments"] == [] and limited["comments_complete"] is False
+    assert limited["comments_error"] == "GitHub 请求额度不足"
+
     exported = client.get("/api/v1/repositories/123/pull-requests/export.csv", headers=HEADERS)
     assert exported.status_code == 200 and "pull_number,title,state" in exported.text
     assert "'=1+1" in exported.text
+
+
+@pytest.mark.parametrize(("module", "endpoint", "error_code"), [
+    ("commits", "commits", "COMMIT_ARCHIVE_UNAVAILABLE"),
+    ("issues", "issues", "ISSUE_ARCHIVE_UNAVAILABLE"),
+    ("pulls", "pull-requests", "PULL_REQUEST_ARCHIVE_UNAVAILABLE"),
+])
+def test_record_endpoints_reject_oversized_archive_pages(backend_client, monkeypatch, tmp_path, module, endpoint, error_code):
+    from backend.app.pipeline.raw_archive import archive_json
+
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    monkeypatch.setattr("backend.app.pipeline.raw_archive.get_settings", lambda: type("Settings", (), {"raw_data_path": tmp_path})())
+    archive_path = archive_json(123, "oversized", "activity", {module: [[{"id": 1}] * 1001]})
+    raw = fixture()
+    sources = {key: {"coverage": "complete", "collected_at": iso_z(END)} for key in raw}
+    with factory() as session:
+        persist_insights(session, 123, "oversized", raw, sources, START, END, [archive_path])
+        session.commit()
+
+    response = client.get(f"/api/v1/repositories/123/{endpoint}", headers=HEADERS)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == error_code
 
 
 def test_unknown_api_route_does_not_fall_through_to_spa(backend_client):

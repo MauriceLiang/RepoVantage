@@ -6,7 +6,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_session
-from backend.app.api.helpers import envelope, pagination
+from backend.app.api.helpers import envelope
 from backend.app.core.clock import iso_z
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import CollectionTask, Repository, RepositorySnapshot

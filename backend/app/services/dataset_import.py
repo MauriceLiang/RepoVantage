@@ -466,6 +466,11 @@ def dataset_coverage(session: Session, dataset_id: str) -> dict[str, Any]:
 
 
 def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]], str]:
+    """Validate the manifest, allowed files, checksums and records before import.
+
+    This function only reads the bundle; callers decide when to stage or commit
+    the returned records. Invalid or unsafe contents raise BundleError.
+    """
     root = root.resolve()
     manifest_path = root / "dataset.json"
     sums_path = root / "SHA256SUMS"

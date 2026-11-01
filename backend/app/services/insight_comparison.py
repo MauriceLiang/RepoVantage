@@ -1,6 +1,5 @@
 import json
 from collections import Counter
-from datetime import timedelta
 from statistics import mean
 from sqlalchemy import func, select
 
@@ -24,6 +23,13 @@ def metric_value(result, key):
 
 
 def compare_insights(session, ids, mode='same_period', window_days=90):
+    """Compare two to five repositories without mixing incompatible windows.
+
+    Same-period comparison recalculates metrics over the common intersection only
+    when it covers at least 80% of the requested window. Individual-period mode
+    keeps each repository's own window. Commit means additionally use complete UTC
+    weeks, intersected across repositories only in same-period mode.
+    """
     if not 2 <= len(ids) <= 5 or len(set(ids)) != len(ids):
         raise AppError(422, 'VALIDATION_ERROR', '请选择2–5个不同仓库')
     if mode not in {'same_period', 'individual_periods'}:

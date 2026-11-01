@@ -131,6 +131,7 @@ def create_browser_session(request: Request, response: Response):
 
 
 def require_browser_session(request: Request) -> BrowserSession:
+    """Require a local browser session; mutations additionally require CSRF and origin checks."""
     blocked = _check_local_origin(request)
     if blocked:
         raise AppError(*blocked)
@@ -161,6 +162,11 @@ def revoke_browser_session(request: Request, browser_session: BrowserSession = D
 
 @router.api_route("/v1/{path:path}", methods=["GET", "POST", "DELETE"], include_in_schema=False)
 async def proxy_api(path: str, request: Request, browser_session: BrowserSession = Depends(require_browser_session)):
+    """Forward a validated local request to the internal API without exposing its key.
+
+    The API runs in the same ASGI application. Only a small allowlist of headers
+    crosses the boundary, and request bodies are size-limited before forwarding.
+    """
     del browser_session
     segments = path.split("/")
     if not path or any(segment in {"", ".", ".."} for segment in segments) or "\\" in path:

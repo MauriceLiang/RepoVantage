@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ModuleTabs from '@/components/layout/ModuleTabs.vue'
 import RepoHeader from '@/components/layout/RepoHeader.vue'
@@ -30,11 +30,9 @@ const tab = computed(() => String(route.params.tab ?? 'overview'))
 const tabComponent = computed(() => ({ overview: OverviewTab, activity: ActivityTab, issues: IssuesTab, prs: PrsTab, releases: ReleasesTab }[tab.value] ?? OverviewTab))
 
 const { data, loading, error, reload } = useAsyncData<RepositoryAnalysis>(
-  () => source.getAnalysis(repoId.value, analysisStore.timeWindow, 'week'),
+  () => source.getAnalysis(repoId.value, analysisStore.timeWindow),
   () => [repoId.value, analysisStore.timeWindow],
 )
-
-watch(repoId, (id) => analysisStore.remember(id), { immediate: true })
 
 const notAnalyzed = computed(() => data.value?.repository.status === 'idle')
 const failed = computed(() => data.value?.repository.status === 'failed' || Boolean(error.value))

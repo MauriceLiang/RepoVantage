@@ -27,6 +27,12 @@ class StaleTaskAttempt(RuntimeError):
 
 
 class TaskProgressReporter:
+    """Persist stage and module progress for one leased worker attempt.
+
+    Each write verifies both attempt number and lease owner. An expired worker must
+    not overwrite progress produced by a later attempt after the task is requeued.
+    Stage percentages are progress indicators, not historical data coverage.
+    """
     def __init__(self, session_factory: Callable[[], Session], task_id: str, attempt: int, lease_owner: str):
         self.session_factory = session_factory
         self.task_id = task_id

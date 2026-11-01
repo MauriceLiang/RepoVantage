@@ -36,6 +36,11 @@ def quality(source, n, *, insufficient=False):
 
 
 def weekly(events, start, end, source):
+    """Aggregate UTC Monday-start weeks within the half-open analysis window.
+
+    Boundary weeks or incomplete sources retain their observed count, but their
+    authoritative value stays None; zero is only meaningful for a complete week.
+    """
     current = week_start(start)
     points = []
     while current < end:
@@ -49,6 +54,12 @@ def weekly(events, start, end, source):
 
 
 def duration_metric(events, start, end, source, field, key):
+    """Summarize valid created-to-terminal durations for events ending in the window.
+
+    Missing or reversed timestamps are excluded and counted separately. P75 needs
+    five valid samples and P90 needs ten; the median and histogram use all valid
+    samples without imputing missing durations.
+    """
     terminal = [e for e in events if e[field] is not None and start <= e[field] < end]
     values = []
     invalid = 0
@@ -65,6 +76,12 @@ def duration_metric(events, start, end, source, field, key):
 
 
 def calculate_insights(events, sources, start, end):
+    """Calculate insights-v1 from normalized events and per-module coverage.
+
+    The commit change compares two groups of four complete UTC weeks. Release
+    cadence deliberately uses the 365 days ending at ``end``, independently of
+    the shorter selected activity window.
+    """
     commits = events["commits"]
     points = weekly(commits, start, end, sources["commits"])
     completed_end = week_start(end)

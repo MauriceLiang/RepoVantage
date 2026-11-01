@@ -146,7 +146,7 @@ async function fetchPullRequestOnline() {
       commentsJson: JSON.stringify(detail.comments),
       commentsComplete: String(detail.commentsComplete),
       commentsError: detail.commentsError ?? '',
-      onlineSource: 'github',
+      onlineSource: detail.source,
       onlineStatus: 'ready',
       onlineError: '',
     })
@@ -311,7 +311,8 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         </div>
         <p class="mt-1.5 text-[11px] leading-relaxed text-muted">点击后才会请求 GitHub 最新内容；对话评论最多读取 100 条。</p>
         <p v-if="payload.onlineError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="alert">{{ payload.onlineError }}；当前仍可查看本地采集内容。</p>
-        <p v-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">PR 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
+        <p v-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'mock'" class="mt-2 text-[11px] text-muted">演示模式：以下为示例数据，没有连接 GitHub。</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">PR 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ pullRequestComments.length }} / {{ payload.commentsCount }} 条评论；完整讨论请在 GitHub 查看。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'github'" class="mt-2 text-[11px] text-muted">已从 GitHub 获取最新 PR 内容与对话评论。</p>
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 PR 详情…</p>

@@ -13,7 +13,7 @@ from backend.app.analytics.metrics import numeric_summary, spearman_summary
 from backend.app.core.clock import iso_z, utc_now
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import Dataset, DatasetRepository, Repository, SamplingRun
-from backend.app.services.repositories import FEATURED_ID, LIBRARY_ID, RESEARCH_ID, analysis_status, latest_analysis, latest_snapshot
+from backend.app.services.repositories import LIBRARY_ID, analysis_status, latest_analysis, latest_snapshot
 
 
 def _dataset(session: Session, dataset_id: str, expected_type: str = "research") -> Dataset:

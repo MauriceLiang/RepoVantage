@@ -1,5 +1,5 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, Granularity, HistogramResult, ReleaseDetails, ReleaseRecord,
+  ActivityTrend, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, ReleaseDetails, ReleaseRecord,
   IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryChartData, RepositoryStatus, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
@@ -17,6 +17,8 @@ function isJsonResponse(response: Response): boolean {
 }
 
 async function openSession() {
+  // Share an in-flight handshake across concurrent page requests. Clear the
+  // promise on success or failure so a later request can renew the session.
   if (!sessionRequest) {
     sessionRequest = fetch('/api/browser/session', {
       credentials: 'same-origin',
@@ -39,6 +41,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
   const response = await fetch(`/api/browser/v1${path}`, { ...init, headers, credentials: 'same-origin' })
+  // An outdated SPA fallback can return HTML with HTTP 200 for an API URL.
+  // Reject it before attempting to interpret the response as an API envelope.
   if (response.status !== 204 && !isJsonResponse(response)) {
     throw new Error('后端返回了网页而不是 API 数据，可能仍在运行旧版本；请重启后端后重试')
   }
@@ -510,7 +514,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return String(result.task_id)
   }
 
-  async getAnalysis(id: string, window: TimeWindow, _granularity: Granularity): Promise<RepositoryAnalysis> {
+  async getAnalysis(id: string, window: TimeWindow): Promise<RepositoryAnalysis> {
     const numericId = repositoryId(id)
     const [detail, analysis, result] = await Promise.all([
       data<Record<string, any>>(`/repositories/${numericId}`),
@@ -592,7 +596,6 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     const makeSeries = (key: string, label: string, points: TimePoint[], unit: string, quality: Record<string, any>, itemCoverage: Coverage) => ({
       series: [{ key, label, points }],
       unit,
-      granularity: 'week' as const,
       window: metricWindow,
       sampleSize: numberOrNull(quality.valid_samples),
       coverage: itemCoverage,
@@ -605,17 +608,13 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       chartData,
       metrics,
       commits: makeSeries('commits', 'Commit 数', weeklyCommits, '次', commitQuality, commitsCoverage),
-      dailyCommits: { ...makeSeries('daily', '每日 Commit 数', [], '次', commitQuality, { state: 'missing', label: '未提供日级序列' }), granularity: 'day', limitation: '当前后端只提供自然周聚合，未生成每日分布。' },
       issues: { ...makeSeries('closed', 'Issue 关闭数', weeklyIssues, '个 Issue', issueQuality, issueCoverage),
         series: [...(chartData ? [{ key: 'opened', label: '新增', points: chartData.issueOpenedWeekly }] : []), { key: 'closed', label: '关闭', points: chartData?.issueClosedWeekly ?? weeklyIssues }] },
       issueDuration,
-      openIssueAges: null,
       pullRequests: makeSeries('merged', 'PR 合并数', chartData?.prMergedWeekly ?? weeklyPulls, '个 PR', pullQuality, pullCoverage),
       prDuration,
-      longOpenPrs: [],
       releases,
       releaseIntervals,
-      authors: [],
       coverage,
       collectedAt,
       observations,
@@ -816,6 +815,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       mergedAt: textOrNull(result.merged_at),
       updatedAt: textOrNull(result.updated_at),
       url: textOrNull(result.url) ?? undefined,
+      source: 'github',
       commentsCount: numberOrNull(result.comments_count) ?? 0,
       comments: array(result.comments).map((item) => ({
         author: String(item.author ?? '已删除用户'),

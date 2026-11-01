@@ -32,6 +32,12 @@ def execute_dataset_import_job(
     worker_id: str,
     lease_seconds: int,
 ) -> None:
+    """Validate, stage and publish one leased featured-dataset import attempt.
+
+    The worker checks the bundle version and hash again before staging. Records
+    and temporary detail archives are prepared before the final database import;
+    attempt/lease checks prevent a stale worker from completing a newer attempt.
+    """
     with session_factory() as session:
         job = session.get(DatasetImportJob, task_id)
         if job is None or job.status != "running" or job.lease_owner != worker_id:
@@ -132,6 +138,7 @@ def execute_dataset_import_job(
 
 
 def _stage_records(session_factory, task_id, worker_id, attempt, lease_seconds, records, total_records) -> None:
+    """Stage bounded batches, recording progress and ordinals for later attempts."""
     with session_factory() as session:
         begin_immediate(session)
         job = _owned_job(session, task_id, worker_id, attempt)
@@ -152,13 +159,14 @@ def _stage_records(session_factory, task_id, worker_id, attempt, lease_seconds, 
     processed = staged_count
     for record_type, rows in records.items():
         with session_factory() as session:
-            start_ordinal = int(session.scalar(
+            last_ordinal = session.scalar(
                 select(func.max(DatasetImportStagingRecord.ordinal))
                 .where(
                     DatasetImportStagingRecord.task_id == task_id,
                     DatasetImportStagingRecord.record_type == record_type,
                 )
-            ) or -1) + 1
+            )
+            start_ordinal = 0 if last_ordinal is None else last_ordinal + 1
         for offset in range(start_ordinal, len(rows), STAGING_BATCH_SIZE):
             batch = rows[offset:offset + STAGING_BATCH_SIZE]
             now = utc_now()

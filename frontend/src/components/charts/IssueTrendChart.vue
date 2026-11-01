@@ -30,6 +30,8 @@ const option = computed<EChartsOption>(() => {
     const polygon = (points: number[][], difference: number) => ({ type: 'polygon' as const, shape: { points }, style: { fill: color(difference), opacity: 0.16 } })
     const left = a - b, right = c - d
     if (left * right < 0) {
+      // Split at the linear crossing so each side of the gap uses the color of
+      // the series that is actually higher, rather than filling across the lines.
       const ratio = Math.abs(left) / (Math.abs(left) + Math.abs(right))
       const cross = [p0[0] + (p1[0] - p0[0]) * ratio, p0[1] + (p1[1] - p0[1]) * ratio]
       return { type: 'group', children: [polygon([p0, q0, cross], left), polygon([cross, p1, q1], right)] }

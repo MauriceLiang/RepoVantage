@@ -1,5 +1,5 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, Granularity, ReleaseDetails, RepositoryAnalysis, RepositorySummary,
+  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, ReleaseDetails, RepositoryAnalysis, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, TaskItem, TimeWindow,
 } from './types'
 
@@ -28,10 +28,11 @@ export interface RepositoryDataSource {
   /**
    * Full analysis bundle for one repository.
    *
-   * The browser gateway returns aggregated insight data; unavailable detail
-   * fields remain null and are never inferred from totals.
+   * The browser gateway returns metric summaries and event-derived chart data.
+   * Detailed records are requested separately; unavailable values remain null
+   * and are never inferred from aggregate totals.
    */
-  getAnalysis(id: string, window: TimeWindow, granularity: Granularity): Promise<RepositoryAnalysis>
+  getAnalysis(id: string, window: TimeWindow): Promise<RepositoryAnalysis>
   getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
   getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>

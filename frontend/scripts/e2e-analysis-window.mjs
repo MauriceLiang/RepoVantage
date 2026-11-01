@@ -227,6 +227,16 @@ try {
     await layout('[data-testid="comparison-window"]')
     await layout('[data-testid="comparison-window-unavailable"]')
     await page.screenshot({ path: join(artifacts, `${theme}-comparison.png`) })
+
+    await page.goto(new URL('/repositories/grid-lite/prs', base).href, { waitUntil: 'networkidle0' })
+    await select('analysis-window', 90)
+    await loadedWindow(90)
+    await click('tbody button')
+    await page.waitForFunction(() => [...document.querySelectorAll('[role="dialog"] button')].some((button) => button.textContent.trim() === '在线获取' && !button.disabled))
+    await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent.trim() === '在线获取').click())
+    await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent?.includes('演示模式：以下为示例数据，没有连接 GitHub。'))
+    assert.doesNotMatch(await text('[role="dialog"]'), /已从 GitHub 获取最新 PR 内容/)
+
     await page.setViewport({ width: 390, height: 844 })
     await page.goto(new URL('/repositories/steady-core/overview', base).href, { waitUntil: 'networkidle0' })
     await select('analysis-window', 180)
@@ -235,7 +245,7 @@ try {
     await page.screenshot({ path: join(artifacts, `${theme}-mobile.png`) })
     assert.deepEqual(apiRequests, [], 'Mock smoke 不应访问后端或真实 GitHub API')
     assert.deepEqual(errors, [], '浏览器出现未处理错误')
-    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', ...(theme === 'light' ? ['research-mode-isolation', 'featured-import-progress', 'featured-import-task', 'research-member-and-statistics-csv'] : []), 'layout-desktop-mobile'] })
+    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-pr-source', ...(theme === 'light' ? ['research-mode-isolation', 'featured-import-progress', 'featured-import-task', 'research-member-and-statistics-csv'] : []), 'layout-desktop-mobile'] })
     await context.close()
     console.log(`PASS ${theme}: analysis, collection, comparison, CSV, layout`)
   }

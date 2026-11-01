@@ -6,10 +6,6 @@
  */
 
 export type TimeWindow = 30 | 90 | 180
-export type Granularity = 'day' | 'week'
-
-/** Demonstration scenarios required by the brief (see docs/DATA_MODELS.md). */
-export type ScenarioKey = 'active' | 'quiet' | 'small' | 'partial' | 'empty' | 'failed'
 
 export type RepositoryStatus = 'ready' | 'partial' | 'running' | 'idle' | 'failed'
 
@@ -47,9 +43,8 @@ export interface NamedSeries {
 export interface TimeSeriesResult {
   series: NamedSeries[]
   unit: string
-  granularity: Granularity
   window: { start: string | null; end: string | null }
-  /** Number of raw records behind the series (not the number of buckets). */
+  /** Sample size reported by the source metric, independent of bucket count. */
   sampleSize: number | null
   coverage: Coverage
   collectedAt: string | null
@@ -117,7 +112,6 @@ export interface RepositorySummary {
   lastAnalyzedAt: string | null
   /** % change of last 4 complete weeks vs previous 4; null when not comparable. */
   activityDelta: number | null
-  scenario?: ScenarioKey
   htmlUrl?: string
   alreadyInLibrary?: boolean
 }
@@ -230,6 +224,7 @@ export interface PullRequestOnlineDetail {
   mergedAt: string | null
   updatedAt: string | null
   url?: string
+  source: 'github' | 'mock'
   commentsCount: number
   comments: IssueComment[]
   commentsComplete: boolean
@@ -246,17 +241,6 @@ export interface PullRequestActivityPage {
   note: string
   windowStart: string | null
   windowEnd: string | null
-}
-
-export interface PullRequestRecord {
-  number: number
-  title: string
-  createdAt: string
-  mergedAt: string | null
-  durationDays: number | null
-  state: 'open' | 'merged' | 'closed'
-  comments: number
-  url?: string
 }
 
 export interface ReleaseRecord {
@@ -288,16 +272,20 @@ export interface Observation {
 }
 
 export interface RepositoryChartData {
+  /** Top five identified GitHub account keys, ordered over the selected window. */
   commitAccounts: string[]
+  /** Weekly observed counts; complete=false means the counts are not a full-week total. */
   commitWeekly: { start: string; complete: boolean; observedCommits: number; activeAuthors: number | null; contributors: number[]; otherCommits: number; unidentifiedCommits: number }[]
   issueOpenedWeekly: TimePoint[]
   issueClosedWeekly: TimePoint[]
   prMergedWeekly: TimePoint[]
   prMonthly: { month: string; counts: number[]; medianHours: number | null; validSamples: number; complete: boolean }[]
   prWeekly: { start: string; medianHours: number | null; validSamples: number }[]
+  /** Scatter points may be sampled; monthly and weekly medians use all valid PRs. */
   prSamples: { id: string; mergedAt: string; durationHours: number }[]
   prSampleTotal: number
   prSamplesTruncated: boolean
+  /** Commit count covers [previous release, current release); null means coverage is unproven. */
   releaseIntervals: { id: string; previousPublishedAt: string; publishedAt: string; commitCount: number | null; reason: string | null }[]
 }
 
@@ -317,18 +305,12 @@ export interface RepositoryAnalysis {
   metrics: MetricSet
   /** Weekly commit series (main chart). */
   commits: TimeSeriesResult
-  /** Daily series used by the calendar heatmap (independent of granularity). */
-  dailyCommits: TimeSeriesResult
   issues: TimeSeriesResult
   issueDuration: HistogramResult
-  /** null when the open-issue set was not fully collected. */
-  openIssueAges: { label: string; count: number }[] | null
   pullRequests: TimeSeriesResult
   prDuration: HistogramResult
-  longOpenPrs: PullRequestRecord[]
   releases: ReleaseRecord[]
   releaseIntervals: { tag: string; days: number }[]
-  authors: AuthorContribution[]
   coverage: Coverage
   collectedAt: string | null
   observations: Observation[]

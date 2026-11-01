@@ -11,6 +11,7 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
+import { formatDate, formatTime } from '@/lib/format'
 import type { CommitActivityPage, RepositoryAnalysis, TimePoint } from '@/services/types'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -81,16 +82,6 @@ function filterAuthor(author: string) {
   appliedSearch.value = author
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10)
-}
-
-function formatTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : `${date.toISOString().slice(11, 19)} UTC`
-}
 </script>
 
 <template>

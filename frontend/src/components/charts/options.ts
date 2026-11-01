@@ -327,6 +327,7 @@ export function calendarOption(points: TimePoint[], t: ChartTheme, windowStart?:
   const endTime = windowEnd ? Date.parse(windowEnd) : NaN
   const validWindow = Number.isFinite(startTime) && Number.isFinite(endTime) && endTime > startTime
   const start = validWindow ? new Date(startTime).toISOString().slice(0, 10) : dates[0] ?? ''
+  // The API window is end-exclusive, while ECharts calendar ranges are inclusive.
   const end = validWindow ? new Date(endTime - 1).toISOString().slice(0, 10) : dates[dates.length - 1] ?? ''
   const visiblePoints = points.filter((point) => point.date >= start && point.date <= end && point.value !== null)
   const max = Math.max(...visiblePoints.map((point) => point.value ?? 0), 1)

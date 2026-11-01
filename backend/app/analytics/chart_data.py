@@ -15,6 +15,11 @@ def _next_month(value):
 
 
 def _covers(source, lower, upper):
+    """Check whether a complete source proves coverage of an entire interval.
+
+    Legacy complete runs did not store ``requested_interval``; for those runs,
+    their recorded analysis window remains the available coverage evidence.
+    """
     if source.get('coverage') != 'complete':
         return False
     requested = source.get('requested_interval')
@@ -27,6 +32,7 @@ def _covers(source, lower, upper):
 
 
 def _weekly(events, start, end, source):
+    """Withhold weekly values outside a narrower incremental request interval."""
     points = weekly(events, start, end, source)
     for point in points:
         lower, upper = parse_github_datetime(point['start']), parse_github_datetime(point['end'])
@@ -37,6 +43,13 @@ def _weekly(events, start, end, source):
 
 
 def build_chart_data(events, sources, start, end):
+    """Build chart series from normalized, deduplicated events in UTC.
+
+    Activity, Issue and PR series use ``[start, end)``. Release markers use the
+    preceding 365 days, so an interval may be visible even when its Commit count
+    is unknown. Counts and medians describe observed events, not GitHub history
+    outside the available coverage evidence.
+    """
     commits = [event for event in events['commits'] if event.get('event_at') and start <= event['event_at'] < end]
     commits_by_week = defaultdict(list)
     account_totals = Counter()
@@ -44,6 +57,8 @@ def build_chart_data(events, sources, start, end):
         commits_by_week[week_start(event['event_at'])].append(event)
         if event.get('author_key'):
             account_totals[event['author_key']] += 1
+    # Stable, window-wide top-five identities keep stack colors consistent across weeks.
+    # Commits without a GitHub account ID stay in a separate unidentified bucket.
     top_accounts = sorted(account_totals, key=lambda key: (-account_totals[key], key))[:5]
 
     commit_weeks = []
@@ -104,6 +119,8 @@ def build_chart_data(events, sources, start, end):
         })
         month = stop
 
+    # Limit only the scatter payload. Monthly and weekly statistics above use every
+    # valid sample; deterministic time-ordered sampling retains both endpoints.
     total_pr_samples = len(valid)
     shown = valid if total_pr_samples <= PR_SCATTER_LIMIT else [
         valid[index * (total_pr_samples - 1) // (PR_SCATTER_LIMIT - 1)] for index in range(PR_SCATTER_LIMIT)
@@ -121,6 +138,8 @@ def build_chart_data(events, sources, start, end):
                        and not commit_source.get('rejected_records') and not commit_source.get('invalid_event_times'))
     commit_times = sorted(item['event_at'] for item in commits)
     intervals = []
+    # A Commit count is safe only when the requested interval and source quality
+    # cover both release timestamps. bisect_left implements [previous, current).
     for previous, current_release in zip(releases, releases[1:]):
         lower, upper = previous['published_at'], current_release['published_at']
         covered = source_complete and bounds[0] is not None and bounds[1] is not None and start <= lower <= upper <= end and bounds[0] <= lower and upper <= bounds[1]

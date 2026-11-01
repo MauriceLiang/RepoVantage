@@ -3,7 +3,12 @@ export interface AuthorDistributionBucket {
   authors: number
 }
 
-/** Summarize the distribution of identified author identities in the collected sample. */
+/**
+ * Summarize identified authors in the collected sample, not all GitHub history.
+ * Buckets are ordered by contributions to build the Lorenz curve; trapezoid
+ * areas yield the Gini coefficient. A reverse pass finds how many top authors
+ * account for at least half of those identified commits.
+ */
 export function summarizeAuthorDistribution(buckets: AuthorDistributionBucket[]) {
   const sorted = [...buckets].sort((a, b) => a.commits - b.commits)
   const authors = sorted.reduce((sum, bucket) => sum + bucket.authors, 0)

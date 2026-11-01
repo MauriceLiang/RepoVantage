@@ -14,6 +14,12 @@ MAX_ATTEMPTS = 3
 
 
 def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> CollectionTask | None:
+    """Atomically recover expired attempts and lease one eligible collection task.
+
+    SQLite's write lock protects both recovery and selection against other workers.
+    Collection and dataset-import jobs are mutually exclusive; history backfills
+    are ordered after interactive collection requests.
+    """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()
     stale = session.scalars(
@@ -117,6 +123,10 @@ def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> Col
 
 
 def claim_next_dataset_import_job(session: Session, worker_id: str, lease_seconds: int) -> DatasetImportJob | None:
+    """Lease an import job, retaining staged records when an expired job can retry.
+
+    Terminal attempts schedule artifact cleanup only after their status is committed.
+    """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()
     stale = session.scalars(
