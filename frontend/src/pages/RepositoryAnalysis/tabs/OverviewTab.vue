@@ -5,15 +5,20 @@ import GdCard from '@/components/ui/GdCard.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import ObservationList from '@/components/common/ObservationList.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
+import CommitActivityComboChart from '@/components/charts/CommitActivityComboChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
+import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import type { RepositoryAnalysis } from '@/services/types'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
 
-const commitsPoints = computed(() => props.analysis.commits.series[0]?.points ?? [])
+const commitsPoints = computed(() => {
+  const points = props.analysis.commits.series[0]?.points ?? []
+  return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
+})
 const releasesYear = computed(() => props.analysis.releases)
 const latestRelease = computed(() => [...props.analysis.releases].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))[0])
 const latestReleaseLabel = computed(() => {
@@ -55,9 +60,11 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <span class="rounded-md bg-track px-2 py-1 text-[11.5px] text-ink/70">{{ analysis.commits.limitation }}</span>
       </div>
     </div>
-    <TrendChart :points="commitsPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(p) => selectCommit(p.dataIndex)" />
+    <CommitActivityComboChart v-if="analysis.chartData" :points="commitsPoints" :weeks="analysis.chartData.commitWeekly" :height="260" @select="selectCommit" />
+    <TrendChart v-else :points="commitsPoints" :unit="analysis.commits.unit" :height="260" @select="(p) => selectCommit(p.dataIndex)" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>单位：{{ analysis.commits.unit }} · 柱为每周提交数，折线为连续 4 个完整周的均值 · SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span v-if="analysis.chartData">面积为每周提交，折线为已识别的活跃 GitHub 账号数；未关联账号的提交不计入账号数。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span v-else>当前数据未提供活跃账号趋势，显示已采集的每周提交数。</span>
       <span>点击周数据查看该周已采集的 Commit 明细</span>
     </div>
   </GdCard>
@@ -67,7 +74,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[14.5px] font-semibold">Issue 处理</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">Issue 关闭数 · 按周</p>
+          <p class="mt-0.5 text-[11.5px] text-muted">Issue {{ analysis.chartData ? '新增与关闭数' : '关闭数' }} · 按周</p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/issues`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
@@ -101,10 +108,10 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <TimelineChart :releases="releasesYear" :height="112" compact />
+      <TimelineChart :releases="releasesYear" :commits="commitsPoints" :height="112" compact />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ medianInterval?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">典型发布间隔 · {{ analysis.releases.filter((r) => !r.prerelease).length }} 次正式发布<br />最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt ?? '—' }}</span>
+        <span class="text-[11px] leading-tight text-muted">典型发布间隔 · {{ analysis.releases.filter((r) => !r.prerelease).length }} 次正式发布<br />最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
       </div>
     </GdCard>
   </div>

@@ -1,6 +1,6 @@
 import type {
   ActivityTrend, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, Granularity, HistogramResult, ReleaseDetails, ReleaseRecord,
-  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryStatus, RepositorySummary,
+  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryChartData, RepositoryStatus, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
@@ -282,6 +282,37 @@ function mapPoints(value: unknown): TimePoint[] {
     completeWeek: typeof item.complete_week === 'boolean' ? item.complete_week : undefined,
   }))
 }
+function mapChartData(value: unknown): RepositoryChartData | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const source = object(value)
+  return {
+    commitAccounts: Array.isArray(source.commit_accounts) ? source.commit_accounts.filter((item: unknown): item is string => typeof item === 'string') : [],
+    commitWeekly: array(source.commit_weekly).map((item) => ({
+      start: String(item.start ?? '').slice(0, 10), complete: item.complete === true,
+      observedCommits: numberOrNull(item.observed_commits) ?? 0, activeAuthors: numberOrNull(item.active_authors),
+      contributors: Array.isArray(item.contributors) ? item.contributors.map((count: unknown) => numberOrNull(count) ?? 0) : [],
+      otherCommits: numberOrNull(item.other_commits) ?? 0, unidentifiedCommits: numberOrNull(item.unidentified_commits) ?? 0,
+    })),
+    issueOpenedWeekly: mapPoints(source.issue_opened_weekly),
+    issueClosedWeekly: mapPoints(source.issue_closed_weekly),
+    prMergedWeekly: mapPoints(source.pr_merged_weekly),
+    prMonthly: array(source.pr_monthly).map((item) => ({
+      month: String(item.month ?? '').slice(0, 10), counts: Array.isArray(item.counts) ? item.counts.map((count: unknown) => numberOrNull(count) ?? 0) : [],
+      medianHours: numberOrNull(item.median_hours), validSamples: numberOrNull(item.valid_samples) ?? 0, complete: item.complete === true,
+    })),
+    prWeekly: array(source.pr_weekly).map((item) => ({ start: String(item.start ?? '').slice(0, 10), medianHours: numberOrNull(item.median_hours), validSamples: numberOrNull(item.valid_samples) ?? 0 })),
+    prSamples: array(source.pr_samples).flatMap((item) => {
+      const durationHours = numberOrNull(item.duration_hours)
+      return durationHours === null ? [] : [{ id: String(item.id ?? ''), mergedAt: String(item.merged_at ?? ''), durationHours }]
+    }),
+    prSampleTotal: numberOrNull(source.pr_sample_total) ?? 0,
+    prSamplesTruncated: source.pr_samples_truncated === true,
+    releaseIntervals: array(source.release_intervals).map((item) => ({
+      id: String(item.id ?? ''), previousPublishedAt: String(item.previous_published_at ?? ''), publishedAt: String(item.published_at ?? ''),
+      commitCount: numberOrNull(item.commit_count), reason: textOrNull(item.reason),
+    })),
+  }
+}
 function durationHistogram(metric: Record<string, any> | undefined, label: string): HistogramResult {
   const quality = object(metric?.quality)
   return {
@@ -491,6 +522,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     const availabilityReason = textOrNull(result.window_reason)
       ?? `当前数据未覆盖所选的 ${window} 天范围，请按该范围采集后查看。`
     const insightMap = windowAvailable ? object(result.insights) : {}
+    const chartData = windowAvailable ? mapChartData(result.chart_data) : null
     const commit = object(insightMap.commit_activity)
     const issue = object(insightMap.issue_resolution)
     const pull = object(insightMap.pr_merges)
@@ -537,7 +569,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     const releases: ReleaseRecord[] = array(release.timeline).map((item) => ({
       tag: String(item.id ?? ''),
       identifierType: 'release_id',
-      publishedAt: String(item.published_at ?? '').slice(0, 10),
+      publishedAt: String(item.published_at ?? ''),
       prerelease: false,
       intervalDays: null,
       note: '正式发布记录',
@@ -570,13 +602,15 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     const observations = buildObservations(commit, issue, pull, release, result.limitations)
     return {
       repository,
+      chartData,
       metrics,
       commits: makeSeries('commits', 'Commit 数', weeklyCommits, '次', commitQuality, commitsCoverage),
       dailyCommits: { ...makeSeries('daily', '每日 Commit 数', [], '次', commitQuality, { state: 'missing', label: '未提供日级序列' }), granularity: 'day', limitation: '当前后端只提供自然周聚合，未生成每日分布。' },
-      issues: makeSeries('closed', 'Issue 关闭数', weeklyIssues, '个 Issue', issueQuality, issueCoverage),
+      issues: { ...makeSeries('closed', 'Issue 关闭数', weeklyIssues, '个 Issue', issueQuality, issueCoverage),
+        series: [...(chartData ? [{ key: 'opened', label: '新增', points: chartData.issueOpenedWeekly }] : []), { key: 'closed', label: '关闭', points: chartData?.issueClosedWeekly ?? weeklyIssues }] },
       issueDuration,
       openIssueAges: null,
-      pullRequests: makeSeries('merged', 'PR 合并数', weeklyPulls, '个 PR', pullQuality, pullCoverage),
+      pullRequests: makeSeries('merged', 'PR 合并数', chartData?.prMergedWeekly ?? weeklyPulls, '个 PR', pullQuality, pullCoverage),
       prDuration,
       longOpenPrs: [],
       releases,

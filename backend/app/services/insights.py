@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from backend.app.analytics.insights import LIMITATIONS, calculate_insights
+from backend.app.analytics.chart_data import build_chart_data
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import Repository, RepositoryActivityEvent, RepositoryInsightRun
@@ -124,6 +125,7 @@ def _stored_window_events(session: Session, repository_id: int, start, end) -> d
             "merged_at": item.merged_at,
             "published_at": item.published_at,
             "updated_at": item.updated_at,
+            "author_key": item.author_key,
             "is_draft": item.is_draft,
             "is_prerelease": item.is_prerelease,
         } for item in stored]
@@ -214,6 +216,7 @@ def repository_insights(session, repository_id, window_days=90):
         "source_archive_paths": source_archive_paths if isinstance(source_archive_paths, list) else [],
         "sources": sources,
         "insights": metrics,
+        "chart_data": build_chart_data(events, sources, start, end),
         "requested_window_days": window_days,
         "window_available": True,
         "available_window_days": available_days,

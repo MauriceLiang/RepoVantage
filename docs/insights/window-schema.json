@@ -125,6 +125,18 @@
             "type": "object",
             "title": "Insights"
           },
+          "chart_data": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chart Data"
+          },
           "limitations": {
             "items": {
               "type": "string"

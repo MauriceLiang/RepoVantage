@@ -287,6 +287,20 @@ export interface Observation {
   evidence: string
 }
 
+export interface RepositoryChartData {
+  commitAccounts: string[]
+  commitWeekly: { start: string; complete: boolean; observedCommits: number; activeAuthors: number | null; contributors: number[]; otherCommits: number; unidentifiedCommits: number }[]
+  issueOpenedWeekly: TimePoint[]
+  issueClosedWeekly: TimePoint[]
+  prMergedWeekly: TimePoint[]
+  prMonthly: { month: string; counts: number[]; medianHours: number | null; validSamples: number; complete: boolean }[]
+  prWeekly: { start: string; medianHours: number | null; validSamples: number }[]
+  prSamples: { id: string; mergedAt: string; durationHours: number }[]
+  prSampleTotal: number
+  prSamplesTruncated: boolean
+  releaseIntervals: { id: string; previousPublishedAt: string; publishedAt: string; commitCount: number | null; reason: string | null }[]
+}
+
 export interface RepositoryAnalysis {
   /** Coverage proof and current event-store calculation have separate provenance. */
   provenance?: {
@@ -299,6 +313,7 @@ export interface RepositoryAnalysis {
     eventSourceTaskIds: string[]
   }
   repository: RepositorySummary
+  chartData: RepositoryChartData | null
   metrics: MetricSet
   /** Weekly commit series (main chart). */
   commits: TimeSeriesResult

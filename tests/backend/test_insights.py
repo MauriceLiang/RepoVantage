@@ -158,6 +158,38 @@ def test_insights_recompute_selected_window_and_keep_release_window_fixed(backen
     assert client.get("/api/v1/repositories/123/insights?window_days=60", headers=HEADERS).status_code == 422
 
 
+def test_combination_chart_data_is_built_from_stored_events(backend_client):
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    start = END - timedelta(days=30)
+    raw = {
+        "commits": [
+            {"sha": "a" * 40, "author": {"id": 42}, "commit": {"committer": {"date": iso_z(start + timedelta(days=5))}}},
+            {"sha": "b" * 40, "commit": {"committer": {"date": iso_z(start + timedelta(days=6))}}},
+        ],
+        "issues": [
+            {"id": 1, "created_at": iso_z(start + timedelta(days=3)), "closed_at": iso_z(start + timedelta(days=5))},
+            {"id": 5, "created_at": iso_z(start + timedelta(days=4)), "closed_at": None},
+        ],
+        "pulls": [{"id": 2, "created_at": iso_z(start + timedelta(days=2)), "merged_at": iso_z(start + timedelta(days=5))}],
+        "releases": [{"id": 3, "published_at": iso_z(start + timedelta(days=4))}, {"id": 4, "published_at": iso_z(start + timedelta(days=7))}],
+    }
+    sources = {key: {"coverage": "complete", "requested_interval": [iso_z(start), iso_z(END)]} for key in raw}
+    with factory() as session:
+        persist_insights(session, 123, "chart-task", raw, sources, start, END, [])
+        session.commit()
+
+    response = client.get("/api/v1/repositories/123/insights?window_days=30", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    charts = response.json()["data"]["chart_data"]
+    assert charts["commit_accounts"] == ["github:42"]
+    assert sum(week["unidentified_commits"] for week in charts["commit_weekly"]) == 1
+    assert sum(week["observed_events"] for week in charts["issue_opened_weekly"]) == 2
+    assert sum(week["observed_events"] for week in charts["issue_closed_weekly"]) == 1
+    assert charts["pr_sample_total"] == 1 and charts["pr_samples"][0]["duration_hours"] == 72
+    assert charts["release_intervals"][0]["commit_count"] == 2
+
+
 def test_closed_issue_records_search_pagination_and_safe_csv(backend_client, monkeypatch, tmp_path):
     from backend.app.pipeline.raw_archive import archive_json
 

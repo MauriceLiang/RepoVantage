@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import ReleaseCadenceChart from '@/components/charts/ReleaseCadenceChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
+import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
@@ -14,9 +15,16 @@ const dataSource = useDataSource()
 let releaseDetailRequest = 0
 
 const yearReleases = computed(() => props.analysis.releases)
+const commitPoints = computed(() => {
+  const points = props.analysis.commits.series[0]?.points ?? []
+  return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
+})
 const cadenceItems = computed(() => yearReleases.value
   .filter((release) => !release.prerelease && release.intervalDays !== null)
-  .map((release) => ({ tag: release.tag, date: release.publishedAt, days: release.intervalDays as number })))
+  .map((release) => {
+    const interval = props.analysis.chartData?.releaseIntervals.find((item) => item.id === release.tag)
+    return { tag: release.tag, date: release.publishedAt, days: release.intervalDays as number, previousDate: interval?.previousPublishedAt ?? null, commitCount: interval?.commitCount ?? null, reason: interval?.reason ?? null }
+  }))
 const identifierLabel = computed(() => yearReleases.value[0]?.identifierType === 'release_id' ? 'Release ID' : '版本')
 const sorted = computed(() => [...yearReleases.value].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt)))
 const median = computed(() => {
@@ -60,13 +68,13 @@ async function openRelease(release: ReleaseRecord) {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h3 class="m-0 text-[15.5px] font-semibold">发布时间线</h3>
-        <p class="mt-0.5 text-[12px] text-muted">横轴按真实日期 · 默认放大最近 90 天 · 滑块浏览近 365 天 · 同日版本错开显示</p>
+        <p class="mt-0.5 text-[12px] text-muted">提交活动面积与 Release 标记 · 默认显示最近 90 天 · 滑块浏览近 365 天</p>
       </div>
     <span class="text-[11.5px] text-muted">正式发布 {{ yearReleases.length }} 次</span>
     </div>
-    <TimelineChart :releases="yearReleases" :height="220" @select="openRelease" />
+    <TimelineChart :releases="yearReleases" :commits="commitPoints" :height="220" @select="openRelease" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>后端当前只提供正式 Release 的日期聚合；没有 Release 不代表没有代码更新</span>
+      <span>Release 显示近 365 天；标记纵向位置不代表提交数。提交仅显示当前分析窗口的周数据，空白不代表没有提交。</span>
       <span>点击圆点或下方记录查看 Release 详情</span>
     </div>
   </GdCard>
@@ -76,13 +84,13 @@ async function openRelease(release: ReleaseRecord) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">相邻发布间隔</h3>
-          <p class="mt-0.5 text-[12px] text-muted">近 365 天正式 Release · 按发布时间排序后的相邻天数</p>
+          <p class="mt-0.5 text-[12px] text-muted">近 365 天已采集的正式 Release · 按发布时间排序</p>
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ cadenceItems.length }} · P50 {{ median?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</span>
       </div>
-      <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :median="median" :height="290" @select="openReleaseByTag" />
+      <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :height="290" @select="openReleaseByTag" />
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">相邻间隔至少需要 2 次正式发布；当前没有可比较的连续版本。</div>
-      <p class="m-0 text-[11px] text-muted">横轴为发布日期，纵轴为距上个正式版本的天数；虚线为样本 P50。点击数据点查看该版本说明。</p>
+      <p class="m-0 text-[11px] text-muted">柱为已观察的发布间隔；折线为两次发布间的提交数（含前次、不含本次，UTC），仅在 Commit 完整覆盖该区间时显示。点击查看版本说明。</p>
     </GdCard>
 
     <GdCard class="h-[420px] overflow-hidden">
@@ -107,7 +115,7 @@ async function openRelease(release: ReleaseRecord) {
               <td class="border-b border-line px-2.5 py-2.5 font-mono">
                 <button type="button" class="text-left hover:underline focus-visible:underline" @click.stop="openRelease(release)">{{ release.identifierType === 'release_id' ? `#${release.tag}` : release.tag }}</button>
               </td>
-              <td class="border-b border-line px-2.5 py-2.5 font-mono text-muted">{{ release.publishedAt }}</td>
+              <td class="border-b border-line px-2.5 py-2.5 font-mono text-muted">{{ release.publishedAt.slice(0, 10) }}</td>
               <td class="border-b border-line px-2.5 py-2.5">{{ release.prerelease ? '预发布' : '正式' }}</td>
               <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ release.intervalDays === null ? '—' : `${release.intervalDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天` }}</td>
             </tr>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import IssueTrendChart from '@/components/charts/IssueTrendChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
@@ -117,13 +118,15 @@ async function exportCsv() {
   <GdCard>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h3 class="m-0 text-[15.5px] font-semibold">Issue 关闭趋势</h3>
-        <p class="mt-0.5 text-[12px] text-muted">按 closed_at 所在自然周统计 · 已排除 Pull Request</p>
+        <h3 class="m-0 text-[15.5px] font-semibold">Issue 处理趋势</h3>
+        <p class="mt-0.5 text-[12px] text-muted">按创建和关闭时间统计自然周 · 已排除 Pull Request</p>
       </div>
       <GdCoverageNote :coverage="analysis.issues.coverage" />
     </div>
-    <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#CE3F7C']" :height="250" />
-    <p class="text-[11px] text-muted">未覆盖或不完整的周保持空值；关闭耗时只纳入有效 created_at 与 closed_at 样本。</p>
+    <IssueTrendChart v-if="analysis.chartData" :series="analysis.issues.series" :height="250" />
+    <GroupedChart v-else :series="analysis.issues.series" :unit="analysis.issues.unit" :height="250" />
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">橙色区域表示新增多于关闭，蓝色表示关闭多于新增；这是事件数差值，不等于待处理数量。覆盖不完整时仅显示已观察样本。</p>
+    <p v-else class="text-[11px] text-muted">当前数据未提供新增 Issue 趋势，显示已采集的关闭数量。</p>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1fr_1.15fr]">

@@ -1,6 +1,6 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, Granularity, HistogramResult,
-  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, PullRequestRecord, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositorySummary,
+  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, PullRequestRecord, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryChartData, RepositorySummary,
   ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
@@ -40,6 +40,7 @@ function unavailableWindowAnalysis(seed: RepoSeed, window: TimeWindow, available
   const emptyMetrics = metrics(seed, window)
   return {
     repository: summaryOf(seed),
+    chartData: null,
     metrics: {
       ...emptyMetrics,
       metrics: emptyMetrics.metrics.map((item) => ({ ...item, value: null, sampleSize: 0, note: reason })),
@@ -218,6 +219,62 @@ function prSeries(seed: RepoSeed, window: TimeWindow, granularity: Granularity):
 
 function releasesOf(seed: RepoSeed): ReleaseRecord[] {
   return [...seed.releases].sort((a, b) => +new Date(a.publishedAt) - +new Date(b.publishedAt))
+}
+
+function demoChartData(seed: RepoSeed, window: TimeWindow): RepositoryChartData {
+  const range = windowRange(seed, window)
+  const authors = seed.authors.filter((author) => !author.anonymous && author.commits > 0)
+  const accounts = authors.slice(0, 5).map((author) => `demo:${author.author}`)
+  const totalWeight = authors.reduce((sum, author) => sum + author.commits, 0)
+  const commitWeekly = weeklyPoints(seed, window).map((point) => {
+    const total = point.value ?? 0
+    const counts = authors.map((author) => totalWeight ? Math.floor(total * author.commits / totalWeight) : 0)
+    let remainder = total - counts.reduce((sum, count) => sum + count, 0)
+    for (let index = 0; index < counts.length && remainder > 0; index += 1, remainder -= 1) counts[index] += 1
+    return {
+      start: point.date, complete: point.completeWeek === true && seed.coverage.state === 'complete', observedCommits: total,
+      activeAuthors: counts.filter((count) => count > 0).length, contributors: counts.slice(0, 5),
+      otherCommits: counts.slice(5).reduce((sum, count) => sum + count, 0), unidentifiedCommits: authors.length ? 0 : total,
+    }
+  })
+  const merged = prSeries(seed, window, 'week').series.find((series) => series.key === 'merged')?.points ?? []
+  const samples = merged.flatMap((point, weekIndex) => Array.from({ length: point.value ?? 0 }, (_, index) => ({
+    id: String(1000 + weekIndex * 100 + index),
+    mergedAt: `${addDays(point.date, index % 7)}T12:00:00Z`,
+    durationHours: [8, 36, 96, 240, 840][(weekIndex + index) % 5],
+  }))).filter((sample) => sample.mergedAt.slice(0, 10) >= range.start && sample.mergedAt.slice(0, 10) < range.end)
+  const median = (values: number[]) => {
+    const sorted = [...values].sort((a, b) => a - b)
+    if (!sorted.length) return null
+    const middle = Math.floor(sorted.length / 2)
+    return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2
+  }
+  const prWeekly = merged.map((point) => {
+    const end = addDays(point.date, 7)
+    const values = samples.filter((sample) => sample.mergedAt.slice(0, 10) >= point.date && sample.mergedAt.slice(0, 10) < end).map((sample) => sample.durationHours)
+    return { start: point.date, medianHours: median(values), validSamples: values.length }
+  })
+  const prMonthly: RepositoryChartData['prMonthly'] = []
+  let month = new Date(`${range.start.slice(0, 7)}-01T00:00:00Z`)
+  while (month.toISOString().slice(0, 10) < range.end) {
+    const start = month.toISOString().slice(0, 10)
+    const next = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1)).toISOString().slice(0, 10)
+    const values = samples.filter((sample) => sample.mergedAt.slice(0, 10) >= start && sample.mergedAt.slice(0, 10) < next).map((sample) => sample.durationHours)
+    const edges = [0, 24, 72, 168, 720, Infinity]
+    prMonthly.push({ month: start, counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length), medianHours: median(values), validSamples: values.length, complete: seed.coverage.state === 'complete' && start >= range.start && next <= range.end })
+    month = new Date(`${next}T00:00:00Z`)
+  }
+  const formal = releasesOf(seed).filter((release) => !release.prerelease && release.publishedAt >= addDays(range.end, -365) && release.publishedAt < range.end)
+  const daily = dailyPoints(seed, window)
+  const releaseIntervals = formal.slice(1).map((release, index) => {
+    const previous = formal[index]
+    const covered = seed.coverage.state === 'complete' && previous.publishedAt >= range.start && release.publishedAt <= range.end
+    return { id: release.tag, previousPublishedAt: previous.publishedAt, publishedAt: release.publishedAt,
+      commitCount: covered ? daily.filter((point) => point.date >= previous.publishedAt && point.date < release.publishedAt).reduce((sum, point) => sum + (point.value ?? 0), 0) : null,
+      reason: covered ? null : 'Commit 未完整覆盖此发布间隔' }
+  })
+  return { commitAccounts: accounts, commitWeekly, issueOpenedWeekly: issuesSeries(seed, window, 'week').series[0]?.points ?? [], issueClosedWeekly: issuesSeries(seed, window, 'week').series[1]?.points ?? [], prMergedWeekly: merged,
+    prMonthly, prWeekly, prSamples: samples, prSampleTotal: samples.length, prSamplesTruncated: false, releaseIntervals }
 }
 
 function observationsOf(seed: RepoSeed) {
@@ -455,6 +512,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     const prSample = Math.round(seed.prSample * (window === 90 ? 1 : buckets(seed, window).length / Math.max(1, seed.weeklyCommits.length)))
     return {
       repository: summaryOf(seed),
+      chartData: demoChartData(seed, window),
       metrics: metrics(seed, window),
       commits: timeSeries(seed, window, granularity, {
         key: 'commits', label: '提交数', unit: '次', sampleSize: commits, coverage: coverageFor(seed, window),
