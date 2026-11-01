@@ -4,10 +4,10 @@ import type {
 } from './types'
 
 /**
- * The single data boundary of the app.
+ * 应用统一的数据访问边界。
  *
- * Pages/charts never import data fixtures directly; real and explicit mock
- * modes both implement this interface.
+ * 页面和图表不直接引用示例数据；真实模式与显式开启的演示模式
+ * 均实现此接口，调用方无需了解数据来自哪种实现。
  */
 export interface RepositoryDataSource {
   getCollectionSettings(): Promise<CollectionSettings>
@@ -17,7 +17,7 @@ export interface RepositoryDataSource {
   getFeaturedDatasetStatus(): Promise<FeaturedDatasetStatus>
   importFeaturedDataset(): Promise<FeaturedDatasetImportResult>
   exportFeaturedDataset(): Promise<Blob>
-  /** Current local Commit trend and its reason when a percent change is unavailable. */
+  /** 返回当前本地 Commit 趋势；无法计算变化百分比时同时返回原因。 */
   getActivityTrend(id: string): Promise<ActivityTrend>
   searchRepositories(query: string): Promise<(RepositorySummary & { alreadyInLibrary: boolean })[]>
   addRepository(input: string): Promise<{ repositoryId: string; taskId: string | null; existing: boolean }>
@@ -26,11 +26,10 @@ export interface RepositoryDataSource {
   refreshRepository(id: string, options: { scopeKind: 'quick' | 'window'; windowDays: TimeWindow }): Promise<string>
 
   /**
-   * Full analysis bundle for one repository.
+   * 返回单个仓库的完整分析数据。
    *
-   * The browser gateway returns metric summaries and event-derived chart data.
-   * Detailed records are requested separately; unavailable values remain null
-   * and are never inferred from aggregate totals.
+   * 浏览器网关返回指标摘要和基于事件的图表数据，逐条记录需要单独请求。
+   * 不可用的值保持为 null，不能通过聚合总数倒推出明细。
    */
   getAnalysis(id: string, window: TimeWindow): Promise<RepositoryAnalysis>
   getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
@@ -44,7 +43,7 @@ export interface RepositoryDataSource {
   exportPullRequestRecords(id: string, search: string): Promise<Blob>
   getReleaseDetails(repositoryId: string, releaseId: string): Promise<ReleaseDetails>
 
-  /** Compare 2–5 repositories using a shared period or each repository's own complete period. */
+  /** 对比 2 至 5 个仓库，可选共同时间区间或各仓库自己的完整区间。 */
   getComparison(ids: string[], window: TimeWindow, mode: ComparisonMode): Promise<ComparisonBundle>
 
   getResearchDataset(id?: string, mode?: ResearchAnalysisMode | 'auto'): Promise<ResearchDataset>

@@ -1,4 +1,4 @@
-"""Verify a featured dataset directory or ZIP without contacting GitHub or a DB."""
+"""离线校验精选数据集目录或 ZIP 文件，不连接 GitHub 或数据库。"""
 
 import argparse
 import json

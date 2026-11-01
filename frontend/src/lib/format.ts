@@ -1,4 +1,4 @@
-/** Format API timestamps consistently in UTC; keep unparseable dates visible. */
+/** 将 API 时间统一按 UTC 显示；无法解析的日期保留原文，避免掩盖数据问题。 */
 export function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   const date = new Date(value)

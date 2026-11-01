@@ -17,8 +17,8 @@ function isJsonResponse(response: Response): boolean {
 }
 
 async function openSession() {
-  // Share an in-flight handshake across concurrent page requests. Clear the
-  // promise on success or failure so a later request can renew the session.
+  // 并发请求共享尚未完成的会话握手；成功或失败后都清除 Promise，
+  // 使后续请求可以重新建立会话。
   if (!sessionRequest) {
     sessionRequest = fetch('/api/browser/session', {
       credentials: 'same-origin',
@@ -41,8 +41,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
 
   const response = await fetch(`/api/browser/v1${path}`, { ...init, headers, credentials: 'same-origin' })
-  // An outdated SPA fallback can return HTML with HTTP 200 for an API URL.
-  // Reject it before attempting to interpret the response as an API envelope.
+  // 旧版单页应用的兜底路由可能对 API 地址返回状态为 200 的 HTML。
+  // 必须先拒绝非 JSON 响应，不能将网页误解析为 API 数据。
   if (response.status !== 204 && !isJsonResponse(response)) {
     throw new Error('后端返回了网页而不是 API 数据，可能仍在运行旧版本；请重启后端后重试')
   }

@@ -1,1 +1,1 @@
-"""RepoVantage backend package."""
+"""RepoVantage 后端包。"""

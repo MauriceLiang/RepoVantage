@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { TimeWindow } from '@/services/types'
 
-/** Cross-page analysis preferences (shared by header, tabs and comparison). */
+/** 跨页面共享的分析偏好，供仓库头部、分析标签和比较页共同使用。 */
 export const useAnalysisStore = defineStore('analysis', () => {
   const preferenceKey = 'repovantage-analysis-window'
   const savedWindow = typeof localStorage === 'undefined' ? null : Number(localStorage.getItem(preferenceKey))

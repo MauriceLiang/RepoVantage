@@ -267,7 +267,7 @@ class GitHubClient:
         if type(pull_number) is not int or pull_number <= 0:
             raise AppError(400, "INVALID_PULL_REQUEST_NUMBER", "Pull Request 编号无效")
         owner, repo = validate_full_name(full_name)
-        # Pull Request conversation comments use GitHub's Issues comments endpoint.
+        # PR 对话评论使用 GitHub 的 Issue 评论接口获取。
         return self.list_paginated_detailed(f"/repos/{owner}/{repo}/issues/{pull_number}/comments", max_pages=1)
 
     def list_pulls(self, full_name: str, state: str = "closed"):
@@ -311,13 +311,12 @@ class GitHubClient:
         collect_raw_pages: bool = True,
         stop_after_page: Callable[[list[dict[str, Any]]], bool] | None = None,
     ) -> PaginatedResult:
-        """Read GitHub pages, optionally resuming and reporting each saved page.
+        """读取 GitHub 分页，可从断点继续并逐页报告已保存的数据。
 
-        Offsets make callback counters continuous across attempts; the page budget
-        applies to this call. A validated GitHub next URL is required for resume.
-        Request failures return the pages already observed with incomplete coverage;
-        invalid pagination URLs and callback failures still raise. Callers may stop
-        early when their query-specific condition is met.
+        页数和记录偏移量让多次尝试的回调计数连续；页数预算仅约束本次调用。
+        断点续采必须使用经过校验的 GitHub 下一页地址。
+        请求失败时返回已观察到的页面并标记覆盖不完整；分页地址无效或回调失败
+        仍向上抛出异常。满足调用方指定的查询条件时也可提前停止。
         """
         rows: list[dict[str, Any]] = []
         archives: list[str] = []

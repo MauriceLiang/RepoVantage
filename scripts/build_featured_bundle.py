@@ -1,4 +1,4 @@
-"""Build the sanitized, versioned featured dataset directory from local DB data."""
+"""使用本地数据库数据构建已脱敏、带版本号的精选数据集目录。"""
 
 import argparse
 import json

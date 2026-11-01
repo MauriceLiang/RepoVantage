@@ -1,4 +1,4 @@
-"""Persist featured dataset imports and their staged records."""
+"""持久化精选数据集导入任务及其暂存记录。"""
 
 import sqlalchemy as sa
 from alembic import op

@@ -4,10 +4,9 @@ export interface AuthorDistributionBucket {
 }
 
 /**
- * Summarize identified authors in the collected sample, not all GitHub history.
- * Buckets are ordered by contributions to build the Lorenz curve; trapezoid
- * areas yield the Gini coefficient. A reverse pass finds how many top authors
- * account for at least half of those identified commits.
+ * 汇总本次采集样本中可识别的作者，不代表 GitHub 的全部历史。
+ * 按提交量从小到大排列分组并构造洛伦兹曲线，以梯形面积计算基尼系数；
+ * 再倒序累计，求出贡献至少一半已识别提交所需的最少作者数。
  */
 export function summarizeAuthorDistribution(buckets: AuthorDistributionBucket[]) {
   const sorted = [...buckets].sort((a, b) => a.commits - b.commits)

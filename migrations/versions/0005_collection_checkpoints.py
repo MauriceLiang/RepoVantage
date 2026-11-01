@@ -1,4 +1,4 @@
-"""Persist collection scope, pagination checkpoints, and GitHub quota state."""
+"""持久化采集范围、分页断点和 GitHub 配额状态。"""
 import sqlalchemy as sa
 from alembic import op
 

@@ -135,6 +135,12 @@ def _update_phase(
 
 
 def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
+    """执行已领取的仓库采集任务，并根据实际覆盖情况保存分析结果。
+
+    流程依次获取仓库资料、按需采集深度活动、计算指标并提交快照。
+    每次保存前检查任务尝试次数和租约持有者，避免过期 Worker 覆盖新任务；
+    GitHub 限流时保留已完成的检查点，按重试策略延后继续。
+    """
     session: Session = session_factory()
     expected_attempt: int | None = None
     expected_owner: str | None = None
@@ -164,6 +170,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
         previous = latest_snapshot(session, repo.repository_id)
         reusable_basic_analysis = None
         request_etag = None
+        # 只有快照对应的基础分析仍然有效，才能使用 ETag 复用 304 响应。
         if task.depth == "basic" and previous and previous.response_etag:
             candidate = latest_analysis(session, repo.repository_id, "basic")
             try:
@@ -259,6 +266,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 scoped_end = parse_github_datetime(task_scope.get("window_end")) if isinstance(task_scope, dict) else None
                 if scoped_start and scoped_end and scoped_start < scoped_end:
                     if task.scope_kind in {"incremental", "backfill"}:
+                        # 实际查询起点可以晚于或早于分析窗口起点，必须分别记录。
                         query_start = scoped_start
                         analysis_start = parse_github_datetime(task_scope.get("analysis_window_start"))
                         analysis_end = parse_github_datetime(task_scope.get("analysis_window_end"))
@@ -304,6 +312,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
             limitations.append(PAGE_LIMIT_NOTE)
         _update_phase(session, task, reporter, "persisting", "正在保存快照、分析结果与来源记录", 98 if reporter else None)
 
+        # 采集期间租约可能已过期；取得写锁后重新核对执行权，再提交全部结果。
         session.rollback()
         begin_immediate(session)
         task = session.get(CollectionTask, task_id)

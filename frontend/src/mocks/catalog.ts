@@ -1,7 +1,7 @@
 /**
- * Synthetic data for the explicitly enabled demo mode. Values illustrate UI
- * states and are not measurements of real repositories or a statistical sample.
- * Demo repositories use the `demo-labs/*` namespace.
+ * 仅供显式启用的演示模式使用的合成数据，用于展示不同界面状态；
+ * 这些数值不是实际仓库的测量结果，也不能作为统计样本。
+ * 演示仓库统一使用 `demo-labs/*` 命名空间。
  */
 import type {
   AuthorContribution, Coverage, ReleaseRecord, RepositoryStatus,
@@ -18,7 +18,7 @@ export interface RepoSeed {
   status: RepositoryStatus
   lastAnalyzedAt: string | null
   weeklyCommits: number[]
-  /** First week start (ISO). Later repos (small samples) start later. */
+  /** 首个自然周的起始日期（ISO 格式）；小样本仓库的起点可能更晚。 */
   firstWeek: string
   authors: AuthorContribution[]
   issueFactor: number
@@ -27,7 +27,7 @@ export interface RepoSeed {
   issueP75: number
   prP50: number
   prP90: number
-  /** Median sample sizes for the 90-day window (scaled for other windows). */
+  /** 90 天窗口的中位数样本量；其他窗口按时间范围缩放。 */
   issueSample: number
   prSample: number
   releases: ReleaseRecord[]

@@ -1,4 +1,4 @@
-"""insights-v1: deterministic UTC event statistics, independent of HTTP/DB/UI."""
+"""insights-v1：基于 UTC 的确定性事件统计，不依赖 HTTP、数据库或界面。"""
 from datetime import datetime, timedelta
 from statistics import median
 
@@ -36,10 +36,10 @@ def quality(source, n, *, insufficient=False):
 
 
 def weekly(events, start, end, source):
-    """Aggregate UTC Monday-start weeks within the half-open analysis window.
+    """在左闭右开的分析窗口内，按 UTC 周一开始的自然周聚合。
 
-    Boundary weeks or incomplete sources retain their observed count, but their
-    authoritative value stays None; zero is only meaningful for a complete week.
+    边界周或数据源不完整时保留已观察数量，但正式统计值为 None；
+    只有完整周中的零才能解释为该周没有观察到事件。
     """
     current = week_start(start)
     points = []
@@ -54,11 +54,10 @@ def weekly(events, start, end, source):
 
 
 def duration_metric(events, start, end, source, field, key):
-    """Summarize valid created-to-terminal durations for events ending in the window.
+    """统计在窗口内结束的事件从创建到结束的有效耗时。
 
-    Missing or reversed timestamps are excluded and counted separately. P75 needs
-    five valid samples and P90 needs ten; the median and histogram use all valid
-    samples without imputing missing durations.
+    缺失或倒序的时间戳会排除并单独计数。P75 至少需要 5 个有效样本，
+    P90 至少需要 10 个；中位数和直方图使用全部有效样本，不填补缺失耗时。
     """
     terminal = [e for e in events if e[field] is not None and start <= e[field] < end]
     values = []
@@ -76,11 +75,10 @@ def duration_metric(events, start, end, source, field, key):
 
 
 def calculate_insights(events, sources, start, end):
-    """Calculate insights-v1 from normalized events and per-module coverage.
+    """根据标准化事件和各模块覆盖状态计算 insights-v1 指标。
 
-    The commit change compares two groups of four complete UTC weeks. Release
-    cadence deliberately uses the 365 days ending at ``end``, independently of
-    the shorter selected activity window.
+    Commit 变化比较连续两组各 4 个完整 UTC 自然周。
+    发布节奏固定使用截至 ``end`` 的前 365 天，不受较短的活动窗口影响。
     """
     commits = events["commits"]
     points = weekly(commits, start, end, sources["commits"])

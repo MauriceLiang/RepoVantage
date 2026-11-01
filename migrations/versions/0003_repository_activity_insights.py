@@ -1,4 +1,4 @@
-"""Add event facts and immutable insight runs; preserve all existing tables."""
+"""新增事件事实和不可变的分析运行记录，保留已有数据表。"""
 import sqlalchemy as sa
 from alembic import op
 

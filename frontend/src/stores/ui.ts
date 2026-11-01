@@ -12,7 +12,7 @@ export interface Toast {
   status: ToastStatus
 }
 
-// Preserve existing users' theme after the GitHubDA rename; applyTheme migrates the key.
+// 兼容项目更名之前保存的主题；applyTheme 会将旧键迁移到新名称。
 const stored = (typeof localStorage !== 'undefined' && (localStorage.getItem('repovantage-theme') ?? localStorage.getItem('githubda-theme'))) as ThemeMode | null
 
 export const useUiStore = defineStore('ui', () => {

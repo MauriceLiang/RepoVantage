@@ -12,15 +12,8 @@ import { useUiStore } from '@/stores/ui'
 const ui = useUiStore()
 const dataSource = useDataSource()
 const payload = computed(() => ui.drawerPayload ?? {})
-const issueComments = computed<IssueComment[]>(() => {
-  try {
-    const value: unknown = JSON.parse(payload.value.commentsJson ?? '[]')
-    return Array.isArray(value) ? value as IssueComment[] : []
-  } catch {
-    return []
-  }
-})
-const pullRequestComments = computed<IssueComment[]>(() => {
+// Issue 与 PR 共用抽屉载荷；评论数据为空或解析失败时显示空列表。
+const comments = computed<IssueComment[]>(() => {
   try {
     const value: unknown = JSON.parse(payload.value.commentsJson ?? '[]')
     return Array.isArray(value) ? value as IssueComment[] : []
@@ -263,7 +256,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <p v-if="payload.onlineError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="alert">{{ payload.onlineError }}；当前仍可查看本地采集内容。</p>
         <p v-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'mock'" class="mt-2 text-[11px] text-muted">演示模式：以下为示例数据，没有连接 GitHub。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">Issue 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
-        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ issueComments.length }} / {{ payload.commentsCount }} 条评论；评论较多，完整讨论请在 GitHub 查看。</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ comments.length }} / {{ payload.commentsCount }} 条评论；评论较多，完整讨论请在 GitHub 查看。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'github'" class="mt-2 text-[11px] text-muted">已从 GitHub 获取最新 Issue 内容与评论。</p>
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 Issue 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
@@ -276,9 +269,9 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
           <h3 class="m-0 text-[13px] font-semibold text-ink">讨论记录</h3>
           <span class="text-[11px] text-muted">{{ payload.commentsCount ?? '0' }} 条评论</span>
         </div>
-        <p v-if="!issueComments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 Issue 暂无评论。</p>
+        <p v-if="!comments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 Issue 暂无评论。</p>
         <div v-else class="mt-2 space-y-3">
-          <article v-for="(comment, index) in issueComments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
+          <article v-for="(comment, index) in comments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
             <div class="flex flex-wrap items-center justify-between gap-1 text-[11px]">
               <span class="font-medium text-ink">{{ comment.author }}</span>
               <time v-if="comment.createdAt" class="font-mono text-muted">{{ comment.createdAt }}</time>
@@ -313,7 +306,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <p v-if="payload.onlineError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="alert">{{ payload.onlineError }}；当前仍可查看本地采集内容。</p>
         <p v-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'mock'" class="mt-2 text-[11px] text-muted">演示模式：以下为示例数据，没有连接 GitHub。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">PR 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
-        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ pullRequestComments.length }} / {{ payload.commentsCount }} 条评论；完整讨论请在 GitHub 查看。</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ comments.length }} / {{ payload.commentsCount }} 条评论；完整讨论请在 GitHub 查看。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'github'" class="mt-2 text-[11px] text-muted">已从 GitHub 获取最新 PR 内容与对话评论。</p>
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 PR 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
@@ -324,11 +317,11 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section v-if="payload.onlineStatus === 'ready'" class="mt-5">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">对话评论</h3>
-          <span class="text-[11px] text-muted">{{ pullRequestComments.length }} / {{ payload.commentsCount ?? '0' }} 条</span>
+          <span class="text-[11px] text-muted">{{ comments.length }} / {{ payload.commentsCount ?? '0' }} 条</span>
         </div>
-        <p v-if="!pullRequestComments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 PR 暂无对话评论。</p>
+        <p v-if="!comments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 PR 暂无对话评论。</p>
         <div v-else class="mt-2 space-y-3">
-          <article v-for="(comment, index) in pullRequestComments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
+          <article v-for="(comment, index) in comments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
             <div class="flex flex-wrap items-center justify-between gap-1 text-[11px]">
               <span class="font-medium text-ink">{{ comment.author }}</span>
               <time v-if="comment.createdAt" class="font-mono text-muted">{{ comment.createdAt }}</time>

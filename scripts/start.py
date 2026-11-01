@@ -1,4 +1,4 @@
-"""Build the Vue UI and start the API and worker as one local stack."""
+"""构建 Vue 前端，并将 API 与 Worker 作为一套本地服务启动。"""
 
 from __future__ import annotations
 

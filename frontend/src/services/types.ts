@@ -1,15 +1,15 @@
 /**
- * Front-end data model for RepoVantage.
+ * RepoVantage 前端数据模型。
  *
- * These types describe what the UI needs. API payloads are adapted in
- * httpRepositoryDataSource.ts; unavailable backend values stay null.
+ * 类型按界面需要定义；后端 API 响应由 httpRepositoryDataSource.ts 转换。
+ * 后端未提供的数值保持为 null，不能当作零或自行推算。
  */
 
 export type TimeWindow = 30 | 90 | 180
 
 export type RepositoryStatus = 'ready' | 'partial' | 'running' | 'idle' | 'failed'
 
-/** Never render "unknown" as zero — see CoverageNote. */
+/** 覆盖情况：未知数据不能显示为零，界面通过覆盖说明提示原因。 */
 export interface Coverage {
   state: 'complete' | 'partial' | 'missing'
   label: string
@@ -17,12 +17,12 @@ export interface Coverage {
 }
 
 export interface TimePoint {
-  /** ISO date, the bucket start (UTC). */
+  /** UTC 时间分桶的起点，采用 ISO 日期格式。 */
   date: string
   value: number | null
-  /** Count observed in this bucket when value is withheld for incomplete coverage. */
+  /** 覆盖不完整而隐藏正式数值时，仍可展示该分桶已观察到的数量。 */
   observedValue?: number | null
-  /** Natural-week quality fields are present on backend insight points. */
+  /** 后端分析时间点可能附带自然周质量和完整性信息。 */
   quality?: string
   completeWeek?: boolean
 }
@@ -44,18 +44,18 @@ export interface TimeSeriesResult {
   series: NamedSeries[]
   unit: string
   window: { start: string | null; end: string | null }
-  /** Sample size reported by the source metric, independent of bucket count. */
+  /** 来源指标报告的有效样本数，与图表分桶数量无关。 */
   sampleSize: number | null
   coverage: Coverage
   collectedAt: string | null
-  /** Human readable caveat, e.g. "当周尚未完整". */
+  /** 展示给用户的限制说明，例如“当周尚未完整”。 */
   limitation?: string
 }
 
 export interface Metric {
   id: string
   label: string
-  /** null means "unavailable"; the UI renders — with the note. */
+  /** null 表示指标不可用，界面显示“—”并结合说明解释原因。 */
   value: number | null
   unit: string
   note: string
@@ -92,13 +92,13 @@ export interface ActivityTrend {
 }
 
 export interface RepositorySummary {
-  /** Backend repository ID used in routes. */
+  /** 路由使用的后端仓库编号。 */
   id: string
   fullName: string
   description: string | null
   language: string | null
   stars: number | null
-  /** Repository profile values from the latest GitHub snapshot. */
+  /** 仓库资料取自最近一次 GitHub 快照。 */
   forks?: number | null
   license: string | null
   topics: string[]
@@ -106,11 +106,11 @@ export interface RepositorySummary {
   pushedAt?: string | null
   archived?: boolean | null
   sizeKb?: number | null
-  /** GitHub's open_issues_count includes both Issues and pull requests. */
+  /** GitHub 的 open_issues_count 同时包含开放 Issue 和 PR。 */
   openIssuesAndPrCount?: number | null
   status: RepositoryStatus
   lastAnalyzedAt: string | null
-  /** % change of last 4 complete weeks vs previous 4; null when not comparable. */
+  /** 最近 4 个完整周相对前 4 周的变化百分比；不可比较时为 null。 */
   activityDelta: number | null
   htmlUrl?: string
   alreadyInLibrary?: boolean
@@ -272,25 +272,25 @@ export interface Observation {
 }
 
 export interface RepositoryChartData {
-  /** Top five identified GitHub account keys, ordered over the selected window. */
+  /** 所选窗口内按提交量排序的前五个可识别 GitHub 账号标识。 */
   commitAccounts: string[]
-  /** Weekly observed counts; complete=false means the counts are not a full-week total. */
+  /** 按周观察到的数量；complete=false 时不能视为完整一周的总量。 */
   commitWeekly: { start: string; complete: boolean; observedCommits: number; activeAuthors: number | null; contributors: number[]; otherCommits: number; unidentifiedCommits: number }[]
   issueOpenedWeekly: TimePoint[]
   issueClosedWeekly: TimePoint[]
   prMergedWeekly: TimePoint[]
   prMonthly: { month: string; counts: number[]; medianHours: number | null; validSamples: number; complete: boolean }[]
   prWeekly: { start: string; medianHours: number | null; validSamples: number }[]
-  /** Scatter points may be sampled; monthly and weekly medians use all valid PRs. */
+  /** 散点可能经过抽样；按月和按周的中位数仍使用全部有效 PR。 */
   prSamples: { id: string; mergedAt: string; durationHours: number }[]
   prSampleTotal: number
   prSamplesTruncated: boolean
-  /** Commit count covers [previous release, current release); null means coverage is unproven. */
+  /** Commit 数对应 [上次发布, 本次发布)；null 表示无法证明区间覆盖完整。 */
   releaseIntervals: { id: string; previousPublishedAt: string; publishedAt: string; commitCount: number | null; reason: string | null }[]
 }
 
 export interface RepositoryAnalysis {
-  /** Coverage proof and current event-store calculation have separate provenance. */
+  /** 覆盖证明和当前事件库计算各有独立来源，不能混为同一次采集。 */
   provenance?: {
     calculationBasis: string
     calculatedAt: string | null
@@ -303,7 +303,7 @@ export interface RepositoryAnalysis {
   repository: RepositorySummary
   chartData: RepositoryChartData | null
   metrics: MetricSet
-  /** Weekly commit series (main chart). */
+  /** 主图使用的每周 Commit 序列。 */
   commits: TimeSeriesResult
   issues: TimeSeriesResult
   issueDuration: HistogramResult
@@ -366,7 +366,7 @@ export interface ComparisonBundle {
 export interface ResearchGroup {
   label: string
   count: number
-  /** Number of repositories in the group with a valid Issue median. */
+  /** 分组中具有有效 Issue 关闭耗时中位数的仓库数。 */
   issueSampleSize: number
   medianCloseDays: number | null
   p25: number | null

@@ -1,4 +1,4 @@
-"""Validate and import the built-in, sanitized featured dataset bundle."""
+"""校验并导入内置的脱敏精选数据包。"""
 
 import gzip
 import hashlib
@@ -63,7 +63,7 @@ MACHINE_PATH_PATTERN = re.compile(r"(?:/Users/[^\s\"<>]+|/private/var/[^\s\"<>]+
 
 
 class BundleError(ValueError):
-    """The bundle is missing, corrupt, unsafe, or not supported."""
+    """数据包不存在、已损坏、存在安全问题或使用了不支持的格式。"""
 
 
 @contextmanager
@@ -466,10 +466,10 @@ def dataset_coverage(session: Session, dataset_id: str) -> dict[str, Any]:
 
 
 def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, Any]]], str]:
-    """Validate the manifest, allowed files, checksums and records before import.
+    """导入前校验清单、允许的文件、校验和及记录内容。
 
-    This function only reads the bundle; callers decide when to stage or commit
-    the returned records. Invalid or unsafe contents raise BundleError.
+    此函数只读取数据包；何时暂存或提交返回的记录由调用方决定。
+    内容无效或不安全时抛出 BundleError，不进行部分导入。
     """
     root = root.resolve()
     manifest_path = root / "dataset.json"
@@ -496,6 +496,7 @@ def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, A
         raise BundleError("data_as_of 必须是有效 ISO-8601 时间")
     sum_map = _read_checksums(root, sums_path)
     all_paths = list(root.rglob("*"))
+    # 文件清单必须同时匹配允许列表和校验和清单，防止遗漏、额外文件及符号链接。
     if any(path.is_symlink() for path in all_paths):
         raise BundleError("数据包不允许包含符号链接")
     actual_files = {
@@ -523,6 +524,7 @@ def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, A
 
     records = {"repositories": _read_jsonl_gzip(root / "repositories.jsonl.gz")}
     repositories = records["repositories"]
+    # 先确定数据包包含哪些仓库；后续所有成员、事件和详情都必须引用这些编号。
     repository_ids = {_positive_int(row.get("repository_id")) for row in repositories}
     if None in repository_ids or len(repository_ids) != len(repositories) or len(repositories) != total:
         raise BundleError("repositories.jsonl.gz 成员数量或仓库 ID 无效")
@@ -549,6 +551,7 @@ def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, A
         ):
             raise BundleError(f"schema 文件结构无效: {relative}")
         schemas.append(schema)
+    # 元数据、各类记录和说明文件都要检查敏感信息，不能只检查仓库正文。
     if _contains_sensitive_data(metadata) or any(_contains_sensitive_data(schema) for schema in schemas) or any(
         _contains_sensitive_data(row) for rows in records.values() for row in rows
     ):
@@ -995,15 +998,8 @@ def _nonnegative_int(value: Any) -> int | None:
     return value if type(value) is int and value >= 0 else None
 
 
-def _contains_email(value: Any) -> bool:
-    if isinstance(value, dict):
-        return any(str(key).casefold() in {"email", "email_address"} or _contains_email(item) for key, item in value.items())
-    if isinstance(value, list):
-        return any(_contains_email(item) for item in value)
-    return isinstance(value, str) and EMAIL_PATTERN.search(value) is not None
-
-
 def _contains_sensitive_data(value: Any) -> bool:
+    """递归检查数据包中的邮箱、凭据和本机路径，防止导入敏感内容。"""
     if isinstance(value, dict):
         return any(
             str(key).casefold() in {"email", "email_address"} or _contains_sensitive_data(item)
@@ -1017,6 +1013,7 @@ def _contains_sensitive_data(value: Any) -> bool:
 
 
 def _json_object(value: str | None) -> dict[str, Any]:
+    """读取可选状态 JSON；缺失、格式错误或非对象时返回空字典。"""
     try:
         parsed = json.loads(value or "{}")
     except (TypeError, ValueError):

@@ -14,11 +14,10 @@ MAX_ATTEMPTS = 3
 
 
 def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> CollectionTask | None:
-    """Atomically recover expired attempts and lease one eligible collection task.
+    """原子地恢复过期任务尝试，并为一个符合条件的采集任务分配租约。
 
-    SQLite's write lock protects both recovery and selection against other workers.
-    Collection and dataset-import jobs are mutually exclusive; history backfills
-    are ordered after interactive collection requests.
+    SQLite 写锁同时保护恢复和选择过程，避免多个 Worker 重复领取。
+    采集任务与数据集导入任务互斥；历史回填排在交互式采集请求之后。
     """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()
@@ -123,9 +122,9 @@ def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> Col
 
 
 def claim_next_dataset_import_job(session: Session, worker_id: str, lease_seconds: int) -> DatasetImportJob | None:
-    """Lease an import job, retaining staged records when an expired job can retry.
+    """为导入任务分配租约；任务过期后若仍可重试，则保留已暂存记录。
 
-    Terminal attempts schedule artifact cleanup only after their status is committed.
+    只有最终状态提交后，才安排清理已结束任务产生的临时文件。
     """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()

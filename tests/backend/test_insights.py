@@ -442,7 +442,7 @@ def test_worker_event_pipeline_and_safe_archive_replay(backend_client, monkeypat
     monkeypatch.setattr('backend.app.pipeline.raw_archive.get_settings', lambda: type('Settings', (), {'raw_data_path': root})())
     worker = WorkerGitHub(github.repository)
     from backend.app.core.clock import utc_now
-    # Dates aligned with the worker's live window, real IDs and committer timestamps.
+    # 日期与 Worker 的实时窗口对齐，并使用有效的事件编号和提交时间戳。
     stamp = iso_z(utc_now() - timedelta(days=2))
     worker.records = {'commits': [{'sha': 'a' * 40, 'commit': {'committer': {'date': stamp}}}], 'issues': [{'id': 1, 'created_at': stamp, 'closed_at': stamp}], 'pulls': [{'id': 2, 'created_at': stamp, 'merged_at': stamp}], 'releases': [{'id': 3, 'published_at': stamp}]}
     original = worker._list
@@ -464,7 +464,7 @@ def test_worker_event_pipeline_and_safe_archive_replay(backend_client, monkeypat
         again = replay_activity(session, 123, apply=True)
         assert again['run_id'] == run.run_id
         assert session.scalar(select(func.count()).select_from(RepositoryInsightRun)) == 1
-        # Tampered archive fails before touching any existing results.
+        # 归档被篡改时应先报错，不得修改已有分析结果。
         activity = session.scalar(select(ActivityWindow))
         activity.source_archive_path = '../outside.json.gz'
         session.flush()
@@ -769,7 +769,7 @@ def test_recalculation_tracks_current_event_sources_without_rewriting_coverage_p
         assert session.scalar(select(func.count()).select_from(RepositoryInsightRun)) == 2
         saved = session.get(RepositoryInsightRun, proof['run_id'])
         assert json.loads(saved.result_json)['observed_counts']['commits_count'] == 89
-    # Research stays on its latest saved run, independent of dynamic window reads.
+    # 研究分析继续使用最近保存的运行结果，不受动态窗口查询影响。
     research_before = client.get('/api/v1/research/insights?dataset_id=saved-research', headers=HEADERS).json()['data']
     with factory() as session:
         event = session.scalar(select(RepositoryActivityEvent).where(RepositoryActivityEvent.source_item_id == 'f' * 40))

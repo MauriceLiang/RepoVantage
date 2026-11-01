@@ -39,7 +39,7 @@ def enqueue_due_refreshes() -> int:
 
 
 def enqueue_due_incremental_syncs() -> int:
-    """Queue rolling-window syncs only where a complete baseline already exists."""
+    """仅为已有完整基线的仓库安排滚动时间窗口同步。"""
     session = SessionLocal()
     added = 0
     try:

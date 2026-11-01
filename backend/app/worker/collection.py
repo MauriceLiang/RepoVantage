@@ -1,4 +1,4 @@
-"""Windowed activity collection with durable per-page checkpoints."""
+"""按时间窗口采集活动数据，并持久保存逐页断点。"""
 import json
 import logging
 import time
@@ -31,11 +31,11 @@ def collect_deep(
     *,
     query_start=None,
 ) -> tuple[dict[str, Any], str, object | None]:
-    """Collect each activity module with per-page checkpoints and resumable archives.
+    """逐模块采集活动数据，保存逐页断点和可续采的归档。
 
-    ``start``/``end`` describe the analysis window; ``query_start`` can be later
-    for an incremental request. The actual query interval is recorded per source,
-    and incomplete pages, limits and rate delays remain distinguishable in coverage.
+    ``start`` 和 ``end`` 表示分析窗口；增量请求的 ``query_start`` 可以更晚。
+    每个数据源分别记录实际查询区间，并在覆盖状态中区分分页未完成、
+    达到页数上限和接口限流等待，避免将它们误认为完整采集。
     """
     query_start = query_start or start
     start_iso = iso_z(start)
@@ -59,8 +59,8 @@ def collect_deep(
         checkpoint = _get_checkpoint(session_factory, task.repository_id, name, fingerprint)
         paths = page_paths(task.repository_id, name, fingerprint)
 
-        # A checkpoint cannot safely resume if its archived pages are missing or
-        # out of order. Extra pages beyond the committed checkpoint are discarded.
+        # 如果归档分页缺失或顺序不对，断点无法安全续采；
+        # 超过已提交断点的多余页面会被丢弃。
         ordered_paths = all(Path(path).name == f"page-{index:06d}.json.gz" for index, path in enumerate(paths, start=1))
         if not ordered_paths or checkpoint["pages_fetched"] > len(paths):
             clear_page_files(task.repository_id, name, fingerprint)

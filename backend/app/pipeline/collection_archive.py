@@ -1,4 +1,4 @@
-"""Atomic, local-only storage for individual GitHub API pages."""
+"""将 GitHub API 分页以原子方式保存在本地。"""
 import gzip
 import hashlib
 import json
@@ -18,7 +18,7 @@ FINGERPRINT = re.compile(r"^[a-f0-9]{64}$")
 
 
 def scope_fingerprint(repository_id: int, module: str, query: dict, window_start: str, window_end: str) -> str:
-    """Bind a resumable page archive to its repository, query and analysis window."""
+    """将可续采的分页归档绑定到仓库、查询条件和分析窗口。"""
     value = json.dumps(
         {"repository_id": repository_id, "module": module, "query": query, "window_start": window_start, "window_end": window_end, "schema_version": 1},
         ensure_ascii=False,
@@ -29,10 +29,10 @@ def scope_fingerprint(repository_id: int, module: str, query: dict, window_start
 
 
 def write_page(repository_id: int, module: str, fingerprint: str, page_index: int, records: list[dict], raw_body: str, request_url: str, http_status: int | None) -> tuple[str, str]:
-    """Publish one compressed response and checksum before its checkpoint advances.
+    """先保存压缩响应及校验和，再允许对应断点向前推进。
 
-    The URL is stored as a digest instead of raw text. Temporary files are renamed
-    into place so an interrupted write does not become a valid completed page.
+    请求 URL 只保存摘要，不保存原文；临时文件通过重命名发布，
+    防止写入中断的文件被误认为已完整保存的分页。
     """
     directory = _scope_dir(repository_id, module, fingerprint)
     if type(page_index) is not int or not 1 <= page_index <= 1_000_000:
@@ -112,7 +112,7 @@ def trim_page_files(repository_id: int, module: str, fingerprint: str, page_coun
 
 
 def read_page(relative_path: str, *, max_compressed_bytes: int = 16_000_000, max_bytes: int = 64_000_000) -> dict:
-    """Read a page only after path, checksum, size and payload checks succeed."""
+    """校验路径、校验和、文件大小及载荷结构后读取单页归档。"""
     relative = Path(relative_path)
     target = (relative if relative.is_absolute() else PROJECT_ROOT / relative).resolve()
     if not target.is_relative_to(COLLECTED_ROOT.resolve()) or target.suffixes[-2:] != [".json", ".gz"]:
@@ -142,13 +142,13 @@ def read_page(relative_path: str, *, max_compressed_bytes: int = 16_000_000, max
 
 
 def iter_module_records(module_archive):
-    """Yield API records from either the current page-file archive or a legacy archive."""
+    """逐条返回当前分页文件归档或旧版归档中的 API 记录。"""
     for page in iter_module_pages(module_archive):
         yield from page
 
 
 def iter_module_pages(module_archive):
-    """Yield validated page arrays without loading the full archive into memory."""
+    """逐页返回经过校验的记录列表，避免将整个归档同时载入内存。"""
     if isinstance(module_archive, dict) and isinstance(module_archive.get("page_files"), list):
         paths = module_archive["page_files"]
         if len(paths) > 100_000 or any(not isinstance(path, str) for path in paths):

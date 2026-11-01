@@ -1,4 +1,4 @@
-"""Queue bounded repository activity collection for an existing dataset."""
+"""为已有数据集安排有范围限制的仓库活动采集任务。"""
 
 import argparse
 import json

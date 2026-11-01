@@ -43,8 +43,8 @@ watch(repositories, async (items) => {
     return
   }
 
-  // The library list is already ordered by last collection. Keep the dashboard
-  // read bounded and rank the latest five analyzable repositories by change.
+  // 仓库列表已按最近采集时间排序；只读取最近五个可分析的仓库，
+  // 再按变化幅度排序，避免首页为全部仓库发起分析请求。
   const candidates = items.filter((repo) => repo.status === 'ready' || repo.status === 'partial').slice(0, 5)
   changeCandidateCount.value = candidates.length
   if (!candidates.length) {

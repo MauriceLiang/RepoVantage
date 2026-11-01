@@ -1,4 +1,4 @@
-"""Observed event data for repository combination charts."""
+"""根据已观察到的事件生成仓库组合图表数据。"""
 from bisect import bisect_left
 from collections import Counter, defaultdict
 from datetime import timedelta
@@ -15,16 +15,16 @@ def _next_month(value):
 
 
 def _covers(source, lower, upper):
-    """Check whether a complete source proves coverage of an entire interval.
+    """判断完整的数据源能否证明其覆盖整个指定区间。
 
-    Legacy complete runs did not store ``requested_interval``; for those runs,
-    their recorded analysis window remains the available coverage evidence.
+    旧版完整分析没有保存 ``requested_interval``；此时仍以记录的分析窗口
+    作为可用的覆盖证据，不能凭空补造更长的采集范围。
     """
     if source.get('coverage') != 'complete':
         return False
     requested = source.get('requested_interval')
     if requested is None:
-        return True  # Older complete runs only recorded the run window.
+        return True  # 旧版完整分析只记录了运行窗口。
     if not isinstance(requested, list) or len(requested) != 2 or not all(isinstance(value, str) for value in requested):
         return False
     start, end = (parse_github_datetime(value) for value in requested)
@@ -32,7 +32,7 @@ def _covers(source, lower, upper):
 
 
 def _weekly(events, start, end, source):
-    """Withhold weekly values outside a narrower incremental request interval."""
+    """增量请求范围较窄时，隐藏范围之外无法确认完整的周统计值。"""
     points = weekly(events, start, end, source)
     for point in points:
         lower, upper = parse_github_datetime(point['start']), parse_github_datetime(point['end'])
@@ -43,12 +43,11 @@ def _weekly(events, start, end, source):
 
 
 def build_chart_data(events, sources, start, end):
-    """Build chart series from normalized, deduplicated events in UTC.
+    """根据标准化、去重后的 UTC 事件构造图表序列。
 
-    Activity, Issue and PR series use ``[start, end)``. Release markers use the
-    preceding 365 days, so an interval may be visible even when its Commit count
-    is unknown. Counts and medians describe observed events, not GitHub history
-    outside the available coverage evidence.
+    开发活动、Issue 和 PR 使用 ``[start, end)``；Release 标记使用截至结束时间
+    的前 365 天，因此可能显示发布间隔，但无法确认其中的 Commit 数。
+    数量和中位数仅描述已观察事件，不代表覆盖证据之外的 GitHub 历史。
     """
     commits = [event for event in events['commits'] if event.get('event_at') and start <= event['event_at'] < end]
     commits_by_week = defaultdict(list)
@@ -57,8 +56,8 @@ def build_chart_data(events, sources, start, end):
         commits_by_week[week_start(event['event_at'])].append(event)
         if event.get('author_key'):
             account_totals[event['author_key']] += 1
-    # Stable, window-wide top-five identities keep stack colors consistent across weeks.
-    # Commits without a GitHub account ID stay in a separate unidentified bucket.
+    # 在整个窗口内固定前五名作者，使同一作者在不同周的堆叠颜色一致。
+    # 没有关联 GitHub 账号的提交单独归入无法识别身份的分组。
     top_accounts = sorted(account_totals, key=lambda key: (-account_totals[key], key))[:5]
 
     commit_weeks = []
@@ -119,8 +118,8 @@ def build_chart_data(events, sources, start, end):
         })
         month = stop
 
-    # Limit only the scatter payload. Monthly and weekly statistics above use every
-    # valid sample; deterministic time-ordered sampling retains both endpoints.
+    # 仅限制传给散点图的数据量；上面的月度和周度统计仍使用全部有效样本。
+    # 抽样按时间稳定进行，并保留首尾两个样本。
     total_pr_samples = len(valid)
     shown = valid if total_pr_samples <= PR_SCATTER_LIMIT else [
         valid[index * (total_pr_samples - 1) // (PR_SCATTER_LIMIT - 1)] for index in range(PR_SCATTER_LIMIT)
@@ -138,8 +137,8 @@ def build_chart_data(events, sources, start, end):
                        and not commit_source.get('rejected_records') and not commit_source.get('invalid_event_times'))
     commit_times = sorted(item['event_at'] for item in commits)
     intervals = []
-    # A Commit count is safe only when the requested interval and source quality
-    # cover both release timestamps. bisect_left implements [previous, current).
+    # 只有请求区间与数据质量共同证明覆盖两次发布时间，才能计算区间 Commit 数。
+    # bisect_left 实现左闭右开的 [上次发布, 本次发布) 口径。
     for previous, current_release in zip(releases, releases[1:]):
         lower, upper = previous['published_at'], current_release['published_at']
         covered = source_complete and bounds[0] is not None and bounds[1] is not None and start <= lower <= upper <= end and bounds[0] <= lower and upper <= bounds[1]

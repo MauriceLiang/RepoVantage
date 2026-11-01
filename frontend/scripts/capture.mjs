@@ -34,7 +34,7 @@ for (const theme of ['light', 'dark']) {
     await page.screenshot({ path: `docs/screenshots/${theme}/${name}.png`, fullPage: true })
     console.log(theme, name)
   }
-  // drill-down drawer
+  // 打开下钻详情侧栏。
   await page.goto(BASE + '/repositories/steady-core/overview', { waitUntil: 'networkidle0' })
   await new Promise((r) => setTimeout(r, 800))
   await page.evaluate(() => {
@@ -43,7 +43,7 @@ for (const theme of ['light', 'dark']) {
     target?.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 600, clientY: 500 }))
   })
   await page.evaluate(() => {
-    // fall back to opening the drawer through the UI store if canvas click misses
+    // 如果未点中画布元素，则通过界面状态打开侧栏作为截图兜底。
     const btn = [...document.querySelectorAll('button')].find((b) => b.textContent?.includes('数据与口径'))
     btn?.click()
   })

@@ -1,4 +1,4 @@
-"""Plan or queue resumable full-history pilot collections for five repositories."""
+"""为五个试点仓库生成或排队执行可恢复的完整历史采集计划。"""
 import argparse
 import json
 from datetime import timedelta

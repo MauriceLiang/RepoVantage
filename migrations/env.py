@@ -32,8 +32,8 @@ def run_migrations_online() -> None:
         context.configure(connection=connection, target_metadata=target_metadata, compare_type=True, render_as_batch=connection.dialect.name == "sqlite")
         with context.begin_transaction():
             context.run_migrations()
-        # sqlite3's legacy transaction mode may leave Alembic's version-row write
-        # pending after non-transactional DDL; commit it before closing the connection.
+        # sqlite3 旧事务模式下，非事务 DDL 执行后 Alembic 版本记录可能仍未提交；
+        # 因此在关闭连接前显式提交版本记录。
         connection.commit()
 
 

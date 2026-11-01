@@ -42,9 +42,8 @@ def persist_insights(session: Session, repository_id: int, task_id: str, rows: d
     if existing:
         return json.loads(existing.result_json)
     now = utc_now()
-    # Persist events and the run in the caller's transaction. Ordinary runs calculate
-    # from this task's input; incremental/backfill runs explicitly rebuild from the
-    # deduplicated local event store after the upsert below.
+    # 事件和分析运行在调用方的同一事务内保存。普通任务使用本次输入计算；
+    # 增量采集或历史回填则在下方写入事件后，明确从本地去重事件库重新计算。
     for events in normalized.values():
         for offset in range(0, len(events), 250):
             batch = [{**e, "repository_id": repository_id, "source_task_id": task_id, "first_seen_at": now, "last_seen_at": now} for e in events[offset:offset + 250]]
@@ -188,7 +187,7 @@ def repository_insights(session, repository_id, window_days=90):
             "event_source_task_ids": [], "observed_counts": {},
         }
 
-    # Research uses the saved result and its original observation window.
+    # 研究分析使用已保存的结果及其原始观察窗口。
     if window_days is None:
         return json.loads(run.result_json)
 
@@ -232,7 +231,7 @@ def repository_insights(session, repository_id, window_days=90):
 
 
 def repository_insights_for_window(session, repository_id, start, end, source_result):
-    """Recalculate stored events for an explicit, already-proven observation window."""
+    """针对明确且已有覆盖证明的观察窗口，重新计算已保存的事件。"""
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     if start >= end:
@@ -309,7 +308,7 @@ def repository_release_detail(session, repository_id, release_id):
 
 
 def repository_commit_activity(session, repository_id, *, page=1, per_page=20, search=None, week_start: date | None = None, window_days: int | None = None):
-    """Return itemized commits and summaries from the latest archive covering the requested window."""
+    """从覆盖所选窗口的最新归档返回逐条 Commit 和汇总数据。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -349,8 +348,8 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
 
     scope_end = run.window_end
     scope_start = scope_end - timedelta(days=window_days) if window_days is not None else run.window_start
-    # A later collection can update an event's source task. The selected archive
-    # below determines membership, while the event store supplies its timestamp.
+    # 后续采集可能更新事件的来源任务。下方以所选归档判断记录是否属于本次结果，
+    # 事件库则提供对应时间戳。
     events = []
     if task_ids:
         events = session.scalars(select(RepositoryActivityEvent).where(
@@ -478,7 +477,7 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
 
 
 def repository_closed_issues(session, repository_id, search=None, *, include_body=False):
-    """Return safe, itemized closed Issue details from the latest analysis archive."""
+    """从最新分析归档中安全地返回已关闭 Issue 的逐条记录。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -598,7 +597,7 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
 
 
 def repository_pull_requests(session, repository_id, search=None, *, include_body=False):
-    """Return closed Pull Requests saved in the latest analysis archive."""
+    """返回最新分析归档中保存的已关闭 Pull Request。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -727,7 +726,7 @@ def repository_pull_request_detail(session, repository_id, pull_number):
 
 
 def _online_comments(comment_count, fetch_comments, kind):
-    """Keep the detail available when fetching its optional comments fails."""
+    """评论是可选内容；获取失败时保留详情正文并返回错误原因。"""
     comments = []
     if not comment_count:
         return comments, True, None

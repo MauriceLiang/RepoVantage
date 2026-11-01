@@ -1,4 +1,4 @@
-"""Clear collected data and invalidate affected featured-bundle memberships."""
+"""清除仓库采集数据，并使受影响的精选数据包导入状态失效。"""
 
 import logging
 import shutil
@@ -36,12 +36,11 @@ def clear_repository_data(
     *,
     remove_from_library: bool = False,
 ) -> dict:
-    """Remove local analysis data for existing repositories in one DB transaction.
+    """在一次数据库事务中清除已有仓库的本地分析数据。
 
-    Active collection/import jobs block deletion. Featured-bundle membership is
-    invalidated with the rows so the data can be imported again. Files are removed
-    after the commit: a filesystem failure is reported explicitly and can be retried,
-    but the already committed database deletion cannot be rolled back at that point.
+    采集或导入任务运行时禁止删除；数据库删除时同步使精选数据包导入状态失效，
+    以便之后重新导入。文件在事务提交后删除：若文件删除失败，会明确报告并可重试，
+    但此时已经提交的数据库删除无法回滚。
     """
     ids = sorted(set(repository_ids))
     if not ids or any(repository_id <= 0 for repository_id in ids) or len(ids) > 100:
@@ -62,8 +61,8 @@ def clear_repository_data(
             raise AppError(500, "REPOSITORY_ARCHIVE_PATH_INVALID", "仓库原始归档路径无效")
         archive_directories[repository_id] = (raw_directory, page_directory)
 
-    # Serialize the job checks with deletion so a worker cannot claim a conflicting
-    # task between validation and the database commit.
+    # 将任务检查与删除操作串行化，防止 Worker 在检查通过后、事务提交前
+    # 领取与本次删除冲突的任务。
     begin_immediate(session)
     try:
         repositories = session.scalars(select(Repository).where(Repository.repository_id.in_(ids))).all()

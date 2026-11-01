@@ -1,4 +1,4 @@
-"""Execute durable featured dataset import jobs in the application Worker."""
+"""由应用 Worker 执行可恢复的精选数据集导入任务。"""
 
 import json
 import logging
@@ -32,11 +32,10 @@ def execute_dataset_import_job(
     worker_id: str,
     lease_seconds: int,
 ) -> None:
-    """Validate, stage and publish one leased featured-dataset import attempt.
+    """校验、暂存并发布一次已取得租约的精选数据集导入任务。
 
-    The worker checks the bundle version and hash again before staging. Records
-    and temporary detail archives are prepared before the final database import;
-    attempt/lease checks prevent a stale worker from completing a newer attempt.
+    Worker 暂存前再次检查数据包版本和哈希；最终写入数据库前，先准备记录
+    和临时详情归档。尝试次数及租约检查可防止过期 Worker 完成新一轮任务。
     """
     with session_factory() as session:
         job = session.get(DatasetImportJob, task_id)
@@ -138,7 +137,7 @@ def execute_dataset_import_job(
 
 
 def _stage_records(session_factory, task_id, worker_id, attempt, lease_seconds, records, total_records) -> None:
-    """Stage bounded batches, recording progress and ordinals for later attempts."""
+    """分批暂存记录，并保存进度与序号，供后续重试从断点继续。"""
     with session_factory() as session:
         begin_immediate(session)
         job = _owned_job(session, task_id, worker_id, attempt)
@@ -199,7 +198,7 @@ def _stage_records(session_factory, task_id, worker_id, attempt, lease_seconds, 
 
 
 class _StagedRecords:
-    """Load one staged record type or repository at a time."""
+    """每次只加载一种暂存记录或一个仓库的暂存数据。"""
 
     def __init__(self, session: Session, task_id: str) -> None:
         self._session = session
@@ -277,7 +276,7 @@ def _save_archive_state(session_factory, task_id, worker_id, attempt, lease_seco
     with session_factory() as session:
         begin_immediate(session)
         job = _owned_job(session, task_id, worker_id, attempt)
-        state = _json_object(job.staging_state_json)
+        state = dataset_import._json_object(job.staging_state_json)
         state["archive_temp_directory"] = temp_relative
         state["archive_paths"] = {str(key): value for key, value in archive_paths.items()}
         job.staging_state_json = json.dumps(state, ensure_ascii=False)
@@ -315,7 +314,7 @@ def fail_dataset_import_job(session_factory, task_id: str, worker_id: str, error
         else:
             code = "DATASET_IMPORT_FAILED"
             message = "精选数据导入失败，请检查 Worker 日志后重试"
-        state = _json_object(job.staging_state_json)
+        state = dataset_import._json_object(job.staging_state_json)
         job.status = "failed"
         job.phase = None
         job.progress_percent = None
@@ -393,11 +392,3 @@ def _safe_relative(value: str) -> Path:
     if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts) or "\\" in value:
         raise ValueError("unsafe relative path")
     return Path(*path.parts)
-
-
-def _json_object(value: str | None) -> dict:
-    try:
-        parsed = json.loads(value or "{}")
-    except (TypeError, ValueError):
-        return {}
-    return parsed if isinstance(parsed, dict) else {}

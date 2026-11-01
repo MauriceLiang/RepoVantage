@@ -1,1 +1,1 @@
-"""Application services for the RepoVantage backend."""
+"""RepoVantage 后端应用与服务。"""

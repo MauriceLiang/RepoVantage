@@ -5,10 +5,10 @@ import { HttpRepositoryDataSource } from '@/services/httpRepositoryDataSource'
 let instance: RepositoryDataSource | null = null
 
 /**
- * Single access point for page data.
+ * 页面访问数据的统一入口。
  *
- * Mock data is opt-in. Normal development and production use the local
- * browser gateway; the internal API key never enters the browser bundle.
+ * 只有显式选择 mock 模式才使用演示数据；普通开发和生产环境使用本机浏览器网关。
+ * 内部 API 密钥由服务端持有，不会进入浏览器构建产物。
  */
 export function useDataSource(): RepositoryDataSource {
   if (!instance) {

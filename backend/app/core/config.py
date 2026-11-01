@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
 
 def resolve_database_url(url: str) -> str:
-    """Resolve relative SQLite files against the project, regardless of process cwd."""
+    """将 SQLite 相对路径解析到项目目录，避免启动位置改变数据库文件。"""
     if not url.startswith("sqlite:///") or url == "sqlite:///:memory:":
         return url
     raw_path = url.removeprefix("sqlite:///")

@@ -1,6 +1,10 @@
 import { computed, ref, shallowRef, watch } from 'vue'
 
-/** Shared paging/search state for the Issue and PR record lists. */
+/**
+ * 管理 Issue 和 PR 列表共用的分页、搜索、加载及错误状态。
+ * 每次请求递增版本号，只允许最后发出的请求更新界面，防止切换仓库或快速搜索时旧结果覆盖新结果。
+ * 搜索会去除首尾空格并回到第一页；重复搜索当前条件时主动重新加载。
+ */
 export function usePagedRecords<T extends { total: number }>(
   repositoryId: () => string,
   load: (id: string, page: number, perPage: number, search: string) => Promise<T>,

@@ -6,7 +6,7 @@ import type {
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
 
-/** End of the demo dataset (collection timestamp). */
+/** 演示数据集的结束时间，也作为示例采集时间。 */
 const DATASET_END = '2025-03-31'
 const DAY = 24 * 3600 * 1000
 
@@ -80,7 +80,7 @@ function windowRange(seed: RepoSeed, window: TimeWindow) {
   return { start: iso(new Date(new Date(end).getTime() - window * DAY)), end }
 }
 
-/** Distribute synthetic weekly values over days for demo release-interval charts. */
+/** 将模拟的周提交量分配到每日，供演示模式的发布间隔图使用。 */
 function dailyPoints(seed: RepoSeed, window: TimeWindow): TimePoint[] {
   const weights = [0.1, 0.17, 0.15, 0.14, 0.13, 0.11, 0.2]
   const out: TimePoint[] = []
