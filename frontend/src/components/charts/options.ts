@@ -125,13 +125,32 @@ export function groupedOption(series: NamedSeries[], unit: string, colors: strin
   }
 }
 
-export function histogramOption(buckets: HistogramBucket[], color: string, t: ChartTheme, unit = '条记录'): EChartsOption {
+export function histogramOption(
+  buckets: HistogramBucket[],
+  color: string,
+  t: ChartTheme,
+  unit = '条记录',
+  display: { cumulativeStep?: boolean; medianDays?: number | null; showMedianReference?: boolean } = {},
+): EChartsOption {
   const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
   let cumulative = 0
   const cumulativePercent = buckets.map((bucket) => {
     cumulative += bucket.count
     return total ? Number((cumulative / total * 100).toFixed(1)) : null
   })
+  let medianBucketIndex = -1
+  if (display.medianDays !== null && display.medianDays !== undefined) {
+    medianBucketIndex = buckets.findIndex((bucket) => {
+      const label = bucket.label.trim()
+      const bounds = label.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? []
+      if (!bounds.length) return false
+      if (/^[≥>]|\+$/.test(label)) return true
+      const upperBound = bounds.length > 1 ? bounds[1] : bounds[0]
+      return display.medianDays! < upperBound
+    })
+  }
+  if (medianBucketIndex < 0) medianBucketIndex = cumulativePercent.findIndex((value) => value !== null && value >= 50)
+  const medianDays = display.medianDays
   return {
     animation: false,
     grid: { left: 40, right: 44, top: 48, bottom: 30 },
@@ -166,11 +185,34 @@ export function histogramOption(buckets: HistogramBucket[], color: string, t: Ch
         name: '累计占比',
         type: 'line', yAxisIndex: 1,
         data: cumulativePercent,
-        step: 'end',
+        ...(display.cumulativeStep === false ? {} : { step: 'end' as const }),
         symbol: 'circle', symbolSize: 5,
         lineStyle: { color: t.series[3], width: 2 },
         itemStyle: { color: t.series[3] },
         connectNulls: false,
+        markLine: display.showMedianReference && total > 0 ? {
+          silent: true,
+          symbol: 'none',
+          data: [{ yAxis: 50 }],
+          lineStyle: { color: t.muted, type: 'dashed', width: 1 },
+          label: { show: false },
+        } : undefined,
+        markPoint: total > 0 && medianDays !== null && medianDays !== undefined && medianBucketIndex >= 0 ? {
+          symbol: 'diamond',
+          symbolSize: 10,
+          tooltip: { show: false },
+          itemStyle: { color: t.series[3], borderColor: t.panel, borderWidth: 2 },
+          label: {
+            show: true,
+            position: 'top',
+            distance: 5,
+            color: t.ink,
+            fontSize: 10,
+            fontFamily: MONO,
+            formatter: 'P50 ' + medianDays.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) + ' 天',
+          },
+          data: [{ name: 'P50', coord: [buckets[medianBucketIndex].label, 50], value: medianDays }],
+        } : undefined,
       },
     ],
   }

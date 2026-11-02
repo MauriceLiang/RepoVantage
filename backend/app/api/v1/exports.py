@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_session
 from backend.app.core.exceptions import AppError
-from backend.app.services.analytics import compare_repositories, export_repositories
+from backend.app.services.analytics import _csv_safe, compare_repositories, export_repositories
 
 
 router = APIRouter(prefix="/exports", tags=["exports"])
@@ -48,7 +48,7 @@ def export_research_insights_csv(
 
     def write_row(level, group, key, stats, missing_count, missing_reason=""):
         label, unit = labels[key]
-        writer.writerow([_safe_csv_cell(value) for value in [
+        writer.writerow([_csv_safe(value) for value in [
             result["dataset_id"], result["analysis_mode"], result["population_scope"], result["is_probability_sample"],
             result["dataset_version"], result["sample_size"], level, group, label, stats.get("count", 0), missing_count,
             stats.get("mean"), stats.get("median"), stats.get("std"), unit, missing_reason,
@@ -66,13 +66,6 @@ def export_research_insights_csv(
     content = "\ufeff" + output.getvalue()
     filename = f"repovantage_research_statistics_{date.today().isoformat()}.csv"
     return Response(content=content, media_type="text/csv; charset=utf-8", headers={"Content-Disposition": f'attachment; filename="{filename}"'})
-
-
-def _safe_csv_cell(value):
-    if not isinstance(value, str):
-        return value
-    stripped = value.lstrip()
-    return "'" + value if stripped.startswith(("=", "+", "-", "@")) else value
 
 
 @router.get("/comparison.csv")

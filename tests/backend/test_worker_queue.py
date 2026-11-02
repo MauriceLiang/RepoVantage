@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 import httpx
+import pytest
 
 from backend.app.core.clock import utc_now
 from backend.app.integrations.github.client import GITHUB_API
@@ -210,3 +211,35 @@ def test_dataset_import_worker_ignores_github_quota_and_recovers_expired_lease(b
         quota.retry_after = utc_now() - timedelta(seconds=1)
         session.commit()
         assert claim_next_task(session, "repository-worker", 30) is None
+
+
+@pytest.mark.parametrize("queue_state", ["blocked", "queued", "empty"])
+def test_expired_import_cleanup_happens_after_commit_in_all_queue_states(backend_client, monkeypatch, queue_state):
+    client, factory, _github = backend_client
+    now = utc_now()
+    added = client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    repository_id = added.json()["data"]["repository_id"]
+    with factory() as session:
+        session.add(DatasetImportJob(
+            task_id="expired-import", dataset_id="featured-default", bundle_version="test", bundle_hash="a" * 64,
+            status="running", attempt=3, lease_owner="old-worker", lease_until=now - timedelta(seconds=1),
+            staging_state_json='{"archive_temp_directory":"temporary"}', created_at=now, updated_at=now,
+        ))
+        if queue_state == "blocked":
+            session.add(CollectionTask(task_id="active-collection", repository_id=repository_id, depth="basic", status="running", lease_until=now + timedelta(minutes=1), created_at=now))
+        if queue_state != "empty":
+            session.add(DatasetImportJob(task_id="next-import", dataset_id="featured-default", bundle_version="test", bundle_hash="b" * 64, status="queued", created_at=now, updated_at=now))
+        session.commit()
+
+    cleaned = []
+
+    def cleanup(task_id, state):
+        with factory() as session:
+            assert session.get(DatasetImportJob, task_id).status == "failed"
+        cleaned.append((task_id, state))
+
+    monkeypatch.setattr("backend.app.worker.queue.cleanup_dataset_import_artifacts", cleanup)
+    with factory() as session:
+        claimed = claim_next_dataset_import_job(session, "new-worker", 30)
+        assert (claimed.task_id if claimed else None) == ("next-import" if queue_state == "queued" else None)
+    assert cleaned == [("expired-import", {"archive_temp_directory": "temporary"})]

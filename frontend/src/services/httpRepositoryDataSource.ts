@@ -581,7 +581,8 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     for (let index = 1; index < releases.length; index += 1) {
       releases[index].intervalDays = releaseIntervals[index - 1]?.days ?? null
     }
-    const metricWindow = { start, end }
+    // 展示日期仍保持简短格式；图表筛选事件时使用完整 UTC 边界。
+    const metricWindow = { start, end, startUtc: textOrNull(result.window_start), endUtc: textOrNull(result.window_end) }
     const metrics = {
       metrics: [
         summaryMetric('M01', '完整周 Commit 数', commitsTotal, '次', commitsNote, commitsTotal ?? undefined),

@@ -180,6 +180,23 @@ def test_modified_checksum_rejects_bundle_before_database_mutation(backend_clien
         assert session.get(dataset_import.Repository, 87654321) is None
 
 
+@pytest.mark.parametrize("member_ids,message", [
+    ([None], "memberships 包含数据包外的 repository_id"),
+    ([999999], "memberships 包含数据包外的 repository_id"),
+    ([87654321, 87654321], "成员关系必须与仓库列表一一对应"),
+    ([], "成员关系必须与仓库列表一一对应"),
+])
+def test_bundle_rejects_invalid_or_duplicate_memberships(tmp_path, member_ids, message):
+    root = _write_bundle(tmp_path / "featured-v1")
+    _write_jsonl_gzip(root / "memberships.jsonl.gz", [
+        {"repository_id": member_id, "inclusion_reason": "Reviewed"} for member_id in member_ids
+    ])
+    _refresh_checksums(root)
+
+    with pytest.raises(BundleError, match=message):
+        verify_dataset_bundle(root)
+
+
 def test_featured_api_reports_missing_real_bundle_without_falling_back_to_github(backend_client, tmp_path, monkeypatch):
     client, _factory, _github = backend_client
     monkeypatch.setattr(dataset_import, "BUNDLE_ROOT", tmp_path / "missing-featured-bundle")

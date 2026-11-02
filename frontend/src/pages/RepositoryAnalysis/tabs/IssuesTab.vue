@@ -75,9 +75,9 @@ async function exportCsv() {
       </div>
       <GdCoverageNote :coverage="analysis.issues.coverage" />
     </div>
-    <IssueTrendChart v-if="analysis.chartData" :series="analysis.issues.series" :height="250" />
+    <IssueTrendChart v-if="analysis.chartData" :series="analysis.issues.series" :coverage="analysis.issues.coverage.state" :window-start="analysis.issues.window.startUtc ?? analysis.issues.window.start" :window-end="analysis.issues.window.endUtc ?? analysis.issues.window.end" />
     <GroupedChart v-else :series="analysis.issues.series" :unit="analysis.issues.unit" :height="250" />
-    <p v-if="analysis.chartData" class="text-[11px] text-muted">橙色区域表示新增多于关闭，蓝色表示关闭多于新增；这是事件数差值，不等于待处理数量。覆盖不完整时仅显示已观察样本。</p>
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周新增与关闭数，折线及浅色区域为两者差值；差值不等于待处理数量。半透明柱为已观察样本，差值仅在完整周显示。</p>
     <p v-else class="text-[11px] text-muted">当前数据未提供新增 Issue 趋势，显示已采集的关闭数量。</p>
   </GdCard>
 
@@ -90,7 +90,8 @@ async function exportCsv() {
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.issueDuration.sampleSize }}</span>
       </div>
-      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :cumulative-step="false" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
+      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">50% 虚线表示累计占比的一半；P50 标记所在区间即中位数落入的耗时范围。</p>
       <div class="text-[11px] text-muted">P50 {{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.issueDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.issueDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
     </GdCard>

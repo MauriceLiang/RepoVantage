@@ -274,6 +274,23 @@ def test_exploratory_research_uses_only_explicit_featured_memberships(backend_cl
     assert "总体范围" in statistics_export.text and "curated_featured" in statistics_export.text
 
 
+def test_research_csv_escapes_formula_prefix_in_language_group(backend_client):
+    import csv
+    import io
+
+    client, factory, _github = backend_client
+    with factory() as session:
+        session.add(Repository(repository_id=987, full_name="fixture/csv", html_url="https://github.com/fixture/csv", language="  =1+1"))
+        session.flush()
+        session.add(DatasetRepository(dataset_id="featured-default", repository_id=987))
+        session.commit()
+
+    response = client.get("/api/v1/exports/research-insights.csv?dataset_id=featured-default&analysis_mode=exploratory", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip("\ufeff"))))
+    assert any(row["分组"] == "'  =1+1" for row in rows)
+
+
 def test_all_v1_routes_are_present_in_openapi():
     from backend.app.main import app
 

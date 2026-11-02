@@ -10,6 +10,11 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test:author-concentration": "node scripts/test-author-concentration.mjs",
+    "test:commit-activity": "node scripts/test-commit-activity.mjs",
+    "test:duration-histogram": "node scripts/test-duration-histogram.mjs",
+    "test:issue-trend": "node scripts/test-issue-trend.mjs",
+    "test:e2e:issue-trend": "node scripts/e2e-issue-trend.mjs",
+    "test:e2e:commit-activity": "node scripts/e2e-commit-activity.mjs",
     "test:paged-records": "node scripts/test-paged-records.mjs",
     "capture": "node scripts/capture.mjs",
     "test:e2e:analysis-window": "node scripts/e2e-analysis-window.mjs"

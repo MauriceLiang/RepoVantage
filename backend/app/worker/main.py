@@ -1,6 +1,5 @@
 import logging
 import threading
-import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 

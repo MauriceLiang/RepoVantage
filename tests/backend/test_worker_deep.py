@@ -490,7 +490,8 @@ def test_raw_archive_rejects_paths_outside_configured_root(tmp_path, monkeypatch
     assert not (tmp_path / "outside.json.gz").exists()
 
 
-def test_scheduler_queues_overlapped_incremental_sync_and_recalculates_from_deduplicated_store(backend_client, monkeypatch):
+@pytest.mark.parametrize("overlap", [False, True])
+def test_scheduler_queues_overlapped_incremental_sync_and_recalculates_from_deduplicated_store(backend_client, monkeypatch, overlap):
     client, factory, default_github = backend_client
     _create_repository(client)
     monkeypatch.setattr("backend.app.worker.executor.archive_json", lambda _repository_id, task_id, kind, _value: f"test/{task_id}/{kind}.json.gz")
@@ -513,10 +514,17 @@ def test_scheduler_queues_overlapped_incremental_sync_and_recalculates_from_dedu
     github = WorkerGitHub(default_github.repository)
     github.max_pages = None
     event_time = iso_z(utc_now() - timedelta(hours=6))
-    github.records["commits"].append({"sha": "b" * 40, "commit": {"committer": {"date": event_time}}})
-    github.records["issues"].append({"id": 4, "created_at": event_time, "closed_at": event_time})
-    github.records["pulls"].append({"id": 5, "created_at": event_time, "merged_at": event_time})
-    github.records["releases"].append({"id": 6, "published_at": event_time})
+    # 分别检查增量请求只有新记录，以及包含已采集记录需要去重的情况。
+    new_records = {
+        "commits": {"sha": "b" * 40, "commit": {"committer": {"date": event_time}}},
+        "issues": {"id": 4, "created_at": event_time, "closed_at": event_time},
+        "pulls": {"id": 5, "created_at": event_time, "merged_at": event_time},
+        "releases": {"id": 6, "published_at": event_time},
+    }
+    for module, record in new_records.items():
+        if not overlap:
+            github.records[module].clear()
+        github.records[module].append(record)
     execute_task(factory, incremental_task_id, github)
 
     with factory() as session:
@@ -526,6 +534,7 @@ def test_scheduler_queues_overlapped_incremental_sync_and_recalculates_from_dedu
         event_count = session.scalar(select(func.count()).select_from(RepositoryActivityEvent).where(RepositoryActivityEvent.repository_id == 123))
         event_rows = session.scalars(select(RepositoryActivityEvent).where(RepositoryActivityEvent.repository_id == 123)).all()
         result = json.loads(run.result_json)
+        metrics = json.loads(latest_analysis(session, 123, "deep").metrics_json)
 
     assert task.status == "succeeded"
     assert event_count == 8, [(row.event_type, row.source_item_id, row.event_at) for row in event_rows]
@@ -542,3 +551,6 @@ def test_scheduler_queues_overlapped_incremental_sync_and_recalculates_from_dedu
     assert set(result["source_task_ids"]) == {baseline_task_id, incremental_task_id}
     assert len(result["source_archive_paths"]) == 2
     assert activity.commits_count == 2 and activity.issues_closed_count == 2 and activity.releases_count == 2
+    assert {key: metrics[key] for key in ("commits_90d", "issues_closed_90d", "pr_merged_90d", "release_count_365d")} == {
+        "commits_90d": 2, "issues_closed_90d": 2, "pr_merged_90d": 2, "release_count_365d": 2,
+    }

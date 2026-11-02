@@ -85,7 +85,42 @@ def test_window_collection_resumes_from_last_saved_page_without_duplicate_record
     assert second_resume_after is None
     assert github.resume_urls == [None, "https://api.github.com/repos/example/project/commits?page=2"]
     assert [record["source_item_id"] for record in second["events"]["commits"]] == ["a" * 40, "b" * 40]
-    assert second["commits_count"] == 2
+    assert second["sources"]["commits"]["accepted_events"] == 2
+
+
+@pytest.mark.parametrize("detailed", [False, True])
+def test_collection_passes_module_query_to_both_github_interfaces(backend_client, detailed):
+    client, factory, _default_github = backend_client
+    repository_id = client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS).json()["data"]["repository_id"]
+    end = utc_now().replace(microsecond=0)
+    start = end - timedelta(days=90)
+    query_start = end - timedelta(days=30)
+    task = CollectionTask(task_id=str(uuid4()), repository_id=repository_id, depth="deep", scope_kind="incremental", created_at=end, status="running")
+    with factory() as session:
+        session.add(task)
+        session.commit()
+
+    calls = []
+
+    def method(module):
+        def fetch(*args, **_options):
+            calls.append((module, args))
+            return PaginatedResult([], [], True, 0, 0, False) if detailed else ([], True, [])
+        return fetch
+
+    github = type("GitHubStub", (), {"max_pages": None})()
+    for module in ("commits", "issues", "pulls", "releases"):
+        setattr(github, f"list_{module}{'_detailed' if detailed else ''}", method(module))
+
+    _result, coverage, deferred = collect_deep(github, "example/project", start, end, task, None, factory, query_start=query_start)
+
+    assert calls == [
+        ("commits", ("example/project", iso_z(query_start), iso_z(end))),
+        ("issues", ("example/project", iso_z(query_start), "all")),
+        ("pulls", ("example/project", "closed")),
+        ("releases", ("example/project",)),
+    ]
+    assert coverage == "complete" and deferred is None
 
 
 def test_invalid_event_records_reduce_module_coverage(backend_client):
@@ -110,7 +145,7 @@ def test_invalid_event_records_reduce_module_coverage(backend_client):
     assert coverage == "partial"
     assert result["coverage_by_module"]["commits_count"] == "partial"
     assert result["sources"]["commits"]["rejected_records"] == 1
-    assert result["commits_count"] is None
+    assert result["events"]["commits"] == []
 
 
 def test_collected_page_requires_matching_sha256(backend_client):

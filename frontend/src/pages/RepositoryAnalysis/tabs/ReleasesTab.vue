@@ -5,14 +5,11 @@ import TimelineChart from '@/components/charts/TimelineChart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdCard from '@/components/ui/GdCard.vue'
-import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
-import { useUiStore } from '@/stores/ui'
-import { useDataSource } from '@/composables/useDataSource'
+import type { RepositoryAnalysis } from '@/services/types'
+import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
-const ui = useUiStore()
-const dataSource = useDataSource()
-let releaseDetailRequest = 0
+const { openRelease } = useReleaseDrawer(() => props.analysis.repository.id)
 
 const yearReleases = computed(() => props.analysis.releases)
 const commitPoints = computed(() => {
@@ -39,26 +36,6 @@ function openReleaseByTag(tag: string) {
   if (release) void openRelease(release)
 }
 
-async function openRelease(release: ReleaseRecord) {
-  const requestId = ++releaseDetailRequest
-  const payload: Record<string, string> = {
-    tag: release.tag,
-    identifierType: release.identifierType ?? 'tag',
-    date: release.publishedAt,
-    type: release.prerelease ? '预发布（prerelease）' : '正式发布',
-    interval: release.intervalDays === null ? '—' : `${release.intervalDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天`,
-    bodyStatus: 'loading',
-  }
-  ui.openDrawer('release', payload)
-  try {
-    const detail = await dataSource.getReleaseDetails(props.analysis.repository.id, release.tag)
-    if (requestId !== releaseDetailRequest || ui.drawerKind !== 'release' || ui.drawerPayload?.tag !== release.tag) return
-    ui.openDrawer('release', { ...payload, bodyStatus: 'ready', body: detail.body ?? '', releaseName: detail.name ?? '' })
-  } catch (error) {
-    if (requestId !== releaseDetailRequest || ui.drawerKind !== 'release' || ui.drawerPayload?.tag !== release.tag) return
-    ui.openDrawer('release', { ...payload, bodyStatus: 'error', bodyError: error instanceof Error ? error.message : '无法读取该版本的发布说明' })
-  }
-}
 </script>
 
 <template>

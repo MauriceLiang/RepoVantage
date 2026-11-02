@@ -26,8 +26,7 @@ const commitActivity = ref<CommitActivityPage | null>(null)
 const commitPage = ref(1)
 const commitLoading = ref(false)
 const commitError = ref('')
-let issueOnlineRequest = 0
-let pullRequestOnlineRequest = 0
+let onlineRequest = 0
 let commitRequest = 0
 
 async function loadWeekCommits() {
@@ -61,75 +60,38 @@ watch(
   { immediate: true },
 )
 
-async function fetchIssueOnline() {
+async function fetchOnline(kind: 'issue' | 'pr') {
   const repositoryId = payload.value.repositoryId
-  const issueNumber = Number(payload.value.number)
-  if (!repositoryId || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) return
+  const number = Number(payload.value.number)
+  if (!repositoryId || !Number.isSafeInteger(number) || number <= 0) return
 
-  const requestId = ++issueOnlineRequest
-  ui.openDrawer('issue', { ...payload.value, onlineStatus: 'loading', onlineError: '' })
-  try {
-    const detail = await dataSource.getIssueOnlineDetail(repositoryId, issueNumber)
+  const requestId = ++onlineRequest
+  ui.openDrawer(kind, { ...payload.value, onlineStatus: 'loading', onlineError: '' })
+
+  // 切换仓库或记录后，较早的请求不能覆盖当前侧栏。
+  function currentPayload() {
     const current = ui.drawerPayload
     if (
-      requestId !== issueOnlineRequest || ui.drawerKind !== 'issue' ||
-      current?.repositoryId !== repositoryId || current.number !== String(issueNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('issue', {
-      ...current,
-      title: detail.title,
-      state: detail.state,
-      createdAt: detail.createdAt ?? '',
-      closedAt: detail.closedAt ?? '',
-      updatedAt: detail.updatedAt ?? '',
-      author: detail.author ?? '',
-      labels: detail.labels.join(' · '),
-      url: detail.url ?? current.url ?? '',
-      bodyStatus: 'ready',
-      body: detail.body ?? '',
-      commentsCount: String(detail.commentsCount),
-      commentsJson: JSON.stringify(detail.comments),
-      commentsComplete: String(detail.commentsComplete),
-      commentsError: detail.commentsError ?? '',
-      onlineSource: detail.source,
-      onlineStatus: 'ready',
-      onlineError: '',
-    })
-  } catch (error) {
-    const current = ui.drawerPayload
-    if (
-      requestId !== issueOnlineRequest || ui.drawerKind !== 'issue' ||
-      current?.repositoryId !== repositoryId || current.number !== String(issueNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('issue', {
-      ...current,
-      onlineStatus: 'error',
-      onlineError: error instanceof Error ? error.message : '在线获取 Issue 详情失败',
-    })
+      requestId !== onlineRequest || ui.drawerKind !== kind || !current ||
+      current.repositoryId !== repositoryId || current.number !== String(number) || current.onlineStatus !== 'loading'
+    ) return null
+    return current
   }
-}
 
-async function fetchPullRequestOnline() {
-  const repositoryId = payload.value.repositoryId
-  const pullNumber = Number(payload.value.number)
-  if (!repositoryId || !Number.isSafeInteger(pullNumber) || pullNumber <= 0) return
-
-  const requestId = ++pullRequestOnlineRequest
-  ui.openDrawer('pr', { ...payload.value, onlineStatus: 'loading', onlineError: '' })
   try {
-    const detail = await dataSource.getPullRequestOnlineDetail(repositoryId, pullNumber)
-    const current = ui.drawerPayload
-    if (
-      requestId !== pullRequestOnlineRequest || ui.drawerKind !== 'pr' ||
-      current?.repositoryId !== repositoryId || current.number !== String(pullNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('pr', {
+    const detail = kind === 'issue'
+      ? await dataSource.getIssueOnlineDetail(repositoryId, number)
+      : await dataSource.getPullRequestOnlineDetail(repositoryId, number)
+    const current = currentPayload()
+    if (!current) return
+    ui.openDrawer(kind, {
       ...current,
       title: detail.title,
       state: detail.state,
       createdAt: detail.createdAt ?? '',
       closedAt: detail.closedAt ?? '',
-      mergedAt: detail.mergedAt ?? '',
+      ...(kind === 'issue' ? { updatedAt: detail.updatedAt ?? '' } : {}),
+      ...('mergedAt' in detail ? { mergedAt: detail.mergedAt ?? '' } : {}),
       author: detail.author ?? '',
       labels: detail.labels.join(' · '),
       url: detail.url ?? current.url ?? '',
@@ -144,15 +106,13 @@ async function fetchPullRequestOnline() {
       onlineError: '',
     })
   } catch (error) {
-    const current = ui.drawerPayload
-    if (
-      requestId !== pullRequestOnlineRequest || ui.drawerKind !== 'pr' ||
-      current?.repositoryId !== repositoryId || current.number !== String(pullNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('pr', {
+    const current = currentPayload()
+    if (!current) return
+    const failureMessage = kind === 'issue' ? '在线获取 Issue 详情失败' : '在线获取 Pull Request 详情失败'
+    ui.openDrawer(kind, {
       ...current,
       onlineStatus: 'error',
-      onlineError: error instanceof Error ? error.message : '在线获取 Pull Request 详情失败',
+      onlineError: error instanceof Error ? error.message : failureMessage,
     })
   }
 }
@@ -248,7 +208,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section class="mt-4">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">Issue 描述</h3>
-          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchIssueOnline">
+          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchOnline('issue')">
             {{ payload.onlineStatus === 'loading' ? '正在获取…' : payload.onlineStatus === 'ready' ? '重新获取' : '在线获取' }}
           </GdButton>
         </div>
@@ -298,7 +258,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section class="mt-4">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">PR 描述</h3>
-          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchPullRequestOnline">
+          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchOnline('pr')">
             {{ payload.onlineStatus === 'loading' ? '正在获取…' : payload.onlineStatus === 'ready' ? '重新获取' : '在线获取' }}
           </GdButton>
         </div>

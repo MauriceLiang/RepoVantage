@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import * as echarts from 'echarts/core'
 import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts'
-import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
+import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-echarts.use([BarChart, CustomChart, LineChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
+echarts.use([BarChart, CustomChart, LineChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, MarkPointComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
 
-const props = withDefaults(defineProps<{ option: EChartsOption; height?: number }>(), { height: 240 })
+const props = withDefaults(defineProps<{ option: EChartsOption; height?: number; hideTooltipOnSelect?: boolean }>(), { height: 240, hideTooltipOnSelect: false })
 const emit = defineEmits<{ select: [payload: { dataIndex: number; seriesName: string; name: string; value: unknown }] }>()
 const el = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
@@ -20,6 +20,7 @@ onMounted(() => {
   chart.setOption(props.option)
   chart.on('click', (params) => {
     if (typeof params.dataIndex !== 'number') return
+    if (props.hideTooltipOnSelect) chart?.dispatchAction({ type: 'hideTip' })
     emit('select', { dataIndex: params.dataIndex, seriesName: String(params.seriesName ?? ''), name: String(params.name ?? ''), value: params.value })
   })
   observer = new ResizeObserver(() => chart?.resize())

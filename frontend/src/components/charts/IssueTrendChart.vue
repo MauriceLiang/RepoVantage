@@ -1,65 +1,79 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { CustomSeriesRenderItem, EChartsOption } from 'echarts'
-import type { NamedSeries } from '@/services/types'
+import type { Coverage, NamedSeries } from '@/services/types'
+import { buildIssueTrend } from '@/lib/issueTrend'
 import { useUiStore } from '@/stores/ui'
 import EChart from './EChart.vue'
-import { comboTooltip, observedValue } from './comboHelpers'
+import { comboTooltip, escapeHtml } from './comboHelpers'
 import { chartTheme, fontFamily, MONO } from './theme'
 
-const props = withDefaults(defineProps<{ series: NamedSeries[]; height?: number }>(), { height: 250 })
+const props = withDefaults(defineProps<{
+  series: NamedSeries[]
+  coverage: Coverage['state']
+  windowStart: string | null
+  windowEnd: string | null
+  height?: number
+}>(), { height: 310 })
 const ui = useUiStore()
+const rows = computed(() => buildIssueTrend(props.series, props.coverage, props.windowStart, props.windowEnd))
+
 const option = computed<EChartsOption>(() => {
   const t = chartTheme(ui.isDark)
-  const opened = props.series.find((series) => series.key === 'opened' || series.key === 'created')?.points ?? []
-  const closed = props.series.find((series) => series.key === 'closed')?.points ?? []
-  const dates = [...new Set([...opened, ...closed].map((point) => point.date))].sort()
-  const openedMap = new Map(opened.map((point) => [point.date, point]))
-  const closedMap = new Map(closed.map((point) => [point.date, point]))
-  const pairs = dates.map((date) => [observedValue(openedMap.get(date)), observedValue(closedMap.get(date))] as const)
-  const segments = pairs.slice(0, -1).flatMap(([a, b], index) => {
-    const [c, d] = pairs[index + 1]
-    return a === null || b === null || c === null || d === null ? [] : [[index, a, b, c, d]]
+  const differenceColor = t.dark ? '#bb9ef5' : '#7054b5'
+  const segments = rows.value.slice(0, -1).flatMap((row, index) => {
+    const next = rows.value[index + 1]
+    return row.difference === null || next.difference === null ? [] : [[index, row.difference, next.difference]]
   })
-  const renderItem: CustomSeriesRenderItem = (_params, api) => {
-    const index = Number(api.value(0))
-    const a = Number(api.value(1)), b = Number(api.value(2)), c = Number(api.value(3)), d = Number(api.value(4))
-    const p0 = api.coord([index, a]), q0 = api.coord([index, b])
-    const p1 = api.coord([index + 1, c]), q1 = api.coord([index + 1, d])
-    const color = (difference: number) => difference >= 0 ? t.series[0] : t.series[3]
-    const polygon = (points: number[][], difference: number) => ({ type: 'polygon' as const, shape: { points }, style: { fill: color(difference), opacity: 0.16 } })
-    const left = a - b, right = c - d
+  const renderArea: CustomSeriesRenderItem = (_params, api) => {
+    const index = Number(api.value(0)), left = Number(api.value(1)), right = Number(api.value(2))
+    const p0 = api.coord([index, left]), p1 = api.coord([index + 1, right])
+    const z0 = api.coord([index, 0]), z1 = api.coord([index + 1, 0])
+    const polygon = (points: number[][], positive: boolean) => ({ type: 'polygon' as const, shape: { points }, style: { fill: positive ? t.series[0] : t.series[3], opacity: 0.11 } })
     if (left * right < 0) {
-      // 在两条折线的线性交点处分段，使每一侧都使用数值较高序列的颜色，
-      // 避免跨越交点后仍沿用交点前的填充颜色。
+      // 差值跨过零线时分别填充两侧，避免将下降区画成上升区。
       const ratio = Math.abs(left) / (Math.abs(left) + Math.abs(right))
-      const cross = [p0[0] + (p1[0] - p0[0]) * ratio, p0[1] + (p1[1] - p0[1]) * ratio]
-      return { type: 'group', children: [polygon([p0, q0, cross], left), polygon([cross, p1, q1], right)] }
+      const crossing = [p0[0] + (p1[0] - p0[0]) * ratio, z0[1]]
+      return { type: 'group', children: [polygon([p0, z0, crossing], left > 0), polygon([crossing, z1, p1], right > 0)] }
     }
-    return polygon([p0, p1, q1, q0], left || right)
+    return polygon([p0, p1, z1, z0], (left || right) >= 0)
   }
+
   return {
-    animation: false, grid: { left: 44, right: 18, top: 55, bottom: 30 },
-    legend: { top: 0, left: 0, selectedMode: false, data: ['新增', '关闭'], textStyle: { color: t.muted, fontSize: 10.5, fontFamily }, itemWidth: 10, itemHeight: 8 },
-    tooltip: { ...comboTooltip(t), trigger: 'axis', axisPointer: { type: 'line', lineStyle: { color: t.border } }, formatter: (params: unknown) => {
-      const index = (params as { dataIndex: number }[])[0]?.dataIndex
-      const pair = pairs[index]
-      if (!pair) return ''
-      const [a, b] = pair
-      const partial = openedMap.get(dates[index])?.value === null || closedMap.get(dates[index])?.value === null
-      return `<div>${dates[index]} 起的 UTC 周${partial ? ' · 已观察样本' : ''}</div><div>新增：<b>${a ?? '—'}</b></div><div>关闭：<b>${b ?? '—'}</b></div><div>新增 − 关闭：<b>${a === null || b === null ? '—' : a - b}</b></div>`
-    } },
-    xAxis: { type: 'category', boundaryGap: false, data: dates, axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false }, axisLabel: { color: t.muted, fontFamily: MONO, fontSize: 10, formatter: (value: string) => value.slice(5), hideOverlap: true } },
-    yAxis: { type: 'value', minInterval: 1, name: 'Issue', nameTextStyle: { color: t.muted, fontSize: 10 }, axisLabel: { color: t.muted, fontSize: 10 }, splitLine: { lineStyle: { color: t.grid } } },
+    animation: false,
+    grid: { left: 48, right: 18, top: 55, bottom: 30 },
+    legend: {
+      type: 'scroll', top: 0, left: 0, right: 0,
+      data: [{ name: '新增 Issue', icon: 'roundRect' }, { name: '关闭 Issue', icon: 'roundRect' }, { name: '新增 − 关闭', icon: 'circle' }],
+      textStyle: { color: t.muted, fontSize: 10.5, fontFamily }, itemWidth: 10, itemHeight: 8,
+    },
+    tooltip: {
+      ...comboTooltip(t), trigger: 'axis', confine: true, axisPointer: { type: 'line', lineStyle: { color: t.border } },
+      formatter: (params: unknown) => {
+        const items = (params as { dataIndex: number; seriesName: string; seriesType: string }[]).filter((item) => item.seriesType !== 'custom')
+        const row = rows.value[items[0]?.dataIndex]
+        if (!row) return ''
+        const names = new Set(items.map((item) => item.seriesName))
+        const count = (item: typeof row.added) => item.value === null ? '—' : `${item.value} 个${item.complete ? '' : '（已观察）'}`
+        const difference = row.difference === null ? '—（覆盖不完整）' : `${row.difference > 0 ? '+' : ''}${row.difference} 个`
+        return `<div>${escapeHtml(row.date)} 起的 UTC 周</div>` +
+          (names.has('新增 Issue') ? `<div>新增：<b>${count(row.added)}</b></div>` : '') +
+          (names.has('关闭 Issue') ? `<div>关闭：<b>${count(row.resolved)}</b></div>` : '') +
+          (names.has('新增 − 关闭') ? `<div>新增 − 关闭：<b>${difference}</b></div>` : '')
+      },
+    },
+    xAxis: { type: 'category', data: rows.value.map((row) => row.date), boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: t.border } }, axisTick: { show: false }, axisLabel: { color: t.muted, fontFamily: MONO, fontSize: 10, formatter: (value: string) => value.slice(5), hideOverlap: true } },
+    yAxis: { type: 'value', minInterval: 1, name: '数量 / 差值（个）', nameTextStyle: { color: t.muted, fontSize: 10 }, axisLabel: { color: t.muted, fontSize: 10 }, splitLine: { lineStyle: { color: t.grid } } },
     series: [
-      { type: 'custom', name: '差值区域', renderItem, data: segments, silent: true, tooltip: { show: false }, z: 1 },
-      { name: '新增', type: 'line', data: pairs.map((pair) => pair[0]), connectNulls: false, symbol: 'circle', symbolSize: 5, lineStyle: { color: t.series[0], width: 2 }, itemStyle: { color: t.series[0] }, z: 3 },
-      { name: '关闭', type: 'line', data: pairs.map((pair) => pair[1]), connectNulls: false, symbol: 'circle', symbolSize: 5, lineStyle: { color: t.series[3], width: 2 }, itemStyle: { color: t.series[3] }, z: 3 },
+      { name: '新增 − 关闭', type: 'custom', renderItem: renderArea, data: segments, itemStyle: { color: differenceColor }, silent: true, tooltip: { show: false }, z: 1 },
+      { name: '新增 Issue', type: 'bar', barMaxWidth: 19, barGap: '20%', itemStyle: { color: t.series[0], borderRadius: [3, 3, 0, 0] }, data: rows.value.map((row) => ({ value: row.added.value, itemStyle: { opacity: row.added.complete ? 1 : 0.5 } })), z: 2 },
+      { name: '关闭 Issue', type: 'bar', barMaxWidth: 19, itemStyle: { color: t.series[3], borderRadius: [3, 3, 0, 0] }, data: rows.value.map((row) => ({ value: row.resolved.value, itemStyle: { opacity: row.resolved.complete ? 1 : 0.5 } })), z: 2 },
+      { name: '新增 − 关闭', type: 'line', data: rows.value.map((row) => row.difference), connectNulls: false, symbol: 'circle', symbolSize: 6, lineStyle: { color: differenceColor, width: 2.5 }, itemStyle: { color: differenceColor }, markLine: { silent: true, symbol: 'none', label: { show: false }, lineStyle: { color: t.border, width: 1.3, type: 'solid' }, data: [{ yAxis: 0 }] }, z: 4 },
     ],
   }
 })
 </script>
 
 <template>
-  <EChart :option="option" :height="height" />
+  <EChart :option="option" :height="height" data-testid="issue-trend-chart" />
 </template>

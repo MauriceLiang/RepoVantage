@@ -20,7 +20,7 @@ from backend.app.schemas.repositories import (
     RepositoryDetail,
     SeriesResponse,
 )
-from backend.app.services.repositories import add_idempotency_response, analysis_status, cached_idempotency_response, enqueue_refresh, latest_analysis, latest_snapshot, summary
+from backend.app.services.repositories import add_idempotency_response, cached_idempotency_response, enqueue_refresh, latest_analysis, latest_snapshot, summary
 from backend.app.services.repository_data import clear_repository_data
 
 

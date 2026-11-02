@@ -568,9 +568,6 @@ def _load_bundle(root: Path) -> tuple[dict[str, Any], dict[str, list[dict[str, A
             raise BundleError(f"{name} 包含数据包外的 repository_id")
     if len(records["memberships"]) != total or len({_positive_int(row.get("repository_id")) for row in records["memberships"]}) != total:
         raise BundleError("精选数据集成员关系必须与仓库列表一一对应")
-    member_ids = [_positive_int(row.get("repository_id")) for row in records["memberships"]]
-    if any(value is None for value in member_ids) or len(set(member_ids)) != len(member_ids):
-        raise BundleError("精选数据集成员关系包含无效或重复仓库")
     if any(not isinstance(row.get("inclusion_reason"), str) or not row["inclusion_reason"].strip() for row in records["memberships"]):
         raise BundleError("精选数据集成员缺少人工纳入理由")
     if any(not isinstance(row.get("item"), dict) for module in MODULES for row in records[f"details/{module}"]):
@@ -684,7 +681,6 @@ def _import_records(
             _positive_int(row["repository_id"]): row
             for row in records["memberships"]
         }
-        repository_objects: dict[int, Repository] = {}
         for repository_id, row in repo_rows.items():
             by_id = session.get(Repository, repository_id)
             by_name = session.scalar(select(Repository).where(Repository.full_name == row["full_name"]))
@@ -696,11 +692,10 @@ def _import_records(
                 repo = repository_from_github(session, _repository_payload(row))
                 repo.first_seen_at = parse_github_datetime(row.get("first_seen_at")) or repo.first_seen_at
                 repo.last_seen_at = incoming_seen
-            repository_objects[repository_id] = repo
         session.flush()
 
         counts = {"imported_count": 0, "already_present_count": 0, "snapshot_count": 0, "event_count": 0, "warning_count": 0, "skipped_count": 0}
-        for repository_id, row in repo_rows.items():
+        for repository_id in repo_rows:
             for dataset_id in (FEATURED_ID, LIBRARY_ID):
                 member = session.get(DatasetRepository, (dataset_id, repository_id))
                 if member is None:

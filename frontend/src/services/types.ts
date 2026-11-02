@@ -43,7 +43,7 @@ export interface NamedSeries {
 export interface TimeSeriesResult {
   series: NamedSeries[]
   unit: string
-  window: { start: string | null; end: string | null }
+  window: { start: string | null; end: string | null; startUtc?: string | null; endUtc?: string | null }
   /** 来源指标报告的有效样本数，与图表分桶数量无关。 */
   sampleSize: number | null
   coverage: Coverage

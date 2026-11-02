@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import ObservationList from '@/components/common/ObservationList.vue'
-import TrendChart from '@/components/charts/TrendChart.vue'
 import CommitActivityComboChart from '@/components/charts/CommitActivityComboChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
-import type { RepositoryAnalysis } from '@/services/types'
+import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
+import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
+const { openRelease } = useReleaseDrawer(() => repoId.value)
+const selectedReleaseWeek = ref<{ date: string; releases: ReleaseRecord[] } | null>(null)
+watch([repoId, () => props.analysis.windowAvailability.requestedDays, () => props.analysis.releases], () => { selectedReleaseWeek.value = null })
 
 const commitsPoints = computed(() => {
   const points = props.analysis.commits.series[0]?.points ?? []
@@ -38,6 +41,16 @@ function selectCommit(dataIndex: number) {
   }
 }
 
+function selectRelease(release: ReleaseRecord) {
+  selectedReleaseWeek.value = null
+  void openRelease(release)
+}
+
+function releaseTime(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+}
+
 function repositorySizeLabel(sizeKb: number | null | undefined) {
   if (sizeKb == null) return '—'
   if (sizeKb >= 1024) return `${(sizeKb / 1024).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} MB`
@@ -60,12 +73,32 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <span class="rounded-md bg-track px-2 py-1 text-[11.5px] text-ink/70">{{ analysis.commits.limitation }}</span>
       </div>
     </div>
-    <CommitActivityComboChart v-if="analysis.chartData" :points="commitsPoints" :weeks="analysis.chartData.commitWeekly" :height="260" @select="selectCommit" />
-    <TrendChart v-else :points="commitsPoints" :unit="analysis.commits.unit" :height="260" @select="(p) => selectCommit(p.dataIndex)" />
+    <div class="relative">
+      <CommitActivityComboChart
+        :points="commitsPoints"
+        :weeks="analysis.chartData?.commitWeekly ?? []"
+        :releases="analysis.releases"
+        :window-start="analysis.commits.window.startUtc ?? analysis.commits.window.start"
+        :window-end="analysis.commits.window.endUtc ?? analysis.commits.window.end"
+        @select="selectCommit"
+        @select-releases="selectedReleaseWeek = $event"
+      />
+      <div v-if="selectedReleaseWeek" class="absolute bottom-10 right-2 z-10 w-80 max-w-[calc(100%-1rem)] rounded-lg border border-line bg-panel p-3 shadow-lg" role="region" :aria-label="`${selectedReleaseWeek.date} 起的 UTC 周的正式发布`" data-testid="activity-release-list">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-[12px] font-semibold">{{ selectedReleaseWeek.date }} 起的 UTC 周 · {{ selectedReleaseWeek.releases.length }} 次发布</span>
+          <button type="button" class="shrink-0 text-[11px] text-muted hover:text-ink" aria-label="关闭发布列表" @click="selectedReleaseWeek = null">关闭</button>
+        </div>
+        <div class="mt-2 max-h-36 overflow-y-auto overscroll-contain">
+          <button v-for="release in selectedReleaseWeek.releases" :key="`${release.tag}-${release.publishedAt}`" type="button" class="flex w-full items-center justify-between gap-3 border-t border-line py-2 text-left hover:text-ink" @click="selectRelease(release)">
+            <span class="min-w-0"><span class="block break-all text-[12px] font-medium text-ink">{{ release.identifierType === 'release_id' ? `Release #${release.tag}` : release.tag }}</span><time class="font-mono text-[10px] text-muted">{{ releaseTime(release.publishedAt) }}</time></span>
+            <span class="shrink-0 text-[11px] text-muted">查看详情 →</span>
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span v-if="analysis.chartData">面积为每周提交，折线为已识别的活跃 GitHub 账号数；未关联账号的提交不计入账号数。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
-      <span v-else>当前数据未提供活跃账号趋势，显示已采集的每周提交数。</span>
-      <span>点击周数据查看该周已采集的 Commit 明细</span>
+      <span>柱为每周提交；均线仅统计连续 4 个完整周。{{ analysis.chartData ? '空心点与半透明柱为已观察样本；未关联账号的提交不计入活跃账号。' : '当前数据未提供活跃账号趋势。' }}发布仅显示已采集的正式 Release。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span>点击柱或账号点查看 Commit；点击菱形查看版本</span>
     </div>
   </GdCard>
 

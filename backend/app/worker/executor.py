@@ -299,8 +299,6 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 github, cleaned["full_name"], window_start, window_end, task, reporter, session_factory,
                 query_start=query_start,
             )
-            for metric, key in (("commits_90d", "commits_count"), ("issues_closed_90d", "issues_closed_count"), ("pr_merged_90d", "pulls_merged_count"), ("release_count_365d", "releases_count")):
-                metrics[metric] = activity[key] if activity["coverage_by_module"][key] == "complete" else None
 
         _update_phase(session, task, reporter, "analyzing", "正在计算基础指标与数据覆盖", 94 if reporter else None)
         coverage = overall_coverage({"profile": "complete", "activity": depth_coverage})
@@ -348,11 +346,11 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 aggregate_from_store=task.scope_kind in {"incremental", "backfill"},
             )
             observed_counts = insight_result["observed_counts"]
-            for metric, key, module in (
-                ("commits_90d", "commits_count", "commits"),
-                ("issues_closed_90d", "issues_closed_count", "issues"),
-                ("pr_merged_90d", "pulls_merged_count", "pulls"),
-                ("release_count_365d", "releases_count", "releases"),
+            for metric, key in (
+                ("commits_90d", "commits_count"),
+                ("issues_closed_90d", "issues_closed_count"),
+                ("pr_merged_90d", "pulls_merged_count"),
+                ("release_count_365d", "releases_count"),
             ):
                 metrics[metric] = observed_counts[key] if activity["coverage_by_module"][key] == "complete" else None
             session.add(ActivityWindow(

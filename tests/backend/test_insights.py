@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select
 
-from backend.app.analytics.insights import calculate_insights
+from backend.app.analytics.insights import calculate_insights, weekly
 from backend.app.core.clock import iso_z
 from backend.app.persistence.models import RepositoryActivityEvent, RepositoryInsightRun
 from backend.app.pipeline.event_normalizer import normalize_events
@@ -46,6 +46,29 @@ def test_weekly_commits_deduplicate_and_exact_four_week_change():
     assert value["change_rate_pct"] == pytest.approx(96.6666667)
 
 
+@pytest.mark.parametrize("coverage,expected_values", [
+    ("complete", [None, 1, 2]),
+    ("partial", [None, None, None]),
+])
+def test_weekly_counts_respect_window_boundaries_and_coverage(coverage, expected_values):
+    start = START + timedelta(days=2)
+    end = START + timedelta(weeks=3)
+    events = [{"event_at": value} for value in (
+        end, None, start - timedelta(seconds=1),
+        START + timedelta(days=6, hours=23), start,
+        START + timedelta(weeks=1), START + timedelta(weeks=2, hours=1),
+        end - timedelta(microseconds=1),
+    )]
+
+    points = weekly(events, start, end, {"coverage": coverage})
+
+    assert [point["observed_events"] for point in points] == [2, 1, 2]
+    assert [point["value"] for point in points] == expected_values
+    assert [point["complete_week"] for point in points] == [False, True, True]
+    expected_quality = ["partial", "ready", "ready"] if coverage == "complete" else ["partial"] * 3
+    assert [point["quality"] for point in points] == expected_quality
+
+
 def test_zero_baseline_and_incomplete_coverage_are_not_growth():
     raw = fixture()
     raw["commits"] = [r for r in raw["commits"] if r["commit"]["committer"]["date"] >= iso_z(START + timedelta(weeks=4))]
@@ -55,6 +78,33 @@ def test_zero_baseline_and_incomplete_coverage_are_not_growth():
     assert partial["commit_activity"]["recent_4w"] is None
     assert all(p["value"] is None for p in partial["commit_activity"]["weekly"])
     assert partial["issue_resolution"]["quality"]["status"] == "ready"
+
+
+@pytest.mark.parametrize("coverage,expected", [
+    ("not_collected", "missing"),
+    ("partial", "partial"),
+    ("complete", "ready"),
+    ("mixed", "partial"),
+    ("failed", "partial"),
+])
+def test_analysis_status_distinguishes_coverage_from_insufficient_samples(backend_client, coverage, expected):
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    rows = {module: [] for module in ("commits", "issues", "pulls", "releases")}
+    sources = {module: {"coverage": "complete" if coverage in {"mixed", "failed"} else coverage} for module in rows}
+    if coverage == "mixed":
+        sources["issues"] = {"coverage": "not_collected"}
+    elif coverage == "failed":
+        sources["commits"] = {"coverage": "partial", "error_code": "GITHUB_TIMEOUT"}
+    with factory() as session:
+        result = persist_insights(session, 123, "empty-sample", rows, sources, START, END, [])
+        session.commit()
+    assert result["status"] == expected
+    if coverage == "complete":
+        assert result["insights"]["issue_resolution"]["quality"]["status"] == "insufficient_samples"
+    response = client.get("/api/v1/repositories/123/insights?window_days=30", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["status"] == expected
 
 
 def test_duration_threshold_invalid_dates_and_pr_filter():
@@ -379,6 +429,29 @@ def test_pull_request_records_include_unmerged_details_and_fetch_online_only_on_
     exported = client.get("/api/v1/repositories/123/pull-requests/export.csv", headers=HEADERS)
     assert exported.status_code == 200 and "pull_number,title,state" in exported.text
     assert "'=1+1" in exported.text
+
+
+@pytest.mark.parametrize("field", ["source_task_ids_json", "source_archive_paths_json", "module_coverage_json"])
+@pytest.mark.parametrize(("endpoint", "error_code"), [
+    ("commits", "COMMIT_ARCHIVE_UNAVAILABLE"),
+    ("issues", "ISSUE_ARCHIVE_UNAVAILABLE"),
+    ("pull-requests", "PULL_REQUEST_ARCHIVE_UNAVAILABLE"),
+])
+def test_record_endpoints_report_corrupt_run_metadata(backend_client, field, endpoint, error_code):
+    client, factory, _github = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    rows = fixture()
+    sources = {module: {"coverage": "complete"} for module in rows}
+    with factory() as session:
+        result = persist_insights(session, 123, "metadata-test", rows, sources, START, END, [])
+        run = session.get(RepositoryInsightRun, result["run_id"])
+        setattr(run, field, "{invalid")
+        session.commit()
+
+    response = client.get(f"/api/v1/repositories/123/{endpoint}", headers=HEADERS)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == error_code
+    assert "采集记录无法读取" in response.json()["error"]["message"]
 
 
 @pytest.mark.parametrize(("module", "endpoint", "error_code"), [
