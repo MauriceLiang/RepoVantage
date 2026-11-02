@@ -80,9 +80,9 @@ async function exportCsv() {
       </div>
       <GdCoverageNote :coverage="analysis.pullRequests.coverage" />
     </div>
-    <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :height="250" />
+    <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :duration-p90="analysis.prDuration.percentiles.p90" :height="270" />
     <GroupedChart v-else :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#2E8FCB']" :height="250" />
-    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，散点为单条 PR 耗时，折线为每周耗时中位数；覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；中位数使用全部有效样本。</template></p>
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，圆点为单条 PR 耗时，折线为每周中位耗时；耗时轴随当前时间窗口缩放，超过全窗口 P90 的长尾以三角标记，悬浮仍显示真实耗时。窗口只筛选显示范围，柱和中位数仍按 UTC 自然周聚合。覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；P90 阈值和周中位数使用全部有效样本。</template></p>
     <p v-else class="text-[11px] text-muted">当前数据未提供逐条耗时，显示已采集的每周合并数量。</p>
   </GdCard>
 
