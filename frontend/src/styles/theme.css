@@ -2,7 +2,7 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* ---------- design tokens (see docs/DESIGN_SYSTEM.md) ---------- */
+/* ---------- 全局主题变量 ---------- */
 :root {
   --gd-bg: #fafafa;
   --gd-panel: #ffffff;

@@ -1,4 +1,4 @@
-"""Export a verified featured dataset directory as a versioned ZIP."""
+"""将已校验的精选数据集目录导出为带版本号的 ZIP 文件。"""
 
 import argparse
 import json

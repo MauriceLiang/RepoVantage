@@ -9,12 +9,10 @@ import GdInput from '@/components/ui/GdInput.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import type { ActivityTrend, RepositorySummary, TaskItem } from '@/services/types'
-import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
 const ui = useUiStore()
-const analysis = useAnalysisStore()
 const source = useDataSource()
 
 const input = ref('')
@@ -45,8 +43,8 @@ watch(repositories, async (items) => {
     return
   }
 
-  // The library list is already ordered by last collection. Keep the dashboard
-  // read bounded and rank the latest five analyzable repositories by change.
+  // 仓库列表已按最近采集时间排序；只读取最近五个可分析的仓库，
+  // 再按变化幅度排序，避免首页为全部仓库发起分析请求。
   const candidates = items.filter((repo) => repo.status === 'ready' || repo.status === 'partial').slice(0, 5)
   changeCandidateCount.value = candidates.length
   if (!candidates.length) {
@@ -152,7 +150,6 @@ async function submit() {
   submitting.value = true
   try {
     const result = await source.addRepository(raw)
-    analysis.remember(result.repositoryId)
     ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
     void router.push(`/repositories/${result.repositoryId}/overview`)
   } catch (error) {

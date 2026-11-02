@@ -1,6 +1,6 @@
 import type { DefinitionEntry } from './types'
 
-/** Human-readable metric definitions shown in the 数据与口径 drawer. */
+/** “数据与口径”侧栏展示的指标定义及其解释。 */
 export const DEFINITIONS: Record<string, DefinitionEntry> = {
   M01: {
     metricId: 'M01',

@@ -23,10 +23,15 @@ TERMINAL_MODULE_STATUSES = {"complete", "partial", "failed", "skipped"}
 
 
 class StaleTaskAttempt(RuntimeError):
-    """Raised when a worker no longer owns the task attempt it is reporting."""
+    """Worker 不再持有正在上报的任务尝试时抛出。"""
 
 
 class TaskProgressReporter:
+    """持久化某次已取得租约的任务尝试的阶段及模块进度。
+
+    每次写入都检查尝试次数和租约持有者；任务重新排队后，过期 Worker
+    不能覆盖后续尝试产生的进度。阶段百分比仅表示任务进度，不代表历史数据覆盖率。
+    """
     def __init__(self, session_factory: Callable[[], Session], task_id: str, attempt: int, lease_owner: str):
         self.session_factory = session_factory
         self.task_id = task_id

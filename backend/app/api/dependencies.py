@@ -6,7 +6,7 @@ from fastapi import Header, Request
 from backend.app.core.config import get_settings
 from backend.app.core.exceptions import AppError
 from backend.app.integrations.github.client import GitHubClient
-from backend.app.persistence.db import get_session
+from backend.app.persistence.db import get_session  # 重新导出，供路由依赖和测试替换使用。
 
 
 def require_internal_api_key(x_internal_api_key: str | None = Header(default=None, alias="X-Internal-Api-Key")) -> None:

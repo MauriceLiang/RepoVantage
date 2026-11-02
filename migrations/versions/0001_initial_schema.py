@@ -1,7 +1,7 @@
-"""Initial backend schema.
+"""创建后端初始数据库结构。
 
-Revision ID: 0001_initial
-Revises:
+修订版本：0001_initial
+前置版本：
 """
 from alembic import op
 

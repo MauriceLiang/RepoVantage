@@ -12,15 +12,8 @@ import { useUiStore } from '@/stores/ui'
 const ui = useUiStore()
 const dataSource = useDataSource()
 const payload = computed(() => ui.drawerPayload ?? {})
-const issueComments = computed<IssueComment[]>(() => {
-  try {
-    const value: unknown = JSON.parse(payload.value.commentsJson ?? '[]')
-    return Array.isArray(value) ? value as IssueComment[] : []
-  } catch {
-    return []
-  }
-})
-const pullRequestComments = computed<IssueComment[]>(() => {
+// Issue 与 PR 共用抽屉载荷；评论数据为空或解析失败时显示空列表。
+const comments = computed<IssueComment[]>(() => {
   try {
     const value: unknown = JSON.parse(payload.value.commentsJson ?? '[]')
     return Array.isArray(value) ? value as IssueComment[] : []
@@ -33,8 +26,7 @@ const commitActivity = ref<CommitActivityPage | null>(null)
 const commitPage = ref(1)
 const commitLoading = ref(false)
 const commitError = ref('')
-let issueOnlineRequest = 0
-let pullRequestOnlineRequest = 0
+let onlineRequest = 0
 let commitRequest = 0
 
 async function loadWeekCommits() {
@@ -68,27 +60,38 @@ watch(
   { immediate: true },
 )
 
-async function fetchIssueOnline() {
+async function fetchOnline(kind: 'issue' | 'pr') {
   const repositoryId = payload.value.repositoryId
-  const issueNumber = Number(payload.value.number)
-  if (!repositoryId || !Number.isSafeInteger(issueNumber) || issueNumber <= 0) return
+  const number = Number(payload.value.number)
+  if (!repositoryId || !Number.isSafeInteger(number) || number <= 0) return
 
-  const requestId = ++issueOnlineRequest
-  ui.openDrawer('issue', { ...payload.value, onlineStatus: 'loading', onlineError: '' })
-  try {
-    const detail = await dataSource.getIssueOnlineDetail(repositoryId, issueNumber)
+  const requestId = ++onlineRequest
+  ui.openDrawer(kind, { ...payload.value, onlineStatus: 'loading', onlineError: '' })
+
+  // 切换仓库或记录后，较早的请求不能覆盖当前侧栏。
+  function currentPayload() {
     const current = ui.drawerPayload
     if (
-      requestId !== issueOnlineRequest || ui.drawerKind !== 'issue' ||
-      current?.repositoryId !== repositoryId || current.number !== String(issueNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('issue', {
+      requestId !== onlineRequest || ui.drawerKind !== kind || !current ||
+      current.repositoryId !== repositoryId || current.number !== String(number) || current.onlineStatus !== 'loading'
+    ) return null
+    return current
+  }
+
+  try {
+    const detail = kind === 'issue'
+      ? await dataSource.getIssueOnlineDetail(repositoryId, number)
+      : await dataSource.getPullRequestOnlineDetail(repositoryId, number)
+    const current = currentPayload()
+    if (!current) return
+    ui.openDrawer(kind, {
       ...current,
       title: detail.title,
       state: detail.state,
       createdAt: detail.createdAt ?? '',
       closedAt: detail.closedAt ?? '',
-      updatedAt: detail.updatedAt ?? '',
+      ...(kind === 'issue' ? { updatedAt: detail.updatedAt ?? '' } : {}),
+      ...('mergedAt' in detail ? { mergedAt: detail.mergedAt ?? '' } : {}),
       author: detail.author ?? '',
       labels: detail.labels.join(' · '),
       url: detail.url ?? current.url ?? '',
@@ -103,63 +106,13 @@ async function fetchIssueOnline() {
       onlineError: '',
     })
   } catch (error) {
-    const current = ui.drawerPayload
-    if (
-      requestId !== issueOnlineRequest || ui.drawerKind !== 'issue' ||
-      current?.repositoryId !== repositoryId || current.number !== String(issueNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('issue', {
+    const current = currentPayload()
+    if (!current) return
+    const failureMessage = kind === 'issue' ? '在线获取 Issue 详情失败' : '在线获取 Pull Request 详情失败'
+    ui.openDrawer(kind, {
       ...current,
       onlineStatus: 'error',
-      onlineError: error instanceof Error ? error.message : '在线获取 Issue 详情失败',
-    })
-  }
-}
-
-async function fetchPullRequestOnline() {
-  const repositoryId = payload.value.repositoryId
-  const pullNumber = Number(payload.value.number)
-  if (!repositoryId || !Number.isSafeInteger(pullNumber) || pullNumber <= 0) return
-
-  const requestId = ++pullRequestOnlineRequest
-  ui.openDrawer('pr', { ...payload.value, onlineStatus: 'loading', onlineError: '' })
-  try {
-    const detail = await dataSource.getPullRequestOnlineDetail(repositoryId, pullNumber)
-    const current = ui.drawerPayload
-    if (
-      requestId !== pullRequestOnlineRequest || ui.drawerKind !== 'pr' ||
-      current?.repositoryId !== repositoryId || current.number !== String(pullNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('pr', {
-      ...current,
-      title: detail.title,
-      state: detail.state,
-      createdAt: detail.createdAt ?? '',
-      closedAt: detail.closedAt ?? '',
-      mergedAt: detail.mergedAt ?? '',
-      author: detail.author ?? '',
-      labels: detail.labels.join(' · '),
-      url: detail.url ?? current.url ?? '',
-      bodyStatus: 'ready',
-      body: detail.body ?? '',
-      commentsCount: String(detail.commentsCount),
-      commentsJson: JSON.stringify(detail.comments),
-      commentsComplete: String(detail.commentsComplete),
-      commentsError: detail.commentsError ?? '',
-      onlineSource: 'github',
-      onlineStatus: 'ready',
-      onlineError: '',
-    })
-  } catch (error) {
-    const current = ui.drawerPayload
-    if (
-      requestId !== pullRequestOnlineRequest || ui.drawerKind !== 'pr' ||
-      current?.repositoryId !== repositoryId || current.number !== String(pullNumber) || current.onlineStatus !== 'loading'
-    ) return
-    ui.openDrawer('pr', {
-      ...current,
-      onlineStatus: 'error',
-      onlineError: error instanceof Error ? error.message : '在线获取 Pull Request 详情失败',
+      onlineError: error instanceof Error ? error.message : failureMessage,
     })
   }
 }
@@ -255,7 +208,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section class="mt-4">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">Issue 描述</h3>
-          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchIssueOnline">
+          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchOnline('issue')">
             {{ payload.onlineStatus === 'loading' ? '正在获取…' : payload.onlineStatus === 'ready' ? '重新获取' : '在线获取' }}
           </GdButton>
         </div>
@@ -263,7 +216,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <p v-if="payload.onlineError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="alert">{{ payload.onlineError }}；当前仍可查看本地采集内容。</p>
         <p v-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'mock'" class="mt-2 text-[11px] text-muted">演示模式：以下为示例数据，没有连接 GitHub。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">Issue 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
-        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ issueComments.length }} / {{ payload.commentsCount }} 条评论；评论较多，完整讨论请在 GitHub 查看。</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ comments.length }} / {{ payload.commentsCount }} 条评论；评论较多，完整讨论请在 GitHub 查看。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'github'" class="mt-2 text-[11px] text-muted">已从 GitHub 获取最新 Issue 内容与评论。</p>
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 Issue 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
@@ -276,9 +229,9 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
           <h3 class="m-0 text-[13px] font-semibold text-ink">讨论记录</h3>
           <span class="text-[11px] text-muted">{{ payload.commentsCount ?? '0' }} 条评论</span>
         </div>
-        <p v-if="!issueComments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 Issue 暂无评论。</p>
+        <p v-if="!comments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 Issue 暂无评论。</p>
         <div v-else class="mt-2 space-y-3">
-          <article v-for="(comment, index) in issueComments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
+          <article v-for="(comment, index) in comments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
             <div class="flex flex-wrap items-center justify-between gap-1 text-[11px]">
               <span class="font-medium text-ink">{{ comment.author }}</span>
               <time v-if="comment.createdAt" class="font-mono text-muted">{{ comment.createdAt }}</time>
@@ -305,14 +258,15 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section class="mt-4">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">PR 描述</h3>
-          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchPullRequestOnline">
+          <GdButton variant="outline" size="sm" :disabled="payload.bodyStatus === 'loading' || payload.onlineStatus === 'loading'" @click="fetchOnline('pr')">
             {{ payload.onlineStatus === 'loading' ? '正在获取…' : payload.onlineStatus === 'ready' ? '重新获取' : '在线获取' }}
           </GdButton>
         </div>
         <p class="mt-1.5 text-[11px] leading-relaxed text-muted">点击后才会请求 GitHub 最新内容；对话评论最多读取 100 条。</p>
         <p v-if="payload.onlineError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="alert">{{ payload.onlineError }}；当前仍可查看本地采集内容。</p>
-        <p v-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">PR 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
-        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ pullRequestComments.length }} / {{ payload.commentsCount }} 条评论；完整讨论请在 GitHub 查看。</p>
+        <p v-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'mock'" class="mt-2 text-[11px] text-muted">演示模式：以下为示例数据，没有连接 GitHub。</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsError" class="mt-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] leading-relaxed text-warnfg" role="status">PR 正文已获取，但评论读取失败：{{ payload.commentsError }}</p>
+        <p v-else-if="payload.onlineStatus === 'ready' && payload.commentsComplete === 'false'" class="mt-2 text-[11px] text-muted">当前显示 {{ comments.length }} / {{ payload.commentsCount }} 条评论；完整讨论请在 GitHub 查看。</p>
         <p v-else-if="payload.onlineStatus === 'ready' && payload.onlineSource === 'github'" class="mt-2 text-[11px] text-muted">已从 GitHub 获取最新 PR 内容与对话评论。</p>
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 PR 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
@@ -323,11 +277,11 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
       <section v-if="payload.onlineStatus === 'ready'" class="mt-5">
         <div class="flex items-center justify-between gap-2">
           <h3 class="m-0 text-[13px] font-semibold text-ink">对话评论</h3>
-          <span class="text-[11px] text-muted">{{ pullRequestComments.length }} / {{ payload.commentsCount ?? '0' }} 条</span>
+          <span class="text-[11px] text-muted">{{ comments.length }} / {{ payload.commentsCount ?? '0' }} 条</span>
         </div>
-        <p v-if="!pullRequestComments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 PR 暂无对话评论。</p>
+        <p v-if="!comments.length && !payload.commentsError" class="mt-2 text-[12px] text-muted">此 PR 暂无对话评论。</p>
         <div v-else class="mt-2 space-y-3">
-          <article v-for="(comment, index) in pullRequestComments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
+          <article v-for="(comment, index) in comments" :key="`${comment.author}-${comment.createdAt}-${index}`" class="rounded-md border border-line bg-soft/40 p-3">
             <div class="flex flex-wrap items-center justify-between gap-1 text-[11px]">
               <span class="font-medium text-ink">{{ comment.author }}</span>
               <time v-if="comment.createdAt" class="font-mono text-muted">{{ comment.createdAt }}</time>

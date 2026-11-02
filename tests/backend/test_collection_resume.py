@@ -8,7 +8,7 @@ import pytest
 from backend.app.core.clock import iso_z, utc_now
 from backend.app.integrations.github.client import PageObservation, PaginatedResult
 from backend.app.persistence.models import CollectionTask
-from backend.app.pipeline.collection_archive import read_page, write_page
+from backend.app.pipeline.collection_archive import iter_module_records, read_page, write_page
 from backend.app.worker.collection import collect_deep
 
 
@@ -85,7 +85,42 @@ def test_window_collection_resumes_from_last_saved_page_without_duplicate_record
     assert second_resume_after is None
     assert github.resume_urls == [None, "https://api.github.com/repos/example/project/commits?page=2"]
     assert [record["source_item_id"] for record in second["events"]["commits"]] == ["a" * 40, "b" * 40]
-    assert second["commits_count"] == 2
+    assert second["sources"]["commits"]["accepted_events"] == 2
+
+
+@pytest.mark.parametrize("detailed", [False, True])
+def test_collection_passes_module_query_to_both_github_interfaces(backend_client, detailed):
+    client, factory, _default_github = backend_client
+    repository_id = client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS).json()["data"]["repository_id"]
+    end = utc_now().replace(microsecond=0)
+    start = end - timedelta(days=90)
+    query_start = end - timedelta(days=30)
+    task = CollectionTask(task_id=str(uuid4()), repository_id=repository_id, depth="deep", scope_kind="incremental", created_at=end, status="running")
+    with factory() as session:
+        session.add(task)
+        session.commit()
+
+    calls = []
+
+    def method(module):
+        def fetch(*args, **_options):
+            calls.append((module, args))
+            return PaginatedResult([], [], True, 0, 0, False) if detailed else ([], True, [])
+        return fetch
+
+    github = type("GitHubStub", (), {"max_pages": None})()
+    for module in ("commits", "issues", "pulls", "releases"):
+        setattr(github, f"list_{module}{'_detailed' if detailed else ''}", method(module))
+
+    _result, coverage, deferred = collect_deep(github, "example/project", start, end, task, None, factory, query_start=query_start)
+
+    assert calls == [
+        ("commits", ("example/project", iso_z(query_start), iso_z(end))),
+        ("issues", ("example/project", iso_z(query_start), "all")),
+        ("pulls", ("example/project", "closed")),
+        ("releases", ("example/project",)),
+    ]
+    assert coverage == "complete" and deferred is None
 
 
 def test_invalid_event_records_reduce_module_coverage(backend_client):
@@ -110,13 +145,26 @@ def test_invalid_event_records_reduce_module_coverage(backend_client):
     assert coverage == "partial"
     assert result["coverage_by_module"]["commits_count"] == "partial"
     assert result["sources"]["commits"]["rejected_records"] == 1
-    assert result["commits_count"] is None
+    assert result["events"]["commits"] == []
 
 
 def test_collected_page_requires_matching_sha256(backend_client):
     _client, _factory, _github = backend_client
     stored_path, _digest = write_page(123, "commits", "a" * 64, 1, [{"sha": "b" * 40}], '[{"sha":"' + "b" * 40 + '"}]', "https://api.github.com/repos/example/project/commits", 200)
     assert read_page(stored_path)["record_count"] == 1
+    assert list(iter_module_records({"page_files": [stored_path]})) == [{"sha": "b" * 40}]
     Path(stored_path + ".sha256").unlink()
     with pytest.raises(ValueError, match="checksum is missing"):
-        read_page(stored_path)
+        list(iter_module_records({"page_files": [stored_path]}))
+
+
+@pytest.mark.parametrize("archive", [
+    {"pages": ['[{"id": 1}]', [{"id": 2}]]},
+    ['[{"id": 1}]', [{"id": 2}]],
+])
+def test_record_iterator_preserves_legacy_page_formats_and_rejects_corruption(archive):
+    assert list(iter_module_records(archive)) == [{"id": 1}, {"id": 2}]
+    with pytest.raises(ValueError, match="invalid legacy page JSON"):
+        list(iter_module_records({"pages": ["not-json"]}))
+    with pytest.raises(ValueError, match="invalid legacy page records"):
+        list(iter_module_records({"pages": [[1]]}))

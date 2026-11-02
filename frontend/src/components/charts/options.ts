@@ -1,6 +1,7 @@
 import type { EChartsOption } from 'echarts'
 import type { HistogramBucket, NamedSeries, ReleaseRecord, ResearchScatterPoint, TimePoint } from '@/services/types'
 import { fontFamily, MONO, type ChartTheme } from './theme'
+import { observedValue } from './comboHelpers'
 
 const mmdd = (iso: string) => iso.slice(5)
 const tip = (t: ChartTheme) => ({
@@ -124,16 +125,35 @@ export function groupedOption(series: NamedSeries[], unit: string, colors: strin
   }
 }
 
-export function histogramOption(buckets: HistogramBucket[], color: string, t: ChartTheme, unit = '条记录'): EChartsOption {
+export function histogramOption(
+  buckets: HistogramBucket[],
+  color: string,
+  t: ChartTheme,
+  unit = '条记录',
+  display: { cumulativeStep?: boolean; medianDays?: number | null; showMedianReference?: boolean } = {},
+): EChartsOption {
   const total = buckets.reduce((sum, bucket) => sum + bucket.count, 0)
   let cumulative = 0
   const cumulativePercent = buckets.map((bucket) => {
     cumulative += bucket.count
     return total ? Number((cumulative / total * 100).toFixed(1)) : null
   })
+  let medianBucketIndex = -1
+  if (display.medianDays !== null && display.medianDays !== undefined) {
+    medianBucketIndex = buckets.findIndex((bucket) => {
+      const label = bucket.label.trim()
+      const bounds = label.match(/\d+(?:\.\d+)?/g)?.map(Number) ?? []
+      if (!bounds.length) return false
+      if (/^[≥>]|\+$/.test(label)) return true
+      const upperBound = bounds.length > 1 ? bounds[1] : bounds[0]
+      return display.medianDays! < upperBound
+    })
+  }
+  if (medianBucketIndex < 0) medianBucketIndex = cumulativePercent.findIndex((value) => value !== null && value >= 50)
+  const medianDays = display.medianDays
   return {
     animation: false,
-    grid: { left: 40, right: 44, top: 30, bottom: 30 },
+    grid: { left: 40, right: 44, top: 48, bottom: 30 },
     legend: {
       top: 0, left: 0, icon: 'roundRect', itemWidth: 8, itemHeight: 8, itemGap: 14,
       textStyle: { color: t.muted, fontSize: 10.5, fontFamily },
@@ -165,22 +185,45 @@ export function histogramOption(buckets: HistogramBucket[], color: string, t: Ch
         name: '累计占比',
         type: 'line', yAxisIndex: 1,
         data: cumulativePercent,
-        step: 'end',
+        ...(display.cumulativeStep === false ? {} : { step: 'end' as const }),
         symbol: 'circle', symbolSize: 5,
         lineStyle: { color: t.series[3], width: 2 },
         itemStyle: { color: t.series[3] },
         connectNulls: false,
+        markLine: display.showMedianReference && total > 0 ? {
+          silent: true,
+          symbol: 'none',
+          data: [{ yAxis: 50 }],
+          lineStyle: { color: t.muted, type: 'dashed', width: 1 },
+          label: { show: false },
+        } : undefined,
+        markPoint: total > 0 && medianDays !== null && medianDays !== undefined && medianBucketIndex >= 0 ? {
+          symbol: 'diamond',
+          symbolSize: 10,
+          tooltip: { show: false },
+          itemStyle: { color: t.series[3], borderColor: t.panel, borderWidth: 2 },
+          label: {
+            show: true,
+            position: 'top',
+            distance: 5,
+            color: t.ink,
+            fontSize: 10,
+            fontFamily: MONO,
+            formatter: 'P50 ' + medianDays.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) + ' 天',
+          },
+          data: [{ name: 'P50', coord: [buckets[medianBucketIndex].label, 50], value: medianDays }],
+        } : undefined,
       },
     ],
   }
 }
 
-export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact = false): EChartsOption {
+export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact = false, commits: TimePoint[] = []): EChartsOption {
   const formal = releases.filter((r) => !r.prerelease)
   const pre = releases.filter((r) => r.prerelease)
-  const releaseTimes = releases.map((release) => Date.parse(release.publishedAt)).filter(Number.isFinite)
-  const earliest = Math.min(...releaseTimes)
-  const latest = Math.max(...releaseTimes)
+  const releaseTimes = [...releases.map((release) => Date.parse(release.publishedAt)), ...commits.map((point) => Date.parse(point.date))].filter(Number.isFinite)
+  const earliest = releaseTimes.length ? Math.min(...releaseTimes) : 0
+  const latest = releaseTimes.length ? Math.max(...releaseTimes) : 0
   const span = latest - earliest
   const start = span > 90 * 24 * 60 * 60 * 1000 ? Math.max(0, (latest - 90 * 24 * 60 * 60 * 1000 - earliest) / span * 100) : 0
   const releasesByDate = new Map<string, ReleaseRecord[]>()
@@ -195,8 +238,8 @@ export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact
   }
   const data = (rows: ReleaseRecord[]) => rows.map((r) => ({ name: r.tag, value: [r.publishedAt, 1 + (verticalOffset.get(r) ?? 0)], itemStyle: { color: r.prerelease ? t.panel : t.series[2], borderColor: r.prerelease ? t.series[3] : t.series[2], borderWidth: 2 } }))
   return {
-    animation: false,
-    grid: { left: 20, right: 20, top: 22, bottom: compact ? 28 : 50 },
+    useUTC: true, animation: false,
+    grid: { left: compact ? 20 : 42, right: 20, top: 22, bottom: compact ? 28 : 50 },
     tooltip: {
       ...tip(t),
       trigger: 'item',
@@ -205,6 +248,10 @@ export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact
         if (!p) return ''
         const escape = (value: string) => value.replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
         const date = String(p.value?.[0] ?? '').slice(0, 10)
+        if (p.seriesName === '每周提交') {
+          const point = commits.find((item) => item.date === date)
+          return `<div>${escape(date)} 起的 UTC 周${point?.value === null ? ' · 已观察样本' : ''}</div><div>提交：<b>${observedValue(point) ?? '—'}</b></div>`
+        }
         return `<div style="font-family:${MONO};font-size:11px">${escape(p.name ?? 'Release')}</div><div style="color:${t.ink};font-size:11px;margin-top:2px">${escape(date)} · ${escape(p.seriesName ?? '')}</div>`
       },
     },
@@ -222,7 +269,10 @@ export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact
       },
       axisTick: { show: !compact },
     },
-    yAxis: { type: 'value', min: 0, max: 2, show: false },
+    yAxis: [
+      { type: 'value', min: 0, minInterval: 1, name: compact ? '' : '提交', nameTextStyle: { color: t.muted, fontSize: 9 }, axisLabel: { show: !compact, color: t.muted, fontSize: 9 }, splitLine: { show: !compact, lineStyle: { color: t.grid } } },
+      { type: 'value', min: 0, max: 2, show: false },
+    ],
     dataZoom: compact || releases.length < 2 ? undefined : [
       { type: 'inside', xAxisIndex: 0, filterMode: 'none', start, end: 100, zoomOnMouseWheel: true, moveOnMouseWheel: true, moveOnMouseMove: true },
       {
@@ -234,8 +284,9 @@ export function timelineOption(releases: ReleaseRecord[], t: ChartTheme, compact
       },
     ],
     series: [
-      { name: '正式发布', type: 'scatter', symbolSize: compact ? 9 : 11, data: data(formal), emphasis: { scale: true }, label: { show: !compact && formal.length <= 8, position: 'top', formatter: (p: { name: string }) => p.name, color: t.muted, fontSize: 9.5, fontFamily: MONO } },
-      { name: '预发布', type: 'scatter', symbolSize: compact ? 8 : 10, data: data(pre), emphasis: { scale: true } },
+      { name: '每周提交', type: 'line', data: commits.map((point) => [point.date, observedValue(point)]), connectNulls: false, symbol: 'none', lineStyle: { color: t.series[0], width: 1.5 }, areaStyle: { color: t.series[0], opacity: 0.15 }, z: 1 },
+      { name: '正式发布', type: 'scatter', yAxisIndex: 1, symbolSize: compact ? 9 : 11, data: data(formal), emphasis: { scale: true }, label: { show: !compact && formal.length <= 8, position: 'top', formatter: (p: { name: string }) => p.name, color: t.muted, fontSize: 9.5, fontFamily: MONO }, z: 4 },
+      { name: '预发布', type: 'scatter', yAxisIndex: 1, symbolSize: compact ? 8 : 10, data: data(pre), emphasis: { scale: true }, z: 4 },
     ],
   }
 }
@@ -318,6 +369,7 @@ export function calendarOption(points: TimePoint[], t: ChartTheme, windowStart?:
   const endTime = windowEnd ? Date.parse(windowEnd) : NaN
   const validWindow = Number.isFinite(startTime) && Number.isFinite(endTime) && endTime > startTime
   const start = validWindow ? new Date(startTime).toISOString().slice(0, 10) : dates[0] ?? ''
+  // API 时间窗口的结束日期不包含在内，而 ECharts 日历范围包含结束日期。
   const end = validWindow ? new Date(endTime - 1).toISOString().slice(0, 10) : dates[dates.length - 1] ?? ''
   const visiblePoints = points.filter((point) => point.date >= start && point.date <= end && point.value !== null)
   const max = Math.max(...visiblePoints.map((point) => point.value ?? 0), 1)

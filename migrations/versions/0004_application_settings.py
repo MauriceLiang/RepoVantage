@@ -1,4 +1,4 @@
-"""Persist user-adjustable application settings."""
+"""持久化用户可调整的应用设置。"""
 import sqlalchemy as sa
 from alembic import op
 

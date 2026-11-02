@@ -3,12 +3,15 @@ import { computed, ref, watch } from 'vue'
 import AuthorConcentrationChart from '@/components/charts/AuthorConcentrationChart.vue'
 import CalendarHeatmap from '@/components/charts/CalendarHeatmap.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
+import CommitAuthorStackChart from '@/components/charts/CommitAuthorStackChart.vue'
+import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
+import { formatDate, formatTime } from '@/lib/format'
 import type { CommitActivityPage, RepositoryAnalysis, TimePoint } from '@/services/types'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -23,7 +26,10 @@ const loading = ref(false)
 const loadError = ref('')
 let requestVersion = 0
 
-const weeklyPoints = computed(() => props.analysis.commits.series[0]?.points ?? [])
+const weeklyPoints = computed(() => {
+  const points = props.analysis.commits.series[0]?.points ?? []
+  return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
+})
 const pageCount = computed(() => Math.max(1, Math.ceil((activity.value?.total ?? 0) / pageSize)))
 const firstRecord = computed(() => activity.value?.total ? (page.value - 1) * pageSize + 1 : 0)
 const lastRecord = computed(() => Math.min(page.value * pageSize, activity.value?.total ?? 0))
@@ -76,16 +82,6 @@ function filterAuthor(author: string) {
   appliedSearch.value = author
 }
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10)
-}
-
-function formatTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : `${date.toISOString().slice(11, 19)} UTC`
-}
 </script>
 
 <template>
@@ -99,9 +95,11 @@ function formatTime(value: string) {
       </div>
       <GdCoverageNote :coverage="analysis.commits.coverage" />
     </div>
-    <TrendChart :points="weeklyPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(payload) => selectWeek(payload.dataIndex)" />
+    <CommitAuthorStackChart v-if="analysis.chartData" :points="weeklyPoints" :data="analysis.chartData" :height="260" @select="selectWeek" />
+    <TrendChart v-else :points="weeklyPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(payload) => selectWeek(payload.dataIndex)" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }} · 折线只统计连续 4 个完整周；灰色间断代表该周覆盖不完整。</span>
+      <span v-if="analysis.chartData">堆叠柱显示前 5 个 GitHub 账号及其他、未关联账号；半透明表示部分覆盖。折线只统计连续 4 个完整周 · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}。</span>
+      <span v-else>当前数据未提供作者贡献构成，显示每周提交数及完整 4 周均值。</span>
       <span>点击周趋势点，可查看该周已采集的逐条 Commit。</span>
     </div>
   </GdCard>

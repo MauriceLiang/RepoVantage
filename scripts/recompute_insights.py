@@ -1,4 +1,4 @@
-"""Default is a non-mutating local preview. --apply explicitly persists a replay."""
+"""默认只在本地预览、不修改数据；显式指定 --apply 才会保存重放结果。"""
 import argparse
 import json
 

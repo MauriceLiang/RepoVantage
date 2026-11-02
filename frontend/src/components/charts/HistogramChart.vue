@@ -6,11 +6,30 @@ import EChart from './EChart.vue'
 import { histogramOption } from './options'
 import { chartTheme } from './theme'
 
-const props = withDefaults(defineProps<{ buckets: HistogramBucket[]; color?: string; unit?: string; height?: number }>(), { color: '', unit: '条记录', height: 200 })
+const props = withDefaults(defineProps<{
+  buckets: HistogramBucket[]
+  color?: string
+  unit?: string
+  height?: number
+  cumulativeStep?: boolean
+  medianDays?: number | null
+  showMedianReference?: boolean
+}>(), {
+  color: '',
+  unit: '条记录',
+  height: 200,
+  cumulativeStep: true,
+  medianDays: null,
+  showMedianReference: false,
+})
 const ui = useUiStore()
 const option = computed(() => {
   const t = chartTheme(ui.isDark)
-  return histogramOption(props.buckets, props.color || t.series[1], t, props.unit)
+  return histogramOption(props.buckets, props.color || t.series[1], t, props.unit, {
+    cumulativeStep: props.cumulativeStep,
+    medianDays: props.medianDays,
+    showMedianReference: props.showMedianReference,
+  })
 })
 </script>
 

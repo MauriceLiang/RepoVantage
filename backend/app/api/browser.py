@@ -64,7 +64,7 @@ def _origin_allowed(request: Request, origin: str) -> bool:
     configured = [item.strip().lower().rstrip("/") for item in os.getenv("BROWSER_ALLOWED_ORIGINS", "").split(",") if item.strip()]
     if origin.lower().rstrip("/") in configured or parsed.netloc.lower() in allowed:
         return True
-    # Vite's local development origin is accepted only as a loopback origin.
+    # Vite 默认开发来源只在回环地址下允许访问。
     return parsed.port == 5173 and parsed.scheme == "http"
 
 
@@ -131,6 +131,7 @@ def create_browser_session(request: Request, response: Response):
 
 
 def require_browser_session(request: Request) -> BrowserSession:
+    """校验本地浏览器会话；写操作还必须通过 CSRF 令牌和请求来源检查。"""
     blocked = _check_local_origin(request)
     if blocked:
         raise AppError(*blocked)
@@ -161,6 +162,11 @@ def revoke_browser_session(request: Request, browser_session: BrowserSession = D
 
 @router.api_route("/v1/{path:path}", methods=["GET", "POST", "DELETE"], include_in_schema=False)
 async def proxy_api(path: str, request: Request, browser_session: BrowserSession = Depends(require_browser_session)):
+    """将已验证的本机请求转发给内部 API，避免向浏览器暴露内部密钥。
+
+    内部 API 与网关运行在同一个 ASGI 应用中。转发前限制请求体大小，
+    并且只允许白名单中的少量请求头跨越网关边界。
+    """
     del browser_session
     segments = path.split("/")
     if not path or any(segment in {"", ".", ".."} for segment in segments) or "\\" in path:

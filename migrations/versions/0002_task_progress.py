@@ -1,7 +1,7 @@
-"""Persist task and module progress.
+"""持久化任务及模块进度。
 
-Revision ID: 0002_task_progress
-Revises: 0001_initial
+修订版本：0002_task_progress
+前置版本：0001_initial
 """
 import sqlalchemy as sa
 from alembic import op

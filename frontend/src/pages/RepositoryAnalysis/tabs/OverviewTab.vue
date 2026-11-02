@@ -1,19 +1,27 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import ObservationList from '@/components/common/ObservationList.vue'
-import TrendChart from '@/components/charts/TrendChart.vue'
+import CommitActivityComboChart from '@/components/charts/CommitActivityComboChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
-import type { RepositoryAnalysis } from '@/services/types'
+import { coveredCommitPoints } from '@/components/charts/comboHelpers'
+import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
+import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
+const { openRelease } = useReleaseDrawer(() => repoId.value)
+const selectedReleaseWeek = ref<{ date: string; releases: ReleaseRecord[] } | null>(null)
+watch([repoId, () => props.analysis.windowAvailability.requestedDays, () => props.analysis.releases], () => { selectedReleaseWeek.value = null })
 
-const commitsPoints = computed(() => props.analysis.commits.series[0]?.points ?? [])
+const commitsPoints = computed(() => {
+  const points = props.analysis.commits.series[0]?.points ?? []
+  return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
+})
 const releasesYear = computed(() => props.analysis.releases)
 const latestRelease = computed(() => [...props.analysis.releases].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))[0])
 const latestReleaseLabel = computed(() => {
@@ -31,6 +39,16 @@ function selectCommit(dataIndex: number) {
   if (point && (point.value !== null || point.observedValue !== null && point.observedValue !== undefined)) {
     emit('select-week', { date: point.date, count: point.value ?? point.observedValue ?? 0 })
   }
+}
+
+function selectRelease(release: ReleaseRecord) {
+  selectedReleaseWeek.value = null
+  void openRelease(release)
+}
+
+function releaseTime(value: string) {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? value : `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
 
 function repositorySizeLabel(sizeKb: number | null | undefined) {
@@ -55,10 +73,32 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <span class="rounded-md bg-track px-2 py-1 text-[11.5px] text-ink/70">{{ analysis.commits.limitation }}</span>
       </div>
     </div>
-    <TrendChart :points="commitsPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(p) => selectCommit(p.dataIndex)" />
+    <div class="relative">
+      <CommitActivityComboChart
+        :points="commitsPoints"
+        :weeks="analysis.chartData?.commitWeekly ?? []"
+        :releases="analysis.releases"
+        :window-start="analysis.commits.window.startUtc ?? analysis.commits.window.start"
+        :window-end="analysis.commits.window.endUtc ?? analysis.commits.window.end"
+        @select="selectCommit"
+        @select-releases="selectedReleaseWeek = $event"
+      />
+      <div v-if="selectedReleaseWeek" class="absolute bottom-10 right-2 z-10 w-80 max-w-[calc(100%-1rem)] rounded-lg border border-line bg-panel p-3 shadow-lg" role="region" :aria-label="`${selectedReleaseWeek.date} 起的 UTC 周的正式发布`" data-testid="activity-release-list">
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-[12px] font-semibold">{{ selectedReleaseWeek.date }} 起的 UTC 周 · {{ selectedReleaseWeek.releases.length }} 次发布</span>
+          <button type="button" class="shrink-0 text-[11px] text-muted hover:text-ink" aria-label="关闭发布列表" @click="selectedReleaseWeek = null">关闭</button>
+        </div>
+        <div class="mt-2 max-h-36 overflow-y-auto overscroll-contain">
+          <button v-for="release in selectedReleaseWeek.releases" :key="`${release.tag}-${release.publishedAt}`" type="button" class="flex w-full items-center justify-between gap-3 border-t border-line py-2 text-left hover:text-ink" @click="selectRelease(release)">
+            <span class="min-w-0"><span class="block break-all text-[12px] font-medium text-ink">{{ release.identifierType === 'release_id' ? `Release #${release.tag}` : release.tag }}</span><time class="font-mono text-[10px] text-muted">{{ releaseTime(release.publishedAt) }}</time></span>
+            <span class="shrink-0 text-[11px] text-muted">查看详情 →</span>
+          </button>
+        </div>
+      </div>
+    </div>
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>单位：{{ analysis.commits.unit }} · 柱为每周提交数，折线为连续 4 个完整周的均值 · SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
-      <span>点击周数据查看该周已采集的 Commit 明细</span>
+      <span>柱为每周提交；均线仅统计连续 4 个完整周。{{ analysis.chartData ? '空心点与半透明柱为已观察样本；未关联账号的提交不计入活跃账号。' : '当前数据未提供活跃账号趋势。' }}发布仅显示已采集的正式 Release。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span>点击柱或账号点查看 Commit；点击菱形查看版本</span>
     </div>
   </GdCard>
 
@@ -67,7 +107,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[14.5px] font-semibold">Issue 处理</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">Issue 关闭数 · 按周</p>
+          <p class="mt-0.5 text-[11.5px] text-muted">Issue {{ analysis.chartData ? '新增与关闭数' : '关闭数' }} · 按周</p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/issues`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
@@ -101,10 +141,10 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <TimelineChart :releases="releasesYear" :height="112" compact />
+      <TimelineChart :releases="releasesYear" :commits="commitsPoints" :height="112" compact />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ medianInterval?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">典型发布间隔 · {{ analysis.releases.filter((r) => !r.prerelease).length }} 次正式发布<br />最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt ?? '—' }}</span>
+        <span class="text-[11px] leading-tight text-muted">典型发布间隔 · {{ analysis.releases.filter((r) => !r.prerelease).length }} 次正式发布<br />最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
       </div>
     </GdCard>
   </div>

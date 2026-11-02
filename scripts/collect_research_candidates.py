@@ -1,4 +1,4 @@
-"""Collect stratified public repository candidates from GitHub Search."""
+"""通过 GitHub Search 分层收集公开仓库候选样本。"""
 
 import argparse
 import json

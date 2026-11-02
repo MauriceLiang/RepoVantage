@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.exceptions import AppError
-from backend.app.integrations.github.client import GitHubClient, PageObservation, PaginatedResult
+from backend.app.integrations.github.client import GitHubClient
 from backend.app.persistence.db import begin_immediate
 from backend.app.persistence.models import AnalysisResult, ActivityWindow, CollectionLog, CollectionTask, Repository, RepositorySnapshot, TaskModuleProgress
 from backend.app.pipeline.cleaner import clean_repository_profile
@@ -20,7 +20,7 @@ from backend.app.services.repositories import latest_analysis, latest_snapshot, 
 from backend.app.worker.collection import collect_deep
 from backend.app.worker.queue import MAX_ATTEMPTS, update_phase
 from backend.app.worker.progress import TaskProgressReporter
-from backend.app.worker.telemetry import log_module_timing, log_page_progress, log_task_timing, request_metrics_delta
+from backend.app.worker.telemetry import log_module_timing, log_task_timing, request_metrics_delta
 
 
 logger = logging.getLogger(__name__)
@@ -135,6 +135,12 @@ def _update_phase(
 
 
 def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
+    """执行已领取的仓库采集任务，并根据实际覆盖情况保存分析结果。
+
+    流程依次获取仓库资料、按需采集深度活动、计算指标并提交快照。
+    每次保存前检查任务尝试次数和租约持有者，避免过期 Worker 覆盖新任务；
+    GitHub 限流时保留已完成的检查点，按重试策略延后继续。
+    """
     session: Session = session_factory()
     expected_attempt: int | None = None
     expected_owner: str | None = None
@@ -164,6 +170,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
         previous = latest_snapshot(session, repo.repository_id)
         reusable_basic_analysis = None
         request_etag = None
+        # 只有快照对应的基础分析仍然有效，才能使用 ETag 复用 304 响应。
         if task.depth == "basic" and previous and previous.response_etag:
             candidate = latest_analysis(session, repo.repository_id, "basic")
             try:
@@ -259,6 +266,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 scoped_end = parse_github_datetime(task_scope.get("window_end")) if isinstance(task_scope, dict) else None
                 if scoped_start and scoped_end and scoped_start < scoped_end:
                     if task.scope_kind in {"incremental", "backfill"}:
+                        # 实际查询起点可以晚于或早于分析窗口起点，必须分别记录。
                         query_start = scoped_start
                         analysis_start = parse_github_datetime(task_scope.get("analysis_window_start"))
                         analysis_end = parse_github_datetime(task_scope.get("analysis_window_end"))
@@ -291,8 +299,6 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 github, cleaned["full_name"], window_start, window_end, task, reporter, session_factory,
                 query_start=query_start,
             )
-            for metric, key in (("commits_90d", "commits_count"), ("issues_closed_90d", "issues_closed_count"), ("pr_merged_90d", "pulls_merged_count"), ("release_count_365d", "releases_count")):
-                metrics[metric] = activity[key] if activity["coverage_by_module"][key] == "complete" else None
 
         _update_phase(session, task, reporter, "analyzing", "正在计算基础指标与数据覆盖", 94 if reporter else None)
         coverage = overall_coverage({"profile": "complete", "activity": depth_coverage})
@@ -304,6 +310,7 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
             limitations.append(PAGE_LIMIT_NOTE)
         _update_phase(session, task, reporter, "persisting", "正在保存快照、分析结果与来源记录", 98 if reporter else None)
 
+        # 采集期间租约可能已过期；取得写锁后重新核对执行权，再提交全部结果。
         session.rollback()
         begin_immediate(session)
         task = session.get(CollectionTask, task_id)
@@ -339,11 +346,11 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
                 aggregate_from_store=task.scope_kind in {"incremental", "backfill"},
             )
             observed_counts = insight_result["observed_counts"]
-            for metric, key, module in (
-                ("commits_90d", "commits_count", "commits"),
-                ("issues_closed_90d", "issues_closed_count", "issues"),
-                ("pr_merged_90d", "pulls_merged_count", "pulls"),
-                ("release_count_365d", "releases_count", "releases"),
+            for metric, key in (
+                ("commits_90d", "commits_count"),
+                ("issues_closed_90d", "issues_closed_count"),
+                ("pr_merged_90d", "pulls_merged_count"),
+                ("release_count_365d", "releases_count"),
             ):
                 metrics[metric] = observed_counts[key] if activity["coverage_by_module"][key] == "complete" else None
             session.add(ActivityWindow(
@@ -448,12 +455,6 @@ def execute_task(session_factory, task_id: str, github: GitHubClient) -> None:
         session.close()
 
 
-def _parse(value: str | None):
-    from backend.app.pipeline.event_normalizer import event_date
-
-    return event_date(value)
-
-
 def _defer_rate_limited(session: Session, task_id: str, attempt: int | None, lease_owner: str | None, resume_after) -> str | None:
     session.rollback()
     begin_immediate(session)
@@ -498,184 +499,6 @@ def _defer_rate_limited(session: Session, task_id: str, attempt: int | None, lea
     return status
 
 
-def _collect_deep(
-    github: GitHubClient,
-    full_name: str,
-    start,
-    end,
-    task: CollectionTask,
-    reporter: TaskProgressReporter | None = None,
-) -> tuple[dict[str, Any], str]:
-    start_iso = start.isoformat(timespec="seconds") + "Z"
-    end_iso = end.isoformat(timespec="seconds") + "Z"
-    raw: dict[str, Any] = {}
-    coverage: dict[str, str] = {}
-    data: dict[str, list[dict[str, Any]]] = {}
-    sources: dict[str, dict] = {}
-    calls = (
-        ("commits", lambda callback: github.list_commits_detailed(full_name, start_iso, end_iso, on_page=callback), lambda: github.list_commits(full_name, start_iso, end_iso)),
-        ("issues", lambda callback: github.list_issues_detailed(full_name, start_iso, "all", on_page=callback), lambda: github.list_issues(full_name, start_iso, "all")),
-        ("pulls", lambda callback: github.list_pulls_detailed(full_name, "closed", on_page=callback), lambda: github.list_pulls(full_name, "closed")),
-        ("releases", lambda callback: github.list_releases_detailed(full_name, on_page=callback), lambda: github.list_releases(full_name)),
-    )
-    for name, fetch_detailed, fetch_legacy in calls:
-        module_started = time.monotonic()
-        page_cap = getattr(github, "max_pages", None)
-        if reporter:
-            reporter.begin_module(name, page_cap)
-
-        def on_page(observation: PageObservation, module: str = name) -> None:
-            if reporter:
-                reporter.page_fetched(module, observation.pages_fetched, observation.observed_items)
-            log_page_progress(
-                task_id=task.task_id,
-                repository_id=task.repository_id,
-                module=module,
-                page_index=observation.page_index,
-                pages_fetched=observation.pages_fetched,
-                observed_items=observation.observed_items,
-                duration_ms=observation.duration_ms,
-                has_next=observation.has_next,
-            )
-
-        try:
-            if hasattr(github, f"list_{name}_detailed"):
-                result = fetch_detailed(on_page)
-            else:
-                try:
-                    rows, complete, pages = fetch_legacy()
-                    result = PaginatedResult(
-                        items=rows,
-                        raw_pages=pages,
-                        complete=complete,
-                        pages_fetched=len(pages),
-                        observed_items=len(rows),
-                        has_next=not complete,
-                    )
-                except AppError as exc:
-                    result = PaginatedResult(
-                        items=[],
-                        raw_pages=[],
-                        complete=False,
-                        pages_fetched=0,
-                        observed_items=0,
-                        has_next=True,
-                        error_code=exc.code,
-                        error_message=exc.message,
-                        error_status_code=exc.status_code,
-                        error_details=dict(exc.details),
-                    )
-        except AppError as exc:
-            result = PaginatedResult(
-                items=[],
-                raw_pages=[],
-                complete=False,
-                pages_fetched=0,
-                observed_items=0,
-                has_next=True,
-                error_code=exc.code,
-                error_message=exc.message,
-                error_status_code=exc.status_code,
-                error_details=dict(exc.details),
-            )
-
-        data[name] = result.items
-        limit_reached = (
-            result.has_next
-            and result.error_code is None
-            and page_cap is not None
-            and result.pages_fetched == page_cap
-        )
-        module_coverage = (
-            "complete" if result.complete and result.error_code is None
-            else "budget_exhausted" if limit_reached
-            else "partial"
-        )
-        coverage[name] = module_coverage
-        relevant_start = end - timedelta(days=365) if name == "releases" else start
-        timestamps = []
-        for item in result.items:
-            commit = item.get("commit")
-            committer = commit.get("committer") if isinstance(commit, dict) else None
-            value = committer.get("date") if name == "commits" and isinstance(committer, dict) else item.get("updated_at") or item.get("published_at")
-            timestamps.append(_parse(value))
-        observed = [stamp for stamp in timestamps if stamp is not None]
-        sources[name] = {
-            "coverage": module_coverage, "collected_at": iso_z(utc_now()),
-            "requested_interval": [iso_z(relevant_start), iso_z(end)],
-            "observed_interval": [iso_z(min(observed)), iso_z(max(observed))] if observed else None,
-            "page_count": result.pages_fetched, "has_next": result.has_next,
-            "page_cap": page_cap, "limit_reached": limit_reached,
-            "observed_records": result.observed_items,
-            "rate_limit_status": "limited" if result.rate_limited_count else "not_observed",
-            "error_code": result.error_code or ("GITHUB_MAX_PAGES" if limit_reached else "GITHUB_INCOMPLETE_PAGINATION" if result.has_next else None),
-            "endpoint": f"/repos/{full_name}/{name}",
-            "query": {"since": start_iso, "until": end_iso} if name == "commits" else {"state": "all", "since": start_iso, "since_semantics": "updated_at"} if name == "issues" else {"state": "closed", "sort": "updated"} if name == "pulls" else {},
-        }
-        module_status = "complete" if module_coverage == "complete" else ("partial" if result.pages_fetched else "failed")
-        error_code = result.error_code or ("GITHUB_MAX_PAGES" if limit_reached else "GITHUB_INCOMPLETE_PAGINATION" if result.has_next else None)
-        if error_code:
-            raw[name] = {
-                "pages": result.raw_pages,
-                "error": error_code,
-                "message": result.error_message or ("达到用户设置的页数预算，仍有后续页面" if limit_reached else "分页尚未完成"),
-            }
-        else:
-            raw[name] = result.raw_pages
-        if reporter:
-            reporter.finish_module(
-                name,
-                status=module_status,
-                coverage=module_coverage,
-                elapsed_seconds=time.monotonic() - module_started,
-                error_code=error_code,
-            )
-        log_module_timing(
-            task_id=task.task_id,
-            repository_id=task.repository_id,
-            module=name,
-            http_calls=result.http_calls,
-            pages_fetched=result.pages_fetched,
-            observed_items=result.observed_items,
-            duration_ms=result.duration_ms or (time.monotonic() - module_started) * 1000,
-            coverage=module_coverage,
-            error_code=error_code,
-            rate_limited_count=result.rate_limited_count,
-            timeout_count=result.timeout_count,
-        )
-    raw["_meta"] = {"schema_version": 1, "sources": sources, "window_start": iso_z(start), "window_end": iso_z(end)}
-    try:
-        archive_json(task.repository_id, task.task_id, "deep_responses", raw)
-    except OSError:
-        logger.warning("Raw response archive unavailable task_id=%s", task.task_id)
-
-    def in_window(value: str | None, lower=start, upper=end) -> bool:
-        parsed = _parse(value)
-        return parsed is not None and lower <= parsed < upper
-
-    issues = [item for item in data["issues"] if "pull_request" not in item]
-    pulls = data["pulls"]
-    releases = data["releases"]
-    release_start = end - timedelta(days=365)
-    values = {
-        "commits_count": len(data["commits"]) if coverage["commits"] == "complete" else None,
-        "issues_opened_count": sum(in_window(item.get("created_at")) for item in issues) if coverage["issues"] == "complete" else None,
-        "issues_closed_count": sum(in_window(item.get("closed_at")) for item in issues) if coverage["issues"] == "complete" else None,
-        "pulls_opened_count": sum(in_window(item.get("created_at")) for item in pulls) if coverage["pulls"] == "complete" else None,
-        "pulls_merged_count": sum(in_window(item.get("merged_at")) for item in pulls) if coverage["pulls"] == "complete" else None,
-        "releases_count": sum(in_window(item.get("published_at"), release_start, end) for item in releases) if coverage["releases"] == "complete" else None,
-    }
-    values["coverage_by_module"] = {
-        "commits_count": coverage["commits"],
-        "issues_closed_count": coverage["issues"],
-        "pulls_merged_count": coverage["pulls"],
-        "releases_count": coverage["releases"],
-    }
-    values["coverage"] = "complete" if all(value == "complete" for value in coverage.values()) else "partial"
-    values["raw"] = raw
-    values["events"] = data
-    values["sources"] = sources
-    return values, values["coverage"]
 
 
 def _finish_failed(

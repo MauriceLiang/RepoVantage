@@ -42,7 +42,7 @@ def archive_json(
 
 
 def read_archive(relative: str, *, max_compressed_bytes=16_000_000, max_bytes=64_000_000) -> dict:
-    """Bounded, data-only replay. No pickle, paths or executable archive members."""
+    """在路径和大小限制内读取纯数据归档，不执行 pickle 或归档内代码。"""
     root = get_settings().raw_data_path.resolve()
     candidate = Path(relative)
     target = (root / candidate).resolve()

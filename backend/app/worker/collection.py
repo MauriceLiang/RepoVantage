@@ -1,12 +1,10 @@
-"""Windowed activity collection with durable per-page checkpoints."""
+"""按时间窗口采集活动数据，并持久保存逐页断点。"""
 import json
 import logging
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
-
-from sqlalchemy.orm import Session
 
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.exceptions import AppError
@@ -33,6 +31,12 @@ def collect_deep(
     *,
     query_start=None,
 ) -> tuple[dict[str, Any], str, object | None]:
+    """逐模块采集活动数据，保存逐页断点和可续采的归档。
+
+    ``start`` 和 ``end`` 表示分析窗口；增量请求的 ``query_start`` 可以更晚。
+    每个数据源分别记录实际查询区间，并在覆盖状态中区分分页未完成、
+    达到页数上限和接口限流等待，避免将它们误认为完整采集。
+    """
     query_start = query_start or start
     start_iso = iso_z(start)
     end_iso = iso_z(end)
@@ -55,6 +59,8 @@ def collect_deep(
         checkpoint = _get_checkpoint(session_factory, task.repository_id, name, fingerprint)
         paths = page_paths(task.repository_id, name, fingerprint)
 
+        # 如果归档分页缺失或顺序不对，断点无法安全续采；
+        # 超过已提交断点的多余页面会被丢弃。
         ordered_paths = all(Path(path).name == f"page-{index:06d}.json.gz" for index, path in enumerate(paths, start=1))
         if not ordered_paths or checkpoint["pages_fetched"] > len(paths):
             clear_page_files(task.repository_id, name, fingerprint)
@@ -129,6 +135,13 @@ def collect_deep(
                 )
 
             try:
+                # 各端点参数不同；无论使用逐页接口还是兼容接口，都使用同一组参数。
+                fetch_args = {
+                    "commits": (query_start_iso, end_iso),
+                    "issues": (query_start_iso, "all"),
+                    "pulls": ("closed",),
+                    "releases": (),
+                }[name]
                 fetch = getattr(github, f"list_{name}_detailed", None)
                 if fetch:
                     stop_after_page = None
@@ -140,7 +153,7 @@ def collect_deep(
                         stop_after_page = stop_after_old_pull_page
                     result = fetch(
                         full_name,
-                        *([query_start_iso, end_iso] if name == "commits" else [query_start_iso, "all"] if name == "issues" else ["closed"] if name == "pulls" else []),
+                        *fetch_args,
                         on_page=on_page,
                         resume_url=checkpoint["next_url"] if checkpoint["pages_fetched"] else None,
                         page_offset=checkpoint["pages_fetched"],
@@ -153,8 +166,7 @@ def collect_deep(
                         _append_normalized_page(name, result.items, data[name], event_counts[name])
                 else:
                     legacy = getattr(github, f"list_{name}")
-                    legacy_args = [full_name, query_start_iso, end_iso] if name == "commits" else [full_name, query_start_iso, "all"] if name == "issues" else [full_name, "closed"] if name == "pulls" else [full_name]
-                    rows, complete, raw_pages = legacy(*legacy_args)
+                    rows, complete, raw_pages = legacy(full_name, *fetch_args)
                     _append_normalized_page(name, rows, data[name], event_counts[name])
                     result = PaginatedResult(rows, raw_pages, complete, len(raw_pages), len(rows), not complete)
             except AppError as exc:
@@ -217,40 +229,23 @@ def collect_deep(
 
     raw["_meta"] = {"schema_version": 2, "sources": sources, "window_start": start_iso, "window_end": end_iso}
 
-    def in_window(value: str | datetime | None, lower=start, upper=end) -> bool:
-        from backend.app.pipeline.event_normalizer import event_date
-
-        parsed = value if isinstance(value, datetime) else event_date(value)
-        return parsed is not None and lower <= parsed < upper
-
-    issues = normalized_data["issues"]
-    pulls = normalized_data["pulls"]
-    releases = normalized_data["releases"]
-    release_start = end - timedelta(days=365)
-    values = {
-        "commits_count": len(normalized_data["commits"]) if coverage["commits"] == "complete" else None,
-        "issues_opened_count": sum(in_window(item.get("created_at")) for item in issues) if coverage["issues"] == "complete" else None,
-        "issues_closed_count": sum(in_window(item.get("closed_at")) for item in issues) if coverage["issues"] == "complete" else None,
-        "pulls_opened_count": sum(in_window(item.get("created_at")) for item in pulls) if coverage["pulls"] == "complete" else None,
-        "pulls_merged_count": sum(in_window(item.get("merged_at")) for item in pulls) if coverage["pulls"] == "complete" else None,
-        "releases_count": sum(in_window(item.get("published_at"), release_start, end) for item in releases) if coverage["releases"] == "complete" else None,
-    }
-    values["coverage_by_module"] = {
-        "commits_count": coverage["commits"],
-        "issues_closed_count": coverage["issues"],
-        "pulls_merged_count": coverage["pulls"],
-        "releases_count": coverage["releases"],
-    }
-    values["coverage"] = "complete" if all(value == "complete" for value in coverage.values()) else "partial"
-    values["raw"] = raw
-    values["events"] = normalized_data
-    values["event_counts"] = event_counts
-    values["sources"] = sources
+    overall_coverage = "complete" if all(value == "complete" for value in coverage.values()) else "partial"
     if deferred_until is None and budget_yielded:
         deferred_until = utc_now() + timedelta(seconds=10)
-    values["deferred_until"] = deferred_until
-    values["defer_reason"] = "rate_limit" if any(source.get("error_code") == "GITHUB_RATE_LIMITED" for source in sources.values()) else "page_budget" if budget_yielded else None
-    return values, values["coverage"], deferred_until
+    values = {
+        "coverage_by_module": {
+            "commits_count": coverage["commits"],
+            "issues_closed_count": coverage["issues"],
+            "pulls_merged_count": coverage["pulls"],
+            "releases_count": coverage["releases"],
+        },
+        "raw": raw,
+        "events": normalized_data,
+        "event_counts": event_counts,
+        "sources": sources,
+        "defer_reason": "rate_limit" if any(source.get("error_code") == "GITHUB_RATE_LIMITED" for source in sources.values()) else "page_budget" if budget_yielded else None,
+    }
+    return values, overall_coverage, deferred_until
 
 
 def _empty_event_counts() -> dict[str, int]:

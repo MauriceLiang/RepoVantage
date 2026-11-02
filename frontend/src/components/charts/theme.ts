@@ -1,4 +1,4 @@
-/** Chart palette mirrors the CSS tokens in styles/theme.css. */
+/** 图表配色与 styles/theme.css 中的主题变量保持一致。 */
 export interface ChartTheme {
   dark: boolean
   ink: string

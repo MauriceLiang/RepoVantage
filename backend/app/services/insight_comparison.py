@@ -1,6 +1,5 @@
 import json
 from collections import Counter
-from datetime import timedelta
 from statistics import mean
 from sqlalchemy import func, select
 
@@ -24,6 +23,12 @@ def metric_value(result, key):
 
 
 def compare_insights(session, ids, mode='same_period', window_days=90):
+    """按可比较的时间口径对比 2 至 5 个仓库。
+
+    同期对比仅在共同时间交集覆盖所选窗口至少 80% 时重新计算指标；
+    各自周期模式保留每个仓库自己的窗口。Commit 均值只使用完整 UTC 自然周，
+    且仅在同期模式下要求各仓库使用共同的完整周。
+    """
     if not 2 <= len(ids) <= 5 or len(set(ids)) != len(ids):
         raise AppError(422, 'VALIDATION_ERROR', '请选择2–5个不同仓库')
     if mode not in {'same_period', 'individual_periods'}:

@@ -1,4 +1,4 @@
-"""Build a sanitized featured data bundle from already collected local data."""
+"""根据已采集的本地数据构建经过脱敏处理的精选数据包。"""
 
 import gzip
 import hashlib

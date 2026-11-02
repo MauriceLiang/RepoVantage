@@ -1,13 +1,10 @@
 /**
- * Demo dataset for the prototype. All numbers are synthetic but internally
- * consistent (weekly totals = sum of daily buckets, KPIs = sums / medians of
- * the same records). Repositories use the `demo-labs/*` namespace so nobody
- * mistakes them for real projects.
- *
- * TODO(API-INTEGRATION): this file must not be shipped to production.
+ * 仅供显式启用的演示模式使用的合成数据，用于展示不同界面状态；
+ * 这些数值不是实际仓库的测量结果，也不能作为统计样本。
+ * 演示仓库统一使用 `demo-labs/*` 命名空间。
  */
 import type {
-  AuthorContribution, Coverage, ReleaseRecord, RepositoryStatus, ScenarioKey,
+  AuthorContribution, Coverage, ReleaseRecord, RepositoryStatus,
 } from '@/services/types'
 
 export interface RepoSeed {
@@ -19,10 +16,9 @@ export interface RepoSeed {
   license: string
   topics: string[]
   status: RepositoryStatus
-  scenario: ScenarioKey
   lastAnalyzedAt: string | null
   weeklyCommits: number[]
-  /** First week start (ISO). Later repos (small samples) start later. */
+  /** 首个自然周的起始日期（ISO 格式）；小样本仓库的起点可能更晚。 */
   firstWeek: string
   authors: AuthorContribution[]
   issueFactor: number
@@ -31,7 +27,7 @@ export interface RepoSeed {
   issueP75: number
   prP50: number
   prP90: number
-  /** Median sample sizes for the 90-day window (scaled for other windows). */
+  /** 90 天窗口的中位数样本量；其他窗口按时间范围缩放。 */
   issueSample: number
   prSample: number
   releases: ReleaseRecord[]
@@ -67,7 +63,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'MIT',
     topics: ['time-series', 'analytics', 'demo'],
     status: 'ready',
-    scenario: 'active',
     lastAnalyzedAt: '2025-03-31',
     weeklyCommits: [86, 104, 92, 118, 84, 104, 118, 124, 114, 68, 84, 112, 96],
     firstWeek: '2025-01-06',
@@ -107,7 +102,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'Apache-2.0',
     topics: ['charts', 'components'],
     status: 'ready',
-    scenario: 'active',
     lastAnalyzedAt: '2025-03-28',
     weeklyCommits: [58, 64, 51, 70, 62, 66, 72, 58, 63, 55, 60, 62, 59],
     firstWeek: '2025-01-06',
@@ -145,7 +139,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'MIT',
     topics: ['utils'],
     status: 'partial',
-    scenario: 'partial',
     lastAnalyzedAt: '2025-03-24',
     weeklyCommits: [4, 0, 2, 0, 1, 3, 0, 0, 2, 1, 0, 0, 0],
     firstWeek: '2025-01-06',
@@ -176,7 +169,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'MIT',
     topics: ['cli'],
     status: 'ready',
-    scenario: 'small',
     lastAnalyzedAt: '2025-03-31',
     weeklyCommits: [2, 1, 0, 3, 1],
     firstWeek: '2025-03-03',
@@ -204,7 +196,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'CC-BY-4.0',
     topics: ['docs'],
     status: 'ready',
-    scenario: 'quiet',
     lastAnalyzedAt: '2025-03-30',
     weeklyCommits: [12, 8, 15, 9, 11, 7, 14, 10, 13, 6, 9, 12, 8],
     firstWeek: '2025-01-06',
@@ -232,7 +223,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'MIT',
     topics: [],
     status: 'idle',
-    scenario: 'empty',
     lastAnalyzedAt: null,
     weeklyCommits: [],
     firstWeek: '2025-03-24',
@@ -260,7 +250,6 @@ export const REPOSITORIES: RepoSeed[] = [
     license: 'MIT',
     topics: ['queue'],
     status: 'failed',
-    scenario: 'failed',
     lastAnalyzedAt: null,
     weeklyCommits: [],
     firstWeek: '2025-03-24',

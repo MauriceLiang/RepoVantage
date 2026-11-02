@@ -1,4 +1,4 @@
-"""Replay one validated activity archive; no network or decompression on page reads."""
+"""离线重放本地活动归档；默认只预览，显式应用后才写入分析结果。"""
 import json
 from sqlalchemy import select
 
@@ -32,7 +32,7 @@ def replay_activity(session, repository_id, *, apply=False):
         metadata = meta.get("sources", {}).get(module) if meta else None
         if metadata is not None and (not isinstance(metadata, dict) or metadata.get("coverage") not in {"complete", "partial", "budget_exhausted", "deferred", "not_collected"}):
             raise ValueError("非法覆盖元数据")
-        # Old archives have no complete query contract; preserve evidence conservatively.
+        # 旧归档没有完整查询口径，只能保守记录已有覆盖证据。
         page_count = len(entry.get("page_files", entry.get("pages", []))) if isinstance(entry, dict) else len(entry) if isinstance(entry, list) else 0
         sources[module] = metadata or {"coverage": "partial", "error_code": "LEGACY_QUERY_CONTRACT_UNKNOWN", "legacy_coverage": legacy_coverage.get(mapping[module]), "page_count": page_count, "collected_at": iso_z(activity.collected_at)}
     log = session.scalar(select(CollectionLog).where(CollectionLog.repository_id == repository_id, CollectionLog.event_type == "collection_completed", CollectionLog.occurred_at >= activity.collected_at).order_by(CollectionLog.occurred_at).limit(1))

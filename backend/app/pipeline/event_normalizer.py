@@ -1,4 +1,4 @@
-"""Validate external objects without retaining emails, bodies or user payloads."""
+"""校验并规范化外部事件，不保留邮箱、正文或用户对象原始载荷。"""
 import re
 from datetime import datetime
 from typing import Any
@@ -9,7 +9,7 @@ MODULE_TYPES = {"commits": "commit", "issues": "issue", "pulls": "pull_request",
 
 
 def event_date(value: Any) -> datetime | None:
-    # Reject timezone-free external dates and impossible/unbounded dates.
+    # 拒绝没有时区的外部时间，以及不合理或超出允许范围的日期。
     if not isinstance(value, str) or len(value) > 40 or not re.search(r"(Z|[+-]\d\d:\d\d)$", value):
         return None
     parsed = parse_github_datetime(value)
@@ -40,7 +40,7 @@ def normalize_events(module: str, rows: list[dict]) -> tuple[list[dict], dict]:
             event["event_at"] = event_date(committer.get("date")) if isinstance(committer, dict) else None
         else:
             event["event_at"] = event[{"issues": "closed_at", "pulls": "merged_at", "releases": "published_at"}[module]]
-        # An open issue or unmerged PR legitimately has no terminal timestamp.
+        # 未关闭的 Issue 或未合并的 PR 可以没有结束时间，这是正常状态。
         expected_time = module == "commits" or (module == "releases" and not row.get("draft")) or row.get("closed_at") is not None or row.get("merged_at") is not None
         if expected_time and event["event_at"] is None and not (module == "pulls" and row.get("merged_at") is None):
             invalid_times += 1

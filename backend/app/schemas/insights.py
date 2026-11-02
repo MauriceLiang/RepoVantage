@@ -24,7 +24,7 @@ class InsightPoint(BaseModel):
 
 
 class InsightMetric(BaseModel):
-    # Business-specific values accompany the common, documented contract.
+    # 在公共接口约定之外，允许各分析指标附带自己的业务字段。
     model_config = {"extra": "allow"}
     metric_key: str
     unit: str
@@ -253,6 +253,7 @@ class RepositoryInsights(BaseModel):
     origin: str | None
     sources: dict[str, dict[str, Any]]
     insights: dict[str, CommitActivity | DurationMetric | ReleaseMetric]
+    chart_data: dict[str, Any] | None = None
     limitations: list[str]
     requested_window_days: Literal[30, 90, 180] = 90
     window_available: bool = True

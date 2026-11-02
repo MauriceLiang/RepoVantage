@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref } from 'vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
+import PrMergeTrendChart from '@/components/charts/PrMergeTrendChart.vue'
+import PrMonthlyDurationChart from '@/components/charts/PrMonthlyDurationChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -9,70 +11,22 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
+import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
+import { formatDate, formatDuration, formatTime } from '@/lib/format'
 import type { PullRequestActivityPage, PullRequestActivityRecord, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const ui = useUiStore()
 const source = useDataSource()
-const pageSize = 10
-const page = ref(1)
-const searchInput = ref('')
-const appliedSearch = ref('')
-const records = ref<PullRequestActivityPage | null>(null)
-const loading = ref(false)
+const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<PullRequestActivityPage>(
+  () => props.analysis.repository.id,
+  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search),
+  'Pull Request 记录加载失败',
+)
 const exporting = ref(false)
-const loadError = ref('')
-let requestVersion = 0
 let detailRequest = 0
-
-const pageCount = computed(() => Math.max(1, Math.ceil((records.value?.total ?? 0) / pageSize)))
-const firstRecord = computed(() => records.value?.total ? (page.value - 1) * pageSize + 1 : 0)
-const lastRecord = computed(() => Math.min(page.value * pageSize, records.value?.total ?? 0))
-
-async function loadRecords() {
-  const version = ++requestVersion
-  loading.value = true
-  loadError.value = ''
-  records.value = null
-  try {
-    const result = await source.getPullRequestRecords(props.analysis.repository.id, page.value, pageSize, appliedSearch.value)
-    if (version === requestVersion) records.value = result
-  } catch (cause) {
-    if (version === requestVersion) loadError.value = cause instanceof Error ? cause.message : 'Pull Request 记录加载失败'
-  } finally {
-    if (version === requestVersion) loading.value = false
-  }
-}
-
-watch([() => props.analysis.repository.id, page, appliedSearch], () => { void loadRecords() }, { immediate: true })
-
-function applySearch() {
-  const next = searchInput.value.trim()
-  if (page.value === 1 && appliedSearch.value === next) {
-    void loadRecords()
-    return
-  }
-  page.value = 1
-  appliedSearch.value = next
-}
-
-function formatDate(value: string | null) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10)
-}
-
-function formatTime(value: string | null) {
-  if (!value) return ''
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : `${date.toISOString().slice(11, 19)} UTC`
-}
-
-function formatDuration(value: number | null) {
-  return value === null ? '—' : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天`
-}
 
 async function openPullRequest(item: PullRequestActivityRecord) {
   const requestId = ++detailRequest
@@ -126,21 +80,24 @@ async function exportCsv() {
       </div>
       <GdCoverageNote :coverage="analysis.pullRequests.coverage" />
     </div>
-    <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#2E8FCB']" :height="250" />
-    <p class="text-[11px] text-muted">未覆盖或不完整的周保持空值；耗时包含采集到的已合并 PR。</p>
+    <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :height="250" />
+    <GroupedChart v-else :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#2E8FCB']" :height="250" />
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，散点为单条 PR 耗时，折线为每周耗时中位数；覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；中位数使用全部有效样本。</template></p>
+    <p v-else class="text-[11px] text-muted">当前数据未提供逐条耗时，显示已采集的每周合并数量。</p>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
     <GdCard class="h-[420px] min-h-0 overflow-hidden">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">合并耗时分布</h3>
-          <p class="mt-0.5 text-[12px] text-muted">merged_at − created_at · 柱为区间样本数，折线为累计占比</p>
+          <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? '月度合并耗时分布' : '合并耗时分布' }}</h3>
+          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '堆叠柱为各耗时区间样本数 · 菱形为中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
       </div>
-      <HistogramChart :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" class="min-h-[200px] flex-1 w-full" />
-      <div class="text-[11px] text-muted">P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.prDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
+      <PrMonthlyDurationChart v-if="analysis.chartData" :months="analysis.chartData.prMonthly" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <div class="text-[11px] text-muted"><template v-if="analysis.chartData">半透明柱表示该月仅观察到部分样本。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
     </GdCard>
 

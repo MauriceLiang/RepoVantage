@@ -10,6 +10,7 @@ from sqlalchemy.dialects.sqlite import insert
 from sqlalchemy.orm import Session
 
 from backend.app.analytics.insights import LIMITATIONS, calculate_insights
+from backend.app.analytics.chart_data import build_chart_data
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import Repository, RepositoryActivityEvent, RepositoryInsightRun
@@ -20,6 +21,16 @@ from backend.app.pipeline.raw_archive import read_archive
 METRIC_VERSION = "insights-v1"
 MODULES = ("commits", "issues", "pulls", "releases")
 PAGE_LIMIT_NOTE = "已达到用户设置的接口页数预算；仍有后续页未采集，当前指标只反映已观察样本。"
+
+
+def _insight_status(metrics: dict) -> str:
+    """汇总模块覆盖状态；样本不足不等同于采集缺失或失败。"""
+    states = {metric["quality"]["status"] for metric in metrics.values()}
+    if not states or states == {"missing"}:
+        return "missing"
+    if states & {"partial", "missing", "failed"}:
+        return "partial"
+    return "ready"
 
 
 def persist_insights(session: Session, repository_id: int, task_id: str, rows: dict, sources: dict, start, end, archive_paths: list[str], *, normalized_event_counts: dict | None = None, aggregate_from_store=False, version=METRIC_VERSION, origin="collection"):
@@ -41,8 +52,8 @@ def persist_insights(session: Session, repository_id: int, task_id: str, rows: d
     if existing:
         return json.loads(existing.result_json)
     now = utc_now()
-    # Same transaction as run and legacy snapshots. Never calculate from a mutable union
-    # of historical observations; this run uses only its own collected inputs.
+    # 事件和分析运行在调用方的同一事务内保存。普通任务使用本次输入计算；
+    # 增量采集或历史回填则在下方写入事件后，明确从本地去重事件库重新计算。
     for events in normalized.values():
         for offset in range(0, len(events), 250):
             batch = [{**e, "repository_id": repository_id, "source_task_id": task_id, "first_seen_at": now, "last_seen_at": now} for e in events[offset:offset + 250]]
@@ -74,8 +85,7 @@ def persist_insights(session: Session, repository_id: int, task_id: str, rows: d
         for source in checked_sources.values():
             source["calculation_basis"] = "local_unique_event_store"
     metrics = calculate_insights(normalized, checked_sources, start, end)
-    states = [m["quality"]["status"] for m in metrics.values()]
-    status = "missing" if all(s == "missing" for s in states) else "partial" if any(s in {"partial", "missing", "failed"} for s in states) else "ready"
+    status = _insight_status(metrics)
     limitations = list(LIMITATIONS)
     if any(source.get("limit_reached") for source in checked_sources.values()):
         limitations.append(PAGE_LIMIT_NOTE)
@@ -124,6 +134,7 @@ def _stored_window_events(session: Session, repository_id: int, start, end) -> d
             "merged_at": item.merged_at,
             "published_at": item.published_at,
             "updated_at": item.updated_at,
+            "author_key": item.author_key,
             "is_draft": item.is_draft,
             "is_prerelease": item.is_prerelease,
         } for item in stored]
@@ -185,7 +196,7 @@ def repository_insights(session, repository_id, window_days=90):
             "event_source_task_ids": [], "observed_counts": {},
         }
 
-    # Research uses the saved result and its original observation window.
+    # 研究分析使用已保存的结果及其原始观察窗口。
     if window_days is None:
         return json.loads(run.result_json)
 
@@ -203,8 +214,7 @@ def repository_insights(session, repository_id, window_days=90):
 
     events = _stored_window_events(session, repository_id, start, end)
     metrics = calculate_insights(events, sources, start, end)
-    states = [metric["quality"]["status"] for metric in metrics.values()]
-    status = "missing" if all(state == "missing" for state in states) else "partial" if any(state in {"partial", "missing", "failed"} for state in states) else "ready"
+    status = _insight_status(metrics)
     result = json.loads(run.result_json)
     result.update({
         "status": status,
@@ -214,6 +224,7 @@ def repository_insights(session, repository_id, window_days=90):
         "source_archive_paths": source_archive_paths if isinstance(source_archive_paths, list) else [],
         "sources": sources,
         "insights": metrics,
+        "chart_data": build_chart_data(events, sources, start, end),
         "requested_window_days": window_days,
         "window_available": True,
         "available_window_days": available_days,
@@ -228,7 +239,7 @@ def repository_insights(session, repository_id, window_days=90):
 
 
 def repository_insights_for_window(session, repository_id, start, end, source_result):
-    """Recalculate stored events for an explicit, already-proven observation window."""
+    """针对明确且已有覆盖证明的观察窗口，重新计算已保存的事件。"""
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     if start >= end:
@@ -260,8 +271,7 @@ def repository_insights_for_window(session, repository_id, start, end, source_re
 
     events = _stored_window_events(session, repository_id, start, end)
     metrics = calculate_insights(events, sources, start, end)
-    states = [metric["quality"]["status"] for metric in metrics.values()]
-    status = "missing" if all(state == "missing" for state in states) else "partial" if any(state in {"partial", "missing", "failed"} for state in states) else "ready"
+    status = _insight_status(metrics)
     result = dict(source_result)
     result.update({
         "status": status,
@@ -278,10 +288,33 @@ def repository_insights_for_window(session, repository_id, start, end, source_re
     return result
 
 
+def _latest_insight_run(session, repository_id):
+    """查找仓库最近一次指定指标版本的分析运行。"""
+    return session.scalar(select(RepositoryInsightRun).where(
+        RepositoryInsightRun.repository_id == repository_id,
+        RepositoryInsightRun.metric_version == METRIC_VERSION,
+    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
+
+
+def _archive_sources(run, module, error_code, label):
+    """读取逐条记录所需的任务、归档和模块覆盖信息。"""
+    try:
+        task_ids = json.loads(run.source_task_ids_json)
+        archive_paths = json.loads(run.source_archive_paths_json)
+        coverage = json.loads(run.module_coverage_json).get(module, {}).get("coverage", "not_collected")
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise AppError(503, error_code, f"{label} 采集记录无法读取，请重新采集仓库数据") from exc
+    return (
+        task_ids if isinstance(task_ids, list) else [],
+        archive_paths if isinstance(archive_paths, list) else [],
+        coverage,
+    )
+
+
 def repository_release_detail(session, repository_id, release_id):
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = session.scalar(select(RepositoryInsightRun).where(RepositoryInsightRun.repository_id == repository_id, RepositoryInsightRun.metric_version == METRIC_VERSION).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
+    run = _latest_insight_run(session, repository_id)
     if run is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "尚无可读取 Release 说明的采集归档")
     for archive_path in json.loads(run.source_archive_paths_json):
@@ -305,7 +338,7 @@ def repository_release_detail(session, repository_id, release_id):
 
 
 def repository_commit_activity(session, repository_id, *, page=1, per_page=20, search=None, week_start: date | None = None, window_days: int | None = None):
-    """Return itemized commits and summaries from the latest archive covering the requested window."""
+    """从覆盖所选窗口的最新归档返回逐条 Commit 和汇总数据。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -334,19 +367,12 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
             "total": 0,
         }
 
-    try:
-        task_ids = json.loads(run.source_task_ids_json)
-        archive_paths = json.loads(run.source_archive_paths_json)
-        module_coverage = json.loads(run.module_coverage_json).get("commits", {}).get("coverage", "not_collected")
-    except (TypeError, ValueError, AttributeError) as exc:
-        raise AppError(503, "COMMIT_ARCHIVE_UNAVAILABLE", "Commit 采集记录无法读取，请重新采集仓库数据") from exc
-    task_ids = task_ids if isinstance(task_ids, list) else []
-    archive_paths = archive_paths if isinstance(archive_paths, list) else []
+    task_ids, archive_paths, module_coverage = _archive_sources(run, "commits", "COMMIT_ARCHIVE_UNAVAILABLE", "Commit")
 
     scope_end = run.window_end
     scope_start = scope_end - timedelta(days=window_days) if window_days is not None else run.window_start
-    # A later collection can update an event's source task. The selected archive
-    # below determines membership, while the event store supplies its timestamp.
+    # 后续采集可能更新事件的来源任务。下方以所选归档判断记录是否属于本次结果，
+    # 事件库则提供对应时间戳。
     events = []
     if task_ids:
         events = session.scalars(select(RepositoryActivityEvent).where(
@@ -379,20 +405,10 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
                 missing_archive = True
                 continue
             archive_found = True
-            commit_archive = archive.get("commits")
-            pages = iter_module_pages(commit_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("commit archive page exceeds size limit")
-                    page_items = json.loads(raw_page)
-                else:
-                    page_items = raw_page
-                if not isinstance(page_items, list) or len(page_items) > 1000:
+            for page_items in iter_module_pages(archive.get("commits")):
+                if len(page_items) > 1000:
                     raise ValueError("invalid commit archive page")
                 for raw_item in page_items:
-                    if not isinstance(raw_item, dict):
-                        continue
                     sha = raw_item.get("sha")
                     event = event_by_sha.get(sha) if isinstance(sha, str) else None
                     if event is None:
@@ -484,30 +500,18 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
 
 
 def repository_closed_issues(session, repository_id, search=None, *, include_body=False):
-    """Return safe, itemized closed Issue details from the latest analysis archive."""
+    """从最新分析归档中安全地返回已关闭 Issue 的逐条记录。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = session.scalar(select(RepositoryInsightRun).where(
-        RepositoryInsightRun.repository_id == repository_id,
-        RepositoryInsightRun.metric_version == METRIC_VERSION,
-    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
+    run = _latest_insight_run(session, repository_id)
     if run is None:
         return {
             "available": False, "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": "请先采集深度活动数据"},
             "note": "尚无可读取的 Issue 采集归档。", "window_start": None, "window_end": None, "items": [],
         }
 
-    try:
-        task_ids = json.loads(run.source_task_ids_json)
-        archive_paths = json.loads(run.source_archive_paths_json)
-        module_coverage = json.loads(run.module_coverage_json).get("issues", {}).get("coverage", "not_collected")
-    except (TypeError, ValueError, AttributeError) as exc:
-        raise AppError(503, "ISSUE_ARCHIVE_UNAVAILABLE", "Issue 采集记录无法读取，请重新采集仓库数据") from exc
-    if not isinstance(task_ids, list):
-        task_ids = []
-    if not isinstance(archive_paths, list):
-        archive_paths = []
+    task_ids, archive_paths, module_coverage = _archive_sources(run, "issues", "ISSUE_ARCHIVE_UNAVAILABLE", "Issue")
 
     events = session.scalars(select(RepositoryActivityEvent).where(
         RepositoryActivityEvent.repository_id == repository_id,
@@ -532,19 +536,11 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
                 missing_archive = True
                 continue
             archive_found = True
-            issue_archive = archive.get("issues")
-            pages = iter_module_pages(issue_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("issue archive page exceeds size limit")
-                    page = json.loads(raw_page)
-                else:
-                    page = raw_page
-                if not isinstance(page, list) or len(page) > 1000:
+            for page in iter_module_pages(archive.get("issues")):
+                if len(page) > 1000:
                     raise ValueError("invalid issue archive page")
                 for raw_item in page:
-                    if not isinstance(raw_item, dict) or "pull_request" in raw_item:
+                    if "pull_request" in raw_item:
                         continue
                     identifier = raw_item.get("id")
                     if type(identifier) is not int or str(identifier) not in event_by_id:
@@ -612,28 +608,18 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
 
 
 def repository_pull_requests(session, repository_id, search=None, *, include_body=False):
-    """Return closed Pull Requests saved in the latest analysis archive."""
+    """返回最新分析归档中保存的已关闭 Pull Request。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = session.scalar(select(RepositoryInsightRun).where(
-        RepositoryInsightRun.repository_id == repository_id,
-        RepositoryInsightRun.metric_version == METRIC_VERSION,
-    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
+    run = _latest_insight_run(session, repository_id)
     if run is None:
         return {
             "available": False, "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": "请先采集深度活动数据"},
             "note": "尚无可读取的 Pull Request 采集归档。", "window_start": None, "window_end": None, "items": [],
         }
 
-    try:
-        task_ids = json.loads(run.source_task_ids_json)
-        archive_paths = json.loads(run.source_archive_paths_json)
-        module_coverage = json.loads(run.module_coverage_json).get("pulls", {}).get("coverage", "not_collected")
-    except (TypeError, ValueError, AttributeError) as exc:
-        raise AppError(503, "PULL_REQUEST_ARCHIVE_UNAVAILABLE", "Pull Request 采集记录无法读取，请重新采集仓库数据") from exc
-    task_ids = task_ids if isinstance(task_ids, list) else []
-    archive_paths = archive_paths if isinstance(archive_paths, list) else []
+    task_ids, archive_paths, module_coverage = _archive_sources(run, "pulls", "PULL_REQUEST_ARCHIVE_UNAVAILABLE", "Pull Request")
 
     events = session.scalars(select(RepositoryActivityEvent).where(
         RepositoryActivityEvent.repository_id == repository_id,
@@ -663,19 +649,10 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
             if pull_archive is None:
                 continue
             pull_data_found = True
-            pages = iter_module_pages(pull_archive)
-            for raw_page in pages:
-                if isinstance(raw_page, str):
-                    if len(raw_page) > 16_000_000:
-                        raise ValueError("pull request archive page exceeds size limit")
-                    page = json.loads(raw_page)
-                else:
-                    page = raw_page
-                if not isinstance(page, list) or len(page) > 1000:
+            for page in iter_module_pages(pull_archive):
+                if len(page) > 1000:
                     raise ValueError("invalid pull request archive page")
                 for raw_item in page:
-                    if not isinstance(raw_item, dict):
-                        continue
                     identifier = raw_item.get("id")
                     if type(identifier) is not int or str(identifier) not in event_by_id:
                         continue
@@ -749,6 +726,27 @@ def repository_pull_request_detail(session, repository_id, pull_number):
     raise AppError(404, "RESOURCE_NOT_FOUND", "本次采集归档中没有该 Pull Request")
 
 
+def _online_comments(comment_count, fetch_comments, kind):
+    """评论是可选内容；获取失败时保留详情正文并返回错误原因。"""
+    comments = []
+    if not comment_count:
+        return comments, True, None
+    try:
+        result = fetch_comments()
+        if result.error_code:
+            raise AppError(result.error_status_code or 502, result.error_code, result.error_message or f"读取 {kind} 评论失败", result.error_details)
+        for row in result.items:
+            user = row.get("user") if isinstance(row.get("user"), dict) else {}
+            comments.append({
+                "author": user.get("login") if isinstance(user.get("login"), str) else "已删除用户",
+                "body": row.get("body") if isinstance(row.get("body"), str) else "",
+                "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
+            })
+        return comments, not result.has_next, None
+    except AppError as exc:
+        return comments, False, exc.message
+
+
 def repository_pull_request_online_detail(session, repository_id, pull_number, github):
     repository_pull_request_detail(session, repository_id, pull_number)
     repository = session.get(Repository, repository_id)
@@ -757,25 +755,9 @@ def repository_pull_request_online_detail(session, repository_id, pull_number, g
     raw_labels = raw_pull.get("labels") if isinstance(raw_pull.get("labels"), list) else []
     labels = [label["name"] for label in raw_labels if isinstance(label, dict) and isinstance(label.get("name"), str)]
     comment_count = raw_pull.get("comments") if type(raw_pull.get("comments")) is int and raw_pull.get("comments") >= 0 else 0
-    comments = []
-    comments_complete = True
-    comments_error = None
-    if comment_count:
-        try:
-            result = github.list_pull_request_comments_detailed(repository.full_name, pull_number)
-            if result.error_code:
-                raise AppError(result.error_status_code or 502, result.error_code, result.error_message or "读取 Pull Request 评论失败", result.error_details)
-            for row in result.items:
-                user = row.get("user") if isinstance(row.get("user"), dict) else {}
-                comments.append({
-                    "author": user.get("login") if isinstance(user.get("login"), str) else "已删除用户",
-                    "body": row.get("body") if isinstance(row.get("body"), str) else "",
-                    "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
-                })
-            comments_complete = not result.has_next
-        except AppError as exc:
-            comments_complete = False
-            comments_error = exc.message
+    comments, comments_complete, comments_error = _online_comments(
+        comment_count, lambda: github.list_pull_request_comments_detailed(repository.full_name, pull_number), "Pull Request"
+    )
 
     merged_at = raw_pull.get("merged_at") if isinstance(raw_pull.get("merged_at"), str) else None
     raw_state = raw_pull.get("state")
@@ -817,26 +799,9 @@ def repository_closed_issue_online_detail(session, repository_id, issue_number, 
     raw_labels = raw_issue.get("labels") if isinstance(raw_issue.get("labels"), list) else []
     labels = [label["name"] for label in raw_labels if isinstance(label, dict) and isinstance(label.get("name"), str)]
     comment_count = raw_issue.get("comments") if type(raw_issue.get("comments")) is int and raw_issue.get("comments") >= 0 else 0
-    comments = []
-    comments_complete = True
-    comments_error = None
-    if comment_count:
-        try:
-            result = github.list_issue_comments_detailed(repository.full_name, issue_number)
-            if result.error_code:
-                raise AppError(result.error_status_code or 502, result.error_code, result.error_message or "读取 Issue 评论失败", result.error_details)
-            for row in result.items:
-                user = row.get("user") if isinstance(row.get("user"), dict) else {}
-                author = user.get("login") if isinstance(user.get("login"), str) else "已删除用户"
-                comments.append({
-                    "author": author,
-                    "body": row.get("body") if isinstance(row.get("body"), str) else "",
-                    "created_at": row.get("created_at") if isinstance(row.get("created_at"), str) else None,
-                })
-            comments_complete = not result.has_next
-        except AppError as exc:
-            comments_complete = False
-            comments_error = exc.message
+    comments, comments_complete, comments_error = _online_comments(
+        comment_count, lambda: github.list_issue_comments_detailed(repository.full_name, issue_number), "Issue"
+    )
 
     raw_state = raw_issue.get("state")
     return {

@@ -3,13 +3,14 @@ import hashlib
 import json
 import stat
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
 
+from backend.app.core.clock import utc_now
 from backend.app.core.exceptions import AppError
-from backend.app.persistence.models import CollectionTask, DatasetImportJob
+from backend.app.persistence.models import CollectionTask, DatasetImportJob, DatasetImportStagingRecord
 from backend.app.pipeline import collection_archive
 from backend.app.services import dataset_import
 from backend.app.services import repository_data
@@ -179,6 +180,23 @@ def test_modified_checksum_rejects_bundle_before_database_mutation(backend_clien
         assert session.get(dataset_import.Repository, 87654321) is None
 
 
+@pytest.mark.parametrize("member_ids,message", [
+    ([None], "memberships 包含数据包外的 repository_id"),
+    ([999999], "memberships 包含数据包外的 repository_id"),
+    ([87654321, 87654321], "成员关系必须与仓库列表一一对应"),
+    ([], "成员关系必须与仓库列表一一对应"),
+])
+def test_bundle_rejects_invalid_or_duplicate_memberships(tmp_path, member_ids, message):
+    root = _write_bundle(tmp_path / "featured-v1")
+    _write_jsonl_gzip(root / "memberships.jsonl.gz", [
+        {"repository_id": member_id, "inclusion_reason": "Reviewed"} for member_id in member_ids
+    ])
+    _refresh_checksums(root)
+
+    with pytest.raises(BundleError, match=message):
+        verify_dataset_bundle(root)
+
+
 def test_featured_api_reports_missing_real_bundle_without_falling_back_to_github(backend_client, tmp_path, monkeypatch):
     client, _factory, _github = backend_client
     monkeypatch.setattr(dataset_import, "BUNDLE_ROOT", tmp_path / "missing-featured-bundle")
@@ -249,6 +267,37 @@ def test_featured_api_queues_local_bundle_and_worker_imports_without_github_requ
     already_current = client.post("/api/v1/datasets/featured/import", headers=HEADERS)
     assert already_current.status_code == 200
     assert already_current.json()["data"]["already_current"] is True
+
+
+def test_dataset_import_resumes_after_staging_only_the_first_record(backend_client, tmp_path, monkeypatch):
+    client, factory, _github = backend_client
+    root = _write_bundle(tmp_path / "featured-v1")
+    monkeypatch.setattr(dataset_import, "BUNDLE_ROOT", root)
+    monkeypatch.setattr("backend.app.pipeline.raw_archive.get_settings", lambda: type("Settings", (), {"raw_data_path": tmp_path / "raw"})())
+    monkeypatch.setattr("backend.app.worker.dataset_import.get_settings", lambda: type("Settings", (), {"raw_data_path": tmp_path / "raw"})())
+    task_id = client.post("/api/v1/datasets/featured/import", headers=HEADERS).json()["data"]["task_id"]
+    _, records, _ = dataset_import._load_bundle(root)
+    with factory() as session:
+        claimed = claim_next_dataset_import_job(session, "old-worker", 60)
+        assert claimed and claimed.attempt == 1
+        session.add(DatasetImportStagingRecord(
+            task_id=task_id, record_type="repositories", record_key="0", ordinal=0,
+            repository_id=87654321, payload_json=json.dumps(records["repositories"][0]),
+        ))
+        claimed.phase = "staging"
+        claimed.lease_until = utc_now() - timedelta(seconds=1)
+        session.commit()
+    with factory() as session:
+        resumed = claim_next_dataset_import_job(session, "new-worker", 60)
+        assert resumed and resumed.task_id == task_id and resumed.attempt == 2
+
+    execute_dataset_import_job(factory, task_id, "new-worker", 60)
+
+    task = client.get(f"/api/v1/tasks/{task_id}", headers=HEADERS).json()["data"]
+    assert task["status"] == "succeeded"
+    assert task["result"]["imported_count"] == 1
+    assert task["result"]["snapshot_count"] == 1
+    assert client.get("/api/v1/datasets/featured/status", headers=HEADERS).json()["data"]["already_current"] is True
 
 
 def test_clearing_imported_repository_allows_reimporting_same_bundle(backend_client, tmp_path, monkeypatch):

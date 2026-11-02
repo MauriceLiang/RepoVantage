@@ -1,4 +1,4 @@
-"""Build a frozen research dataset from a manifest of GitHub REST API candidates."""
+"""根据 GitHub REST API 候选仓库清单构建冻结的研究数据集。"""
 
 import argparse
 import json

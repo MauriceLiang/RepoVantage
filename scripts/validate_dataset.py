@@ -1,4 +1,4 @@
-"""Validate a featured bundle and print a machine-readable quality summary."""
+"""校验精选数据包，并输出便于程序读取的数据质量摘要。"""
 
 import argparse
 import json

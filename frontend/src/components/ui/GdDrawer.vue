@@ -4,8 +4,8 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
 import GdIconButton from './GdIconButton.vue'
 
 /**
- * Accessible right-side drawer built on Reka UI primitives
- * (focus trap, Esc, scroll lock) — same conventions as shadcn-vue's Sheet.
+ * 基于 Reka UI 的无障碍右侧抽屉，提供焦点约束、Esc 关闭和页面滚动锁定；
+ * 组件结构沿用 shadcn-vue 的 Sheet 约定。
  */
 defineProps<{ open: boolean; title?: string; subtitle?: string }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()

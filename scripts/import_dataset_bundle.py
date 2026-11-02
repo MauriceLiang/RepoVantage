@@ -1,4 +1,4 @@
-"""Import a validated featured dataset directory or ZIP into the configured DB."""
+"""将已校验的精选数据集目录或 ZIP 文件导入配置的数据库。"""
 
 import argparse
 import json

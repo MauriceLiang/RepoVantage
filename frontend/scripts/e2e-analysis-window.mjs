@@ -61,6 +61,14 @@ try {
       await page.waitForSelector(selector, { visible: true })
       await page.click(selector)
     }
+    const fetchDrawerOnline = async () => {
+      await page.waitForFunction(() => [...document.querySelectorAll('[role="dialog"] button')].some((button) => button.textContent.trim() === '在线获取' && !button.disabled))
+      await page.evaluate(() => [...document.querySelectorAll('[role="dialog"] button')].find((button) => button.textContent.trim() === '在线获取').click())
+    }
+    const closeDrawer = async () => {
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('[role="dialog"]'))
+    }
     const text = (selector) => page.$eval(selector, (element) => element.textContent ?? '')
     const select = async (group, value) => {
       const selector = `[data-testid="${group}"] button[data-value="${value}"]`
@@ -227,6 +235,83 @@ try {
     await layout('[data-testid="comparison-window"]')
     await layout('[data-testid="comparison-window-unavailable"]')
     await page.screenshot({ path: join(artifacts, `${theme}-comparison.png`) })
+
+    for (const [tab, author] of [['issues', 'demo-bot'], ['prs', 'demo-reviewer']]) {
+      await page.goto(new URL(`/repositories/grid-lite/${tab}`, base).href, { waitUntil: 'networkidle0' })
+      await select('analysis-window', 90)
+      await loadedWindow(90)
+      await click('tbody button')
+      await fetchDrawerOnline()
+      await page.waitForFunction((name) => document.querySelector('[role="dialog"]')?.textContent?.includes(name), {}, author)
+      assert.match(await text('[role="dialog"]'), /演示模式：以下为示例数据，没有连接 GitHub。/)
+      assert.doesNotMatch(await text('[role="dialog"]'), /已从 GitHub 获取最新/)
+    }
+
+    if (theme === 'light') {
+      await page.goto(new URL('/repositories/grid-lite/issues', base).href, { waitUntil: 'networkidle0' })
+      await select('analysis-window', 90)
+      await loadedWindow(90)
+      await page.evaluate(async () => {
+        const { MockRepositoryDataSource } = await import('/src/services/mockRepositoryDataSource.ts')
+        const original = MockRepositoryDataSource.prototype.getIssueOnlineDetail
+        MockRepositoryDataSource.prototype.getIssueOnlineDetail = function (id, number) {
+          if (number !== 482) return original.call(this, id, number)
+          return new Promise((resolve) => {
+            window.resolveOldIssue = () => original.call(this, id, number).then(resolve)
+          })
+        }
+      })
+      await click('tbody tr:nth-child(1) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => typeof window.resolveOldIssue === 'function')
+      await closeDrawer()
+      await click('tbody tr:nth-child(2) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent?.includes('demo-bot'))
+      await page.evaluate(() => window.resolveOldIssue())
+      assert.match(await text('[role="dialog"]'), /Issue #481/)
+      assert.match(await text('[role="dialog"]'), /Issue 关闭耗时缺少 P90 标注/)
+
+      await closeDrawer()
+      await page.evaluate(async () => {
+        const { MockRepositoryDataSource } = await import('/src/services/mockRepositoryDataSource.ts')
+        MockRepositoryDataSource.prototype.getIssueOnlineDetail = async () => { throw new Error('模拟在线请求失败') }
+      })
+      await click('tbody tr:nth-child(1) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => document.querySelector('[role="dialog"] [role="alert"]')?.textContent?.includes('模拟在线请求失败'))
+      assert.match(await text('[role="dialog"]'), /这是用于界面预览的示例 Issue 描述/)
+
+      await closeDrawer()
+      await page.evaluate(async () => {
+        const { MockRepositoryDataSource } = await import('/src/services/mockRepositoryDataSource.ts')
+        MockRepositoryDataSource.prototype.getIssueOnlineDetail = (_id, number) => new Promise((resolve) => {
+          window.resolveCrossIssue = () => resolve({ number, title: '过期 Issue', body: '', state: 'closed', author: null, labels: [], createdAt: null, closedAt: null, updatedAt: null, commentsCount: 0, comments: [], commentsComplete: true, commentsError: null, source: 'mock' })
+        })
+      })
+      await click('tbody tr:nth-child(1) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => typeof window.resolveCrossIssue === 'function')
+      await closeDrawer()
+      await navigate('/repositories/grid-lite/prs')
+      await click('tbody tr:nth-child(1) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => document.querySelector('[role="dialog"]')?.textContent?.includes('demo-reviewer'))
+      await page.evaluate(async () => { window.resolveCrossIssue(); await new Promise((resolve) => setTimeout(resolve, 0)) })
+      assert.match(await text('[role="dialog"]'), /Pull Request #299/)
+      assert.doesNotMatch(await text('[role="dialog"]'), /过期 Issue/)
+
+      await closeDrawer()
+      await page.evaluate(async () => {
+        const { MockRepositoryDataSource } = await import('/src/services/mockRepositoryDataSource.ts')
+        MockRepositoryDataSource.prototype.getPullRequestOnlineDetail = async () => { throw new Error('模拟 PR 请求失败') }
+      })
+      await click('tbody tr:nth-child(1) button')
+      await fetchDrawerOnline()
+      await page.waitForFunction(() => document.querySelector('[role="dialog"] [role="alert"]')?.textContent?.includes('模拟 PR 请求失败'))
+      assert.match(await text('[role="dialog"]'), /这是用于界面预览的示例 Pull Request/)
+    }
+
     await page.setViewport({ width: 390, height: 844 })
     await page.goto(new URL('/repositories/steady-core/overview', base).href, { waitUntil: 'networkidle0' })
     await select('analysis-window', 180)
@@ -235,7 +320,7 @@ try {
     await page.screenshot({ path: join(artifacts, `${theme}-mobile.png`) })
     assert.deepEqual(apiRequests, [], 'Mock smoke 不应访问后端或真实 GitHub API')
     assert.deepEqual(errors, [], '浏览器出现未处理错误')
-    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', ...(theme === 'light' ? ['research-mode-isolation', 'featured-import-progress', 'featured-import-task', 'research-member-and-statistics-csv'] : []), 'layout-desktop-mobile'] })
+    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-issue-pr-comments', ...(theme === 'light' ? ['drawer-stale-response', 'drawer-online-error', 'research-mode-isolation', 'featured-import-progress', 'featured-import-task', 'research-member-and-statistics-csv'] : []), 'layout-desktop-mobile'] })
     await context.close()
     console.log(`PASS ${theme}: analysis, collection, comparison, CSV, layout`)
   }

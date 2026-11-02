@@ -14,6 +14,11 @@ MAX_ATTEMPTS = 3
 
 
 def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> CollectionTask | None:
+    """原子地恢复过期任务尝试，并为一个符合条件的采集任务分配租约。
+
+    SQLite 写锁同时保护恢复和选择过程，避免多个 Worker 重复领取。
+    采集任务与数据集导入任务互斥；历史回填排在交互式采集请求之后。
+    """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()
     stale = session.scalars(
@@ -117,6 +122,10 @@ def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> Col
 
 
 def claim_next_dataset_import_job(session: Session, worker_id: str, lease_seconds: int) -> DatasetImportJob | None:
+    """为导入任务分配租约；任务过期后若仍可重试，则保留已暂存记录。
+
+    只有最终状态提交后，才安排清理已结束任务产生的临时文件。
+    """
     session.execute(text("BEGIN IMMEDIATE"))
     now = utc_now()
     stale = session.scalars(
@@ -161,36 +170,31 @@ def claim_next_dataset_import_job(session: Session, worker_id: str, lease_second
             DatasetImportJob.lease_until >= now,
         ).limit(1)
     )
-    if active_collection or active_dataset:
-        session.commit()
-        for task_id, state in terminal_cleanup:
-            cleanup_dataset_import_artifacts(task_id, state)
-        return None
+    job = None
+    if not (active_collection or active_dataset):
+        job = session.scalar(
+            select(DatasetImportJob)
+            .where(DatasetImportJob.status == "queued")
+            .order_by(DatasetImportJob.created_at)
+            .limit(1)
+        )
+    if job is not None:
+        job.status = "running"
+        job.phase = job.phase or "validating"
+        job.progress_kind = "indeterminate" if job.phase in {"validating", "importing", "finalizing"} else "records"
+        job.progress_percent = None if job.progress_kind == "indeterminate" else job.progress_percent
+        job.attempt += 1
+        job.started_at = job.started_at or now
+        job.heartbeat_at = now
+        job.updated_at = now
+        job.lease_owner = worker_id
+        job.lease_until = now + timedelta(seconds=lease_seconds)
+        job.message = "正在校验精选数据包" if job.phase == "validating" else job.message or "正在恢复精选数据导入"
 
-    job = session.scalar(
-        select(DatasetImportJob)
-        .where(DatasetImportJob.status == "queued")
-        .order_by(DatasetImportJob.created_at)
-        .limit(1)
-    )
-    if job is None:
-        session.commit()
-        for task_id, state in terminal_cleanup:
-            cleanup_dataset_import_artifacts(task_id, state)
-        return None
-    job.status = "running"
-    job.phase = job.phase or "validating"
-    job.progress_kind = "indeterminate" if job.phase in {"validating", "importing", "finalizing"} else "records"
-    job.progress_percent = None if job.progress_kind == "indeterminate" else job.progress_percent
-    job.attempt += 1
-    job.started_at = job.started_at or now
-    job.heartbeat_at = now
-    job.updated_at = now
-    job.lease_owner = worker_id
-    job.lease_until = now + timedelta(seconds=lease_seconds)
-    job.message = "正在校验精选数据包" if job.phase == "validating" else job.message or "正在恢复精选数据导入"
+    # 无论是否领取新任务，都先提交过期任务状态，再清理其临时文件。
     session.commit()
-    session.refresh(job)
+    if job is not None:
+        session.refresh(job)
     for task_id, state in terminal_cleanup:
         cleanup_dataset_import_artifacts(task_id, state)
     return job

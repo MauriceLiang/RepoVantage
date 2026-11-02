@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { ref } from 'vue'
+import IssueTrendChart from '@/components/charts/IssueTrendChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
@@ -8,70 +9,22 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
+import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
+import { formatDate, formatDuration, formatTime } from '@/lib/format'
 import type { IssueRecord, IssueRecordPage, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const ui = useUiStore()
 const source = useDataSource()
-const pageSize = 10
-const page = ref(1)
-const searchInput = ref('')
-const appliedSearch = ref('')
-const records = ref<IssueRecordPage | null>(null)
-const loading = ref(false)
+const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<IssueRecordPage>(
+  () => props.analysis.repository.id,
+  (id, page, perPage, search) => source.getIssueRecords(id, page, perPage, search),
+  'Issue 记录加载失败',
+)
 const exporting = ref(false)
-const loadError = ref('')
-let requestVersion = 0
 let issueDetailRequest = 0
-
-const pageCount = computed(() => Math.max(1, Math.ceil((records.value?.total ?? 0) / pageSize)))
-const firstRecord = computed(() => records.value?.total ? (page.value - 1) * pageSize + 1 : 0)
-const lastRecord = computed(() => Math.min(page.value * pageSize, records.value?.total ?? 0))
-
-async function loadRecords() {
-  const version = ++requestVersion
-  loading.value = true
-  loadError.value = ''
-  records.value = null
-  try {
-    const result = await source.getIssueRecords(props.analysis.repository.id, page.value, pageSize, appliedSearch.value)
-    if (version === requestVersion) records.value = result
-  } catch (cause) {
-    if (version === requestVersion) loadError.value = cause instanceof Error ? cause.message : 'Issue 记录加载失败'
-  } finally {
-    if (version === requestVersion) loading.value = false
-  }
-}
-
-watch([() => props.analysis.repository.id, page, appliedSearch], () => { void loadRecords() }, { immediate: true })
-
-function applySearch() {
-  const next = searchInput.value.trim()
-  if (page.value === 1 && appliedSearch.value === next) {
-    void loadRecords()
-    return
-  }
-  page.value = 1
-  appliedSearch.value = next
-}
-
-function formatDate(value: string | null) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : date.toISOString().slice(0, 10)
-}
-
-function formatTime(value: string | null) {
-  if (!value) return ''
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '' : `${date.toISOString().slice(11, 19)} UTC`
-}
-
-function formatDuration(value: number | null) {
-  return value === null ? '—' : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天`
-}
 
 async function openIssue(item: IssueRecord) {
   const requestId = ++issueDetailRequest
@@ -117,13 +70,15 @@ async function exportCsv() {
   <GdCard>
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h3 class="m-0 text-[15.5px] font-semibold">Issue 关闭趋势</h3>
-        <p class="mt-0.5 text-[12px] text-muted">按 closed_at 所在自然周统计 · 已排除 Pull Request</p>
+        <h3 class="m-0 text-[15.5px] font-semibold">Issue 处理趋势</h3>
+        <p class="mt-0.5 text-[12px] text-muted">按创建和关闭时间统计自然周 · 已排除 Pull Request</p>
       </div>
       <GdCoverageNote :coverage="analysis.issues.coverage" />
     </div>
-    <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#CE3F7C']" :height="250" />
-    <p class="text-[11px] text-muted">未覆盖或不完整的周保持空值；关闭耗时只纳入有效 created_at 与 closed_at 样本。</p>
+    <IssueTrendChart v-if="analysis.chartData" :series="analysis.issues.series" :coverage="analysis.issues.coverage.state" :window-start="analysis.issues.window.startUtc ?? analysis.issues.window.start" :window-end="analysis.issues.window.endUtc ?? analysis.issues.window.end" />
+    <GroupedChart v-else :series="analysis.issues.series" :unit="analysis.issues.unit" :height="250" />
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周新增与关闭数，折线及浅色区域为两者差值；差值不等于待处理数量。半透明柱为已观察样本，差值仅在完整周显示。</p>
+    <p v-else class="text-[11px] text-muted">当前数据未提供新增 Issue 趋势，显示已采集的关闭数量。</p>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
@@ -135,7 +90,8 @@ async function exportCsv() {
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.issueDuration.sampleSize }}</span>
       </div>
-      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :cumulative-step="false" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
+      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">50% 虚线表示累计占比的一半；P50 标记所在区间即中位数落入的耗时范围。</p>
       <div class="text-[11px] text-muted">P50 {{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.issueDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.issueDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
     </GdCard>

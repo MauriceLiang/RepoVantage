@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import func, select
 
-from backend.app.analytics.insights import calculate_insights
+from backend.app.analytics.insights import calculate_insights, weekly
 from backend.app.core.clock import iso_z
 from backend.app.persistence.models import RepositoryActivityEvent, RepositoryInsightRun
 from backend.app.pipeline.event_normalizer import normalize_events
@@ -46,6 +46,29 @@ def test_weekly_commits_deduplicate_and_exact_four_week_change():
     assert value["change_rate_pct"] == pytest.approx(96.6666667)
 
 
+@pytest.mark.parametrize("coverage,expected_values", [
+    ("complete", [None, 1, 2]),
+    ("partial", [None, None, None]),
+])
+def test_weekly_counts_respect_window_boundaries_and_coverage(coverage, expected_values):
+    start = START + timedelta(days=2)
+    end = START + timedelta(weeks=3)
+    events = [{"event_at": value} for value in (
+        end, None, start - timedelta(seconds=1),
+        START + timedelta(days=6, hours=23), start,
+        START + timedelta(weeks=1), START + timedelta(weeks=2, hours=1),
+        end - timedelta(microseconds=1),
+    )]
+
+    points = weekly(events, start, end, {"coverage": coverage})
+
+    assert [point["observed_events"] for point in points] == [2, 1, 2]
+    assert [point["value"] for point in points] == expected_values
+    assert [point["complete_week"] for point in points] == [False, True, True]
+    expected_quality = ["partial", "ready", "ready"] if coverage == "complete" else ["partial"] * 3
+    assert [point["quality"] for point in points] == expected_quality
+
+
 def test_zero_baseline_and_incomplete_coverage_are_not_growth():
     raw = fixture()
     raw["commits"] = [r for r in raw["commits"] if r["commit"]["committer"]["date"] >= iso_z(START + timedelta(weeks=4))]
@@ -55,6 +78,33 @@ def test_zero_baseline_and_incomplete_coverage_are_not_growth():
     assert partial["commit_activity"]["recent_4w"] is None
     assert all(p["value"] is None for p in partial["commit_activity"]["weekly"])
     assert partial["issue_resolution"]["quality"]["status"] == "ready"
+
+
+@pytest.mark.parametrize("coverage,expected", [
+    ("not_collected", "missing"),
+    ("partial", "partial"),
+    ("complete", "ready"),
+    ("mixed", "partial"),
+    ("failed", "partial"),
+])
+def test_analysis_status_distinguishes_coverage_from_insufficient_samples(backend_client, coverage, expected):
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    rows = {module: [] for module in ("commits", "issues", "pulls", "releases")}
+    sources = {module: {"coverage": "complete" if coverage in {"mixed", "failed"} else coverage} for module in rows}
+    if coverage == "mixed":
+        sources["issues"] = {"coverage": "not_collected"}
+    elif coverage == "failed":
+        sources["commits"] = {"coverage": "partial", "error_code": "GITHUB_TIMEOUT"}
+    with factory() as session:
+        result = persist_insights(session, 123, "empty-sample", rows, sources, START, END, [])
+        session.commit()
+    assert result["status"] == expected
+    if coverage == "complete":
+        assert result["insights"]["issue_resolution"]["quality"]["status"] == "insufficient_samples"
+    response = client.get("/api/v1/repositories/123/insights?window_days=30", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["status"] == expected
 
 
 def test_duration_threshold_invalid_dates_and_pr_filter():
@@ -158,6 +208,38 @@ def test_insights_recompute_selected_window_and_keep_release_window_fixed(backen
     assert client.get("/api/v1/repositories/123/insights?window_days=60", headers=HEADERS).status_code == 422
 
 
+def test_combination_chart_data_is_built_from_stored_events(backend_client):
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    start = END - timedelta(days=30)
+    raw = {
+        "commits": [
+            {"sha": "a" * 40, "author": {"id": 42}, "commit": {"committer": {"date": iso_z(start + timedelta(days=5))}}},
+            {"sha": "b" * 40, "commit": {"committer": {"date": iso_z(start + timedelta(days=6))}}},
+        ],
+        "issues": [
+            {"id": 1, "created_at": iso_z(start + timedelta(days=3)), "closed_at": iso_z(start + timedelta(days=5))},
+            {"id": 5, "created_at": iso_z(start + timedelta(days=4)), "closed_at": None},
+        ],
+        "pulls": [{"id": 2, "created_at": iso_z(start + timedelta(days=2)), "merged_at": iso_z(start + timedelta(days=5))}],
+        "releases": [{"id": 3, "published_at": iso_z(start + timedelta(days=4))}, {"id": 4, "published_at": iso_z(start + timedelta(days=7))}],
+    }
+    sources = {key: {"coverage": "complete", "requested_interval": [iso_z(start), iso_z(END)]} for key in raw}
+    with factory() as session:
+        persist_insights(session, 123, "chart-task", raw, sources, start, END, [])
+        session.commit()
+
+    response = client.get("/api/v1/repositories/123/insights?window_days=30", headers=HEADERS)
+    assert response.status_code == 200, response.text
+    charts = response.json()["data"]["chart_data"]
+    assert charts["commit_accounts"] == ["github:42"]
+    assert sum(week["unidentified_commits"] for week in charts["commit_weekly"]) == 1
+    assert sum(week["observed_events"] for week in charts["issue_opened_weekly"]) == 2
+    assert sum(week["observed_events"] for week in charts["issue_closed_weekly"]) == 1
+    assert charts["pr_sample_total"] == 1 and charts["pr_samples"][0]["duration_hours"] == 72
+    assert charts["release_intervals"][0]["commit_count"] == 2
+
+
 def test_closed_issue_records_search_pagination_and_safe_csv(backend_client, monkeypatch, tmp_path):
     from backend.app.pipeline.raw_archive import archive_json
 
@@ -236,6 +318,18 @@ def test_closed_issue_records_search_pagination_and_safe_csv(backend_client, mon
     assert online_data["comments_error"] is None
     assert issue_requests == [("example/project", 103)]
     assert comment_requests == [("example/project", 103)]
+
+    fake_github.list_issue_comments_detailed = lambda *_: SimpleNamespace(
+        error_code="GITHUB_RATE_LIMITED", error_status_code=429, error_message="GitHub 请求额度不足", error_details={}
+    )
+    limited = client.get("/api/v1/repositories/123/issues/103/online", headers=HEADERS).json()["data"]
+    assert limited["body"] == "## Online issue body"
+    assert limited["comments"] == [] and limited["comments_complete"] is False
+    assert limited["comments_error"] == "GitHub 请求额度不足"
+    fake_github.get_issue_detail = lambda *_: {"body": "No comments", "comments": 0}
+    fake_github.list_issue_comments_detailed = lambda *_: pytest.fail("无评论时不应请求评论接口")
+    empty_comments = client.get("/api/v1/repositories/123/issues/103/online", headers=HEADERS).json()["data"]
+    assert empty_comments["comments"] == [] and empty_comments["comments_complete"] is True
 
     exported = client.get("/api/v1/repositories/123/issues/export.csv", headers=HEADERS)
     assert exported.status_code == 200 and "issue_number,title,created_at" in exported.text
@@ -324,9 +418,63 @@ def test_pull_request_records_include_unmerged_details_and_fetch_online_only_on_
     assert pull_requests == [("example/project", 31)]
     assert comments_requests == [("example/project", 31)]
 
+    fake_github.list_pull_request_comments_detailed = lambda *_: SimpleNamespace(
+        error_code="GITHUB_RATE_LIMITED", error_status_code=429, error_message="GitHub 请求额度不足", error_details={}
+    )
+    limited = client.get("/api/v1/repositories/123/pull-requests/31/online", headers=HEADERS).json()["data"]
+    assert limited["body"] == "## Online PR body"
+    assert limited["comments"] == [] and limited["comments_complete"] is False
+    assert limited["comments_error"] == "GitHub 请求额度不足"
+
     exported = client.get("/api/v1/repositories/123/pull-requests/export.csv", headers=HEADERS)
     assert exported.status_code == 200 and "pull_number,title,state" in exported.text
     assert "'=1+1" in exported.text
+
+
+@pytest.mark.parametrize("field", ["source_task_ids_json", "source_archive_paths_json", "module_coverage_json"])
+@pytest.mark.parametrize(("endpoint", "error_code"), [
+    ("commits", "COMMIT_ARCHIVE_UNAVAILABLE"),
+    ("issues", "ISSUE_ARCHIVE_UNAVAILABLE"),
+    ("pull-requests", "PULL_REQUEST_ARCHIVE_UNAVAILABLE"),
+])
+def test_record_endpoints_report_corrupt_run_metadata(backend_client, field, endpoint, error_code):
+    client, factory, _github = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    rows = fixture()
+    sources = {module: {"coverage": "complete"} for module in rows}
+    with factory() as session:
+        result = persist_insights(session, 123, "metadata-test", rows, sources, START, END, [])
+        run = session.get(RepositoryInsightRun, result["run_id"])
+        setattr(run, field, "{invalid")
+        session.commit()
+
+    response = client.get(f"/api/v1/repositories/123/{endpoint}", headers=HEADERS)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == error_code
+    assert "采集记录无法读取" in response.json()["error"]["message"]
+
+
+@pytest.mark.parametrize(("module", "endpoint", "error_code"), [
+    ("commits", "commits", "COMMIT_ARCHIVE_UNAVAILABLE"),
+    ("issues", "issues", "ISSUE_ARCHIVE_UNAVAILABLE"),
+    ("pulls", "pull-requests", "PULL_REQUEST_ARCHIVE_UNAVAILABLE"),
+])
+def test_record_endpoints_reject_oversized_archive_pages(backend_client, monkeypatch, tmp_path, module, endpoint, error_code):
+    from backend.app.pipeline.raw_archive import archive_json
+
+    client, factory, _ = backend_client
+    client.post("/api/v1/library/repositories", json={"full_name": "example/project", "auto_analyze": False}, headers=HEADERS)
+    monkeypatch.setattr("backend.app.pipeline.raw_archive.get_settings", lambda: type("Settings", (), {"raw_data_path": tmp_path})())
+    archive_path = archive_json(123, "oversized", "activity", {module: [[{"id": 1}] * 1001]})
+    raw = fixture()
+    sources = {key: {"coverage": "complete", "collected_at": iso_z(END)} for key in raw}
+    with factory() as session:
+        persist_insights(session, 123, "oversized", raw, sources, START, END, [archive_path])
+        session.commit()
+
+    response = client.get(f"/api/v1/repositories/123/{endpoint}", headers=HEADERS)
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == error_code
 
 
 def test_unknown_api_route_does_not_fall_through_to_spa(backend_client):
@@ -367,7 +515,7 @@ def test_worker_event_pipeline_and_safe_archive_replay(backend_client, monkeypat
     monkeypatch.setattr('backend.app.pipeline.raw_archive.get_settings', lambda: type('Settings', (), {'raw_data_path': root})())
     worker = WorkerGitHub(github.repository)
     from backend.app.core.clock import utc_now
-    # Dates aligned with the worker's live window, real IDs and committer timestamps.
+    # 日期与 Worker 的实时窗口对齐，并使用有效的事件编号和提交时间戳。
     stamp = iso_z(utc_now() - timedelta(days=2))
     worker.records = {'commits': [{'sha': 'a' * 40, 'commit': {'committer': {'date': stamp}}}], 'issues': [{'id': 1, 'created_at': stamp, 'closed_at': stamp}], 'pulls': [{'id': 2, 'created_at': stamp, 'merged_at': stamp}], 'releases': [{'id': 3, 'published_at': stamp}]}
     original = worker._list
@@ -389,7 +537,7 @@ def test_worker_event_pipeline_and_safe_archive_replay(backend_client, monkeypat
         again = replay_activity(session, 123, apply=True)
         assert again['run_id'] == run.run_id
         assert session.scalar(select(func.count()).select_from(RepositoryInsightRun)) == 1
-        # Tampered archive fails before touching any existing results.
+        # 归档被篡改时应先报错，不得修改已有分析结果。
         activity = session.scalar(select(ActivityWindow))
         activity.source_archive_path = '../outside.json.gz'
         session.flush()
@@ -694,7 +842,7 @@ def test_recalculation_tracks_current_event_sources_without_rewriting_coverage_p
         assert session.scalar(select(func.count()).select_from(RepositoryInsightRun)) == 2
         saved = session.get(RepositoryInsightRun, proof['run_id'])
         assert json.loads(saved.result_json)['observed_counts']['commits_count'] == 89
-    # Research stays on its latest saved run, independent of dynamic window reads.
+    # 研究分析继续使用最近保存的运行结果，不受动态窗口查询影响。
     research_before = client.get('/api/v1/research/insights?dataset_id=saved-research', headers=HEADERS).json()['data']
     with factory() as session:
         event = session.scalar(select(RepositoryActivityEvent).where(RepositoryActivityEvent.source_item_id == 'f' * 40))
