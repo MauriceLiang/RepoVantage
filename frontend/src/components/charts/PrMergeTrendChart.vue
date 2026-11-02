@@ -49,7 +49,7 @@ const option = computed<EChartsOption>(() => {
   const zoomEnabled = timeBounds.value !== null && timeBounds.value.end > timeBounds.value.start
   const tailCap = props.durationP90 != null && props.durationP90 > 0 ? props.durationP90 : null
   return {
-    useUTC: true, animation: false, grid: { left: 44, right: 50, top: 55, bottom: zoomEnabled ? 50 : 30 },
+    useUTC: true, animation: false, grid: { left: 44, right: 50, top: 55, bottom: zoomEnabled ? 50 : 30, containLabel: true },
     legend: { top: 0, left: 0, data: ['合并数量', '单条耗时', '每周中位耗时'], textStyle: { color: t.muted, fontSize: 10, fontFamily }, itemWidth: 10, itemHeight: 8 },
     tooltip: { ...comboTooltip(t), trigger: 'item', formatter: (params: unknown) => {
       const p = params as { seriesName: string; dataIndex: number }
@@ -69,7 +69,7 @@ const option = computed<EChartsOption>(() => {
     ],
     dataZoom: zoomEnabled ? [
       { type: 'inside', xAxisIndex: 0, filterMode: 'filter', startValue: timeBounds.value!.start, endValue: timeBounds.value!.end, zoomOnMouseWheel: true, moveOnMouseWheel: true, moveOnMouseMove: true },
-      { type: 'slider', xAxisIndex: 0, filterMode: 'filter', startValue: timeBounds.value!.start, endValue: timeBounds.value!.end, height: 12, bottom: 0, showDetail: true, showDataShadow: false, brushSelect: false, borderColor: t.border, backgroundColor: t.soft, fillerColor: t.dark ? 'rgba(242,148,194,.2)' : 'rgba(206,63,124,.16)', handleStyle: { color: t.series[2], borderColor: t.border } },
+      { type: 'slider', xAxisIndex: 0, filterMode: 'filter', startValue: timeBounds.value!.start, endValue: timeBounds.value!.end, height: 12, bottom: 0, showDetail: false, showDataShadow: false, brushSelect: false, borderColor: t.border, backgroundColor: t.soft, fillerColor: t.dark ? 'rgba(242,148,194,.2)' : 'rgba(206,63,124,.16)', handleStyle: { color: t.series[2], borderColor: t.border } },
     ] : undefined,
     series: [
       { name: '合并数量', type: 'bar', barMaxWidth: 25, data: props.points.map((point) => ({ value: [midpoint(point.date), observedValue(point)], itemStyle: { opacity: point.value === null ? 0.45 : 0.85 } })), itemStyle: { color: t.series[3] } },
@@ -83,8 +83,8 @@ const option = computed<EChartsOption>(() => {
 <template>
   <div>
     <EChart :option="option" :height="height" @data-zoom="updateWindow" />
-    <div v-if="timeBounds && timeBounds.end > timeBounds.start" class="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-[10px] text-muted">
-      <span>当前窗口：{{ windowLabel }}</span>
+    <div v-if="timeBounds && timeBounds.end > timeBounds.start" class="mt-1 grid min-w-0 grid-cols-1 gap-1 text-[10px] text-muted sm:flex sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-3">
+      <span class="min-w-0 break-all sm:break-normal">当前窗口：{{ windowLabel }}</span>
       <span>拖动两端调整长度，拖动选区平移</span>
     </div>
   </div>
