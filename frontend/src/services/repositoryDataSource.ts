@@ -37,10 +37,10 @@ export interface RepositoryDataSource {
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
   getIssueOnlineDetail(id: string, issueNumber: number): Promise<IssueOnlineDetail>
   exportIssueRecords(id: string, search: string): Promise<Blob>
-  getPullRequestRecords(id: string, page: number, perPage: number, search: string): Promise<PullRequestActivityPage>
+  getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string): Promise<PullRequestActivityPage>
   getPullRequestDetail(id: string, pullNumber: number): Promise<PullRequestActivityDetail>
   getPullRequestOnlineDetail(id: string, pullNumber: number): Promise<PullRequestOnlineDetail>
-  exportPullRequestRecords(id: string, search: string): Promise<Blob>
+  exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string): Promise<Blob>
   getReleaseDetails(repositoryId: string, releaseId: string): Promise<ReleaseDetails>
 
   /** 对比 2 至 5 个仓库，可选共同时间区间或各仓库自己的完整区间。 */

@@ -2,7 +2,7 @@ import hashlib
 import json
 import math
 from collections import Counter
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, time, timedelta, timezone
 from uuid import uuid4
 
 from sqlalchemy import desc, or_, select
@@ -607,8 +607,16 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
     }
 
 
-def repository_pull_requests(session, repository_id, search=None, *, include_body=False):
+def repository_pull_requests(session, repository_id, search=None, *, include_body=False, merged_from=None, merged_to=None):
     """返回最新分析归档中保存的已关闭 Pull Request。"""
+    # 图表点选传入 UTC 左闭右开区间；兼容未带时区的查询值并统一成 UTC。
+    merged_from = merged_from.replace(tzinfo=timezone.utc) if merged_from and merged_from.tzinfo is None else merged_from
+    merged_to = merged_to.replace(tzinfo=timezone.utc) if merged_to and merged_to.tzinfo is None else merged_to
+    merged_from = merged_from.astimezone(timezone.utc) if merged_from else None
+    merged_to = merged_to.astimezone(timezone.utc) if merged_to else None
+    if merged_from and merged_to and merged_from >= merged_to:
+        raise AppError(422, "VALIDATION_ERROR", "PR 合并时间筛选的结束时间必须晚于开始时间")
+
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -695,6 +703,15 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
     available = pull_data_found and archive_found
     rows = list(items_by_id.values())
     rows.sort(key=lambda row: (row["_sort_at"] or datetime.min, row["number"]), reverse=True)
+    if merged_from or merged_to:
+        # 只有已合并 PR 才属于耗时分布图的样本；关闭未合并 PR 不应混入筛选结果。
+        rows = [
+            row for row in rows
+            if row["merged_at"] is not None and row["duration_days"] is not None
+            and (merged_at := parse_github_datetime(row["merged_at"])) is not None
+            and (merged_from is None or merged_at >= merged_from)
+            and (merged_to is None or merged_at < merged_to)
+        ]
     normalized_search = (search or "").strip().casefold()
     if normalized_search:
         rows = [row for row in rows if normalized_search in row["title"].casefold() or normalized_search in str(row["number"])]

@@ -271,6 +271,16 @@ export interface Observation {
   evidence: string
 }
 
+export interface PrDurationPeriod {
+  /** UTC 左闭右开时间区间。 */
+  start: string
+  end: string
+  counts: number[]
+  medianHours: number | null
+  validSamples: number
+  complete: boolean
+}
+
 export interface RepositoryChartData {
   /** 所选窗口内按提交量排序的前五个可识别 GitHub 账号标识。 */
   commitAccounts: string[]
@@ -279,9 +289,10 @@ export interface RepositoryChartData {
   issueOpenedWeekly: TimePoint[]
   issueClosedWeekly: TimePoint[]
   prMergedWeekly: TimePoint[]
-  prMonthly: { month: string; counts: number[]; medianHours: number | null; validSamples: number; complete: boolean }[]
-  prWeekly: { start: string; medianHours: number | null; validSamples: number }[]
-  /** 散点可能经过抽样；按月和按周的中位数仍使用全部有效 PR。 */
+  prMonthly: (PrDurationPeriod & { month: string })[]
+  prWeekly: PrDurationPeriod[]
+  prBiweekly: PrDurationPeriod[]
+  /** 散点可能经过抽样；周、双周和月聚合仍使用全部有效 PR。 */
   prSamples: { id: string; mergedAt: string; durationHours: number }[]
   prSampleTotal: number
   prSamplesTruncated: boolean

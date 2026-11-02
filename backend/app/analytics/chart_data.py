@@ -8,6 +8,7 @@ from backend.app.analytics.insights import week_start, weekly
 from backend.app.core.clock import iso_z, parse_github_datetime
 
 PR_SCATTER_LIMIT = 1500
+PR_DURATION_EDGES = (0, 24, 72, 168, 720, float('inf'))
 
 
 def _next_month(value):
@@ -93,32 +94,56 @@ def build_chart_data(events, sources, start, end):
             })
     valid.sort(key=lambda item: (item['merged_at'], item['id']))
     by_week = defaultdict(list)
+    by_biweek = defaultdict(list)
     by_month = defaultdict(list)
+    biweek_origin = week_start(start)
     for item in valid:
-        by_week[week_start(item['merged_at'])].append(item['duration_hours'])
-        by_month[item['merged_at'].replace(day=1, hour=0, minute=0, second=0, microsecond=0)].append(item['duration_hours'])
+        merged_at = item['merged_at']
+        by_week[week_start(merged_at)].append(item['duration_hours'])
+        biweek_index = (merged_at - biweek_origin).days // 14
+        by_biweek[biweek_origin + timedelta(days=biweek_index * 14)].append(item['duration_hours'])
+        by_month[merged_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)].append(item['duration_hours'])
 
     pr_weekly = []
     current = week_start(start)
     while current < end:
+        stop = current + timedelta(days=7)
         values = by_week[current]
-        pr_weekly.append({'start': iso_z(current), 'median_hours': median(values) if values else None, 'valid_samples': len(values)})
-        current += timedelta(days=7)
+        pr_weekly.append({
+            'start': iso_z(current), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
+            'median_hours': median(values) if values else None, 'valid_samples': len(values),
+            'complete': current >= start and stop <= end and _covers(sources.get('pulls', {}), current, stop),
+        })
+        current = stop
+
+    pr_biweekly = []
+    current = biweek_origin
+    while current < end:
+        stop = current + timedelta(days=14)
+        values = by_biweek[current]
+        pr_biweekly.append({
+            'start': iso_z(current), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
+            'median_hours': median(values) if values else None, 'valid_samples': len(values),
+            'complete': current >= start and stop <= end and _covers(sources.get('pulls', {}), current, stop),
+        })
+        current = stop
 
     pr_monthly = []
     month = start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     while month < end:
         stop = _next_month(month)
         values = by_month[month]
-        edges = (0, 24, 72, 168, 720, float('inf'))
         pr_monthly.append({
-            'month': iso_z(month), 'counts': [sum(low <= value < high for value in values) for low, high in zip(edges, edges[1:])],
+            'month': iso_z(month), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
             'median_hours': median(values) if values else None, 'valid_samples': len(values),
             'complete': month >= start and stop <= end and _covers(sources.get('pulls', {}), month, stop),
         })
         month = stop
 
-    # 仅限制传给散点图的数据量；上面的月度和周度统计仍使用全部有效样本。
+    # 仅限制传给散点图的数据量；上面的时间分桶统计仍使用全部有效样本。
     # 抽样按时间稳定进行，并保留首尾两个样本。
     total_pr_samples = len(valid)
     shown = valid if total_pr_samples <= PR_SCATTER_LIMIT else [
@@ -152,7 +177,7 @@ def build_chart_data(events, sources, start, end):
     return {
         'commit_accounts': top_accounts, 'commit_weekly': commit_weeks,
         'issue_opened_weekly': issue_opened, 'issue_closed_weekly': issue_closed,
-        'pr_merged_weekly': pr_merged, 'pr_monthly': pr_monthly, 'pr_weekly': pr_weekly, 'pr_samples': pr_samples,
+        'pr_merged_weekly': pr_merged, 'pr_monthly': pr_monthly, 'pr_weekly': pr_weekly, 'pr_biweekly': pr_biweekly, 'pr_samples': pr_samples,
         'pr_sample_total': total_pr_samples, 'pr_samples_truncated': total_pr_samples > len(pr_samples),
         'release_intervals': intervals,
     }

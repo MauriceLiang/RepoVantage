@@ -289,6 +289,11 @@ function mapPoints(value: unknown): TimePoint[] {
 function mapChartData(value: unknown): RepositoryChartData | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const source = object(value)
+  const mapPrPeriods = (value: unknown) => array(value).map((item) => ({
+    start: String(item.start ?? '').slice(0, 10), end: textOrNull(item.end) ?? '',
+    counts: Array.isArray(item.counts) ? item.counts.map((count: unknown) => numberOrNull(count) ?? 0) : [],
+    medianHours: numberOrNull(item.median_hours), validSamples: numberOrNull(item.valid_samples) ?? 0, complete: item.complete === true,
+  }))
   return {
     commitAccounts: Array.isArray(source.commit_accounts) ? source.commit_accounts.filter((item: unknown): item is string => typeof item === 'string') : [],
     commitWeekly: array(source.commit_weekly).map((item) => ({
@@ -301,10 +306,12 @@ function mapChartData(value: unknown): RepositoryChartData | null {
     issueClosedWeekly: mapPoints(source.issue_closed_weekly),
     prMergedWeekly: mapPoints(source.pr_merged_weekly),
     prMonthly: array(source.pr_monthly).map((item) => ({
-      month: String(item.month ?? '').slice(0, 10), counts: Array.isArray(item.counts) ? item.counts.map((count: unknown) => numberOrNull(count) ?? 0) : [],
+      start: String(item.month ?? '').slice(0, 10), end: textOrNull(item.end) ?? '', month: String(item.month ?? '').slice(0, 10),
+      counts: Array.isArray(item.counts) ? item.counts.map((count: unknown) => numberOrNull(count) ?? 0) : [],
       medianHours: numberOrNull(item.median_hours), validSamples: numberOrNull(item.valid_samples) ?? 0, complete: item.complete === true,
     })),
-    prWeekly: array(source.pr_weekly).map((item) => ({ start: String(item.start ?? '').slice(0, 10), medianHours: numberOrNull(item.median_hours), validSamples: numberOrNull(item.valid_samples) ?? 0 })),
+    prWeekly: mapPrPeriods(source.pr_weekly),
+    prBiweekly: mapPrPeriods(source.pr_biweekly),
     prSamples: array(source.pr_samples).flatMap((item) => {
       const durationHours = numberOrNull(item.duration_hours)
       return durationHours === null ? [] : [{ id: String(item.id ?? ''), mergedAt: String(item.merged_at ?? ''), durationHours }]
@@ -755,9 +762,11 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getPullRequestRecords(id: string, page: number, perPage: number, search: string): Promise<PullRequestActivityPage> {
+  async getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string): Promise<PullRequestActivityPage> {
     const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
     if (search.trim()) params.set('search', search.trim())
+    if (mergedFrom) params.set('merged_from', mergedFrom)
+    if (mergedTo) params.set('merged_to', mergedTo)
     const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/pull-requests?${params}`)
     const rawCoverage = object(result.coverage)
     const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
@@ -1007,9 +1016,11 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return csv(`/repositories/${repositoryId(id)}/issues/export.csv${query}`)
   }
 
-  exportPullRequestRecords(id: string, search: string): Promise<Blob> {
+  exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string): Promise<Blob> {
     const params = new URLSearchParams()
     if (search.trim()) params.set('search', search.trim())
+    if (mergedFrom) params.set('merged_from', mergedFrom)
+    if (mergedTo) params.set('merged_to', mergedTo)
     const query = params.size ? `?${params}` : ''
     return csv(`/repositories/${repositoryId(id)}/pull-requests/export.csv${query}`)
   }
