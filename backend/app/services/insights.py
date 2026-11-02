@@ -99,7 +99,6 @@ def persist_insights(session: Session, repository_id: int, task_id: str, rows: d
 
 
 def _stored_window_events(session: Session, repository_id: int, start, end) -> dict[str, list[dict]]:
-    release_start = end - timedelta(days=365)
     ranges = {
         "commit": (RepositoryActivityEvent.event_at >= start) & (RepositoryActivityEvent.event_at < end),
         "issue": or_(
@@ -113,7 +112,8 @@ def _stored_window_events(session: Session, repository_id: int, start, end) -> d
             (RepositoryActivityEvent.merged_at >= start) & (RepositoryActivityEvent.merged_at < end),
             (RepositoryActivityEvent.updated_at >= start) & (RepositoryActivityEvent.updated_at < end),
         ),
-        "release": (RepositoryActivityEvent.published_at >= release_start) & (RepositoryActivityEvent.published_at < end),
+        # 发布频率图支持回看全部本地已采集版本；下游指标仍自行按 365 天窗口计算。
+        "release": RepositoryActivityEvent.published_at < end,
     }
     module_by_type = {"commit": "commits", "issue": "issues", "pull_request": "pulls", "release": "releases"}
     events = {module: [] for module in MODULES}

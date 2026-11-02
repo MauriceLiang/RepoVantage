@@ -318,8 +318,13 @@ function mapChartData(value: unknown): RepositoryChartData | null {
     }),
     prSampleTotal: numberOrNull(source.pr_sample_total) ?? 0,
     prSamplesTruncated: source.pr_samples_truncated === true,
+    releaseHistory: array(source.release_history).map((item) => ({
+      id: String(item.id ?? ''), publishedAt: String(item.published_at ?? ''), identifierType: 'release_id' as const,
+    })),
+    releaseHistoryCoverage: source.release_history_coverage === 'complete' || source.release_history_coverage === 'partial' ? source.release_history_coverage : 'missing',
     releaseIntervals: array(source.release_intervals).map((item) => ({
-      id: String(item.id ?? ''), previousPublishedAt: String(item.previous_published_at ?? ''), publishedAt: String(item.published_at ?? ''),
+      id: String(item.id ?? ''), previousId: String(item.previous_id ?? ''), previousPublishedAt: String(item.previous_published_at ?? ''), publishedAt: String(item.published_at ?? ''),
+      days: numberOrNull(item.days) ?? Math.max(0, (Date.parse(String(item.published_at ?? '')) - Date.parse(String(item.previous_published_at ?? ''))) / 86400000),
       commitCount: numberOrNull(item.commit_count), reason: textOrNull(item.reason),
     })),
   }

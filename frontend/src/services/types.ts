@@ -296,8 +296,11 @@ export interface RepositoryChartData {
   prSamples: { id: string; mergedAt: string; durationHours: number }[]
   prSampleTotal: number
   prSamplesTruncated: boolean
+  /** 仅包含当前分析结束时间之前已保存在本地的正式 Release。 */
+  releaseHistory: { id: string; publishedAt: string; identifierType: 'tag' | 'release_id' }[]
+  releaseHistoryCoverage: Coverage['state']
   /** Commit 数对应 [上次发布, 本次发布)；null 表示无法证明区间覆盖完整。 */
-  releaseIntervals: { id: string; previousPublishedAt: string; publishedAt: string; commitCount: number | null; reason: string | null }[]
+  releaseIntervals: { id: string; previousId: string; previousPublishedAt: string; publishedAt: string; days: number; commitCount: number | null; reason: string | null }[]
 }
 
 export interface RepositoryAnalysis {

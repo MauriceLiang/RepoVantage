@@ -259,17 +259,20 @@ function demoChartData(seed: RepoSeed, window: TimeWindow): RepositoryChartData 
     prMonthly.push({ start, end: `${next}T00:00:00.000Z`, month: start, counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length), medianHours: median(values), validSamples: values.length, complete: seed.coverage.state === 'complete' && start >= range.start && next <= range.end })
     month = new Date(`${next}T00:00:00Z`)
   }
-  const formal = releasesOf(seed).filter((release) => !release.prerelease && release.publishedAt >= addDays(range.end, -365) && release.publishedAt < range.end)
+  const formal = releasesOf(seed).filter((release) => !release.prerelease && release.publishedAt < range.end)
   const daily = dailyPoints(seed, window)
   const releaseIntervals = formal.slice(1).map((release, index) => {
     const previous = formal[index]
     const covered = seed.coverage.state === 'complete' && previous.publishedAt >= range.start && release.publishedAt <= range.end
-    return { id: release.tag, previousPublishedAt: previous.publishedAt, publishedAt: release.publishedAt,
+    return { id: release.tag, previousId: previous.tag, previousPublishedAt: previous.publishedAt, publishedAt: release.publishedAt,
+      days: (Date.parse(release.publishedAt) - Date.parse(previous.publishedAt)) / DAY,
       commitCount: covered ? daily.filter((point) => point.date >= previous.publishedAt && point.date < release.publishedAt).reduce((sum, point) => sum + (point.value ?? 0), 0) : null,
       reason: covered ? null : 'Commit 未完整覆盖此发布间隔' }
   })
   return { commitAccounts: accounts, commitWeekly, issueOpenedWeekly: issuesSeries(seed, window).series[0]?.points ?? [], issueClosedWeekly: issuesSeries(seed, window).series[1]?.points ?? [], prMergedWeekly: merged,
-    prMonthly, prWeekly, prBiweekly, prSamples: samples, prSampleTotal: samples.length, prSamplesTruncated: false, releaseIntervals }
+    prMonthly, prWeekly, prBiweekly, prSamples: samples, prSampleTotal: samples.length, prSamplesTruncated: false,
+    releaseHistory: formal.map((release) => ({ id: release.tag, publishedAt: release.publishedAt, identifierType: 'tag' as const })),
+    releaseHistoryCoverage: seed.coverage.state, releaseIntervals }
 }
 
 function observationsOf(seed: RepoSeed) {

@@ -46,8 +46,8 @@ def _weekly(events, start, end, source):
 def build_chart_data(events, sources, start, end):
     """根据标准化、去重后的 UTC 事件构造图表序列。
 
-    开发活动、Issue 和 PR 使用 ``[start, end)``；Release 标记使用截至结束时间
-    的前 365 天，因此可能显示发布间隔，但无法确认其中的 Commit 数。
+    开发活动、Issue 和 PR 使用 ``[start, end)``；发布间隔使用结束时间之前
+    本地已采集的全部正式 Release，Commit 数仍须由完整覆盖证据确认。
     数量和中位数仅描述已观察事件，不代表覆盖证据之外的 GitHub 历史。
     """
     commits = [event for event in events['commits'] if event.get('event_at') and start <= event['event_at'] < end]
@@ -152,9 +152,14 @@ def build_chart_data(events, sources, start, end):
     pr_samples = [{**item, 'merged_at': iso_z(item['merged_at'])} for item in shown]
 
     releases = sorted(
-        (item for item in events['releases'] if item.get('published_at') and end - timedelta(days=365) <= item['published_at'] < end and not item.get('is_draft') and not item.get('is_prerelease')),
+        (item for item in events['releases'] if item.get('published_at') and item['published_at'] < end and not item.get('is_draft') and not item.get('is_prerelease')),
         key=lambda item: item['published_at'],
     )
+    release_history = [{'id': str(item['source_item_id']), 'published_at': iso_z(item['published_at'])} for item in releases]
+    release_source = sources.get('releases', {})
+    release_coverage = release_source.get('coverage')
+    if release_coverage not in {'complete', 'partial'}:
+        release_coverage = 'partial' if release_coverage in {'budget_exhausted', 'failed'} else 'missing'
     commit_source = sources.get('commits', {})
     requested = commit_source.get('requested_interval')
     bounds = [parse_github_datetime(value) for value in requested] if isinstance(requested, list) and len(requested) == 2 and all(isinstance(value, str) for value in requested) else [None, None]
@@ -168,8 +173,9 @@ def build_chart_data(events, sources, start, end):
         lower, upper = previous['published_at'], current_release['published_at']
         covered = source_complete and bounds[0] is not None and bounds[1] is not None and start <= lower <= upper <= end and bounds[0] <= lower and upper <= bounds[1]
         intervals.append({
-            'id': str(current_release['source_item_id']), 'previous_published_at': iso_z(lower),
-            'published_at': iso_z(upper),
+            'id': str(current_release['source_item_id']), 'previous_id': str(previous['source_item_id']),
+            'previous_published_at': iso_z(lower), 'published_at': iso_z(upper),
+            'days': (upper - lower).total_seconds() / 86400,
             'commit_count': bisect_left(commit_times, upper) - bisect_left(commit_times, lower) if covered else None,
             'reason': None if covered else 'Commit 未完整覆盖此发布间隔',
         })
@@ -179,5 +185,6 @@ def build_chart_data(events, sources, start, end):
         'issue_opened_weekly': issue_opened, 'issue_closed_weekly': issue_closed,
         'pr_merged_weekly': pr_merged, 'pr_monthly': pr_monthly, 'pr_weekly': pr_weekly, 'pr_biweekly': pr_biweekly, 'pr_samples': pr_samples,
         'pr_sample_total': total_pr_samples, 'pr_samples_truncated': total_pr_samples > len(pr_samples),
+        'release_history': release_history, 'release_history_coverage': release_coverage,
         'release_intervals': intervals,
     }
