@@ -8,6 +8,7 @@ from backend.app.analytics.insights import week_start, weekly
 from backend.app.core.clock import iso_z, parse_github_datetime
 
 PR_SCATTER_LIMIT = 1500
+PR_DURATION_EDGES = (0, 24, 72, 168, 720, float('inf'))
 
 
 def _next_month(value):
@@ -45,8 +46,8 @@ def _weekly(events, start, end, source):
 def build_chart_data(events, sources, start, end):
     """根据标准化、去重后的 UTC 事件构造图表序列。
 
-    开发活动、Issue 和 PR 使用 ``[start, end)``；Release 标记使用截至结束时间
-    的前 365 天，因此可能显示发布间隔，但无法确认其中的 Commit 数。
+    开发活动、Issue 和 PR 使用 ``[start, end)``；发布间隔使用结束时间之前
+    本地已采集的全部正式 Release，Commit 数仍须由完整覆盖证据确认。
     数量和中位数仅描述已观察事件，不代表覆盖证据之外的 GitHub 历史。
     """
     commits = [event for event in events['commits'] if event.get('event_at') and start <= event['event_at'] < end]
@@ -93,32 +94,56 @@ def build_chart_data(events, sources, start, end):
             })
     valid.sort(key=lambda item: (item['merged_at'], item['id']))
     by_week = defaultdict(list)
+    by_biweek = defaultdict(list)
     by_month = defaultdict(list)
+    biweek_origin = week_start(start)
     for item in valid:
-        by_week[week_start(item['merged_at'])].append(item['duration_hours'])
-        by_month[item['merged_at'].replace(day=1, hour=0, minute=0, second=0, microsecond=0)].append(item['duration_hours'])
+        merged_at = item['merged_at']
+        by_week[week_start(merged_at)].append(item['duration_hours'])
+        biweek_index = (merged_at - biweek_origin).days // 14
+        by_biweek[biweek_origin + timedelta(days=biweek_index * 14)].append(item['duration_hours'])
+        by_month[merged_at.replace(day=1, hour=0, minute=0, second=0, microsecond=0)].append(item['duration_hours'])
 
     pr_weekly = []
     current = week_start(start)
     while current < end:
+        stop = current + timedelta(days=7)
         values = by_week[current]
-        pr_weekly.append({'start': iso_z(current), 'median_hours': median(values) if values else None, 'valid_samples': len(values)})
-        current += timedelta(days=7)
+        pr_weekly.append({
+            'start': iso_z(current), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
+            'median_hours': median(values) if values else None, 'valid_samples': len(values),
+            'complete': current >= start and stop <= end and _covers(sources.get('pulls', {}), current, stop),
+        })
+        current = stop
+
+    pr_biweekly = []
+    current = biweek_origin
+    while current < end:
+        stop = current + timedelta(days=14)
+        values = by_biweek[current]
+        pr_biweekly.append({
+            'start': iso_z(current), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
+            'median_hours': median(values) if values else None, 'valid_samples': len(values),
+            'complete': current >= start and stop <= end and _covers(sources.get('pulls', {}), current, stop),
+        })
+        current = stop
 
     pr_monthly = []
     month = start.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     while month < end:
         stop = _next_month(month)
         values = by_month[month]
-        edges = (0, 24, 72, 168, 720, float('inf'))
         pr_monthly.append({
-            'month': iso_z(month), 'counts': [sum(low <= value < high for value in values) for low, high in zip(edges, edges[1:])],
+            'month': iso_z(month), 'end': iso_z(stop),
+            'counts': [sum(low <= value < high for value in values) for low, high in zip(PR_DURATION_EDGES, PR_DURATION_EDGES[1:])],
             'median_hours': median(values) if values else None, 'valid_samples': len(values),
             'complete': month >= start and stop <= end and _covers(sources.get('pulls', {}), month, stop),
         })
         month = stop
 
-    # 仅限制传给散点图的数据量；上面的月度和周度统计仍使用全部有效样本。
+    # 仅限制传给散点图的数据量；上面的时间分桶统计仍使用全部有效样本。
     # 抽样按时间稳定进行，并保留首尾两个样本。
     total_pr_samples = len(valid)
     shown = valid if total_pr_samples <= PR_SCATTER_LIMIT else [
@@ -127,9 +152,14 @@ def build_chart_data(events, sources, start, end):
     pr_samples = [{**item, 'merged_at': iso_z(item['merged_at'])} for item in shown]
 
     releases = sorted(
-        (item for item in events['releases'] if item.get('published_at') and end - timedelta(days=365) <= item['published_at'] < end and not item.get('is_draft') and not item.get('is_prerelease')),
+        (item for item in events['releases'] if item.get('published_at') and item['published_at'] < end and not item.get('is_draft') and not item.get('is_prerelease')),
         key=lambda item: item['published_at'],
     )
+    release_history = [{'id': str(item['source_item_id']), 'published_at': iso_z(item['published_at'])} for item in releases]
+    release_source = sources.get('releases', {})
+    release_coverage = release_source.get('coverage')
+    if release_coverage not in {'complete', 'partial'}:
+        release_coverage = 'partial' if release_coverage in {'budget_exhausted', 'failed'} else 'missing'
     commit_source = sources.get('commits', {})
     requested = commit_source.get('requested_interval')
     bounds = [parse_github_datetime(value) for value in requested] if isinstance(requested, list) and len(requested) == 2 and all(isinstance(value, str) for value in requested) else [None, None]
@@ -143,8 +173,9 @@ def build_chart_data(events, sources, start, end):
         lower, upper = previous['published_at'], current_release['published_at']
         covered = source_complete and bounds[0] is not None and bounds[1] is not None and start <= lower <= upper <= end and bounds[0] <= lower and upper <= bounds[1]
         intervals.append({
-            'id': str(current_release['source_item_id']), 'previous_published_at': iso_z(lower),
-            'published_at': iso_z(upper),
+            'id': str(current_release['source_item_id']), 'previous_id': str(previous['source_item_id']),
+            'previous_published_at': iso_z(lower), 'published_at': iso_z(upper),
+            'days': (upper - lower).total_seconds() / 86400,
             'commit_count': bisect_left(commit_times, upper) - bisect_left(commit_times, lower) if covered else None,
             'reason': None if covered else 'Commit 未完整覆盖此发布间隔',
         })
@@ -152,7 +183,8 @@ def build_chart_data(events, sources, start, end):
     return {
         'commit_accounts': top_accounts, 'commit_weekly': commit_weeks,
         'issue_opened_weekly': issue_opened, 'issue_closed_weekly': issue_closed,
-        'pr_merged_weekly': pr_merged, 'pr_monthly': pr_monthly, 'pr_weekly': pr_weekly, 'pr_samples': pr_samples,
+        'pr_merged_weekly': pr_merged, 'pr_monthly': pr_monthly, 'pr_weekly': pr_weekly, 'pr_biweekly': pr_biweekly, 'pr_samples': pr_samples,
         'pr_sample_total': total_pr_samples, 'pr_samples_truncated': total_pr_samples > len(pr_samples),
+        'release_history': release_history, 'release_history_coverage': release_coverage,
         'release_intervals': intervals,
     }

@@ -9,6 +9,7 @@ export function usePagedRecords<T extends { total: number }>(
   repositoryId: () => string,
   load: (id: string, page: number, perPage: number, search: string) => Promise<T>,
   errorMessage: string,
+  refreshKey?: () => unknown,
 ) {
   const pageSize = 10
   const page = ref(1)
@@ -38,7 +39,7 @@ export function usePagedRecords<T extends { total: number }>(
     }
   }
 
-  watch([repositoryId, page, appliedSearch], () => { void loadRecords() }, { immediate: true })
+  watch([repositoryId, page, appliedSearch, ...(refreshKey ? [refreshKey] : [])], () => { void loadRecords() }, { immediate: true })
 
   function applySearch() {
     const next = searchInput.value.trim()

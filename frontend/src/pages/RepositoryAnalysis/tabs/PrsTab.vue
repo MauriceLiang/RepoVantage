@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
 import PrMergeTrendChart from '@/components/charts/PrMergeTrendChart.vue'
-import PrMonthlyDurationChart from '@/components/charts/PrMonthlyDurationChart.vue'
+import PrMonthlyDurationChart, { type PrDurationGrain } from '@/components/charts/PrMonthlyDurationChart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -14,19 +14,62 @@ import { useDataSource } from '@/composables/useDataSource'
 import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
 import { formatDate, formatDuration, formatTime } from '@/lib/format'
-import type { PullRequestActivityPage, PullRequestActivityRecord, RepositoryAnalysis } from '@/services/types'
+import type { PrDurationPeriod, PullRequestActivityPage, PullRequestActivityRecord, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const ui = useUiStore()
 const source = useDataSource()
+const durationGrain = ref<PrDurationGrain>('biweekly')
+const selectedPeriod = ref<PrDurationPeriod | null>(null)
+const durationGrains: { value: PrDurationGrain; label: string }[] = [
+  { value: 'weekly', label: '周' },
+  { value: 'biweekly', label: '双周' },
+  { value: 'monthly', label: '月' },
+]
+const durationPeriods = computed(() => {
+  const chartData = props.analysis.chartData
+  if (!chartData) return []
+  if (durationGrain.value === 'weekly') return chartData.prWeekly
+  if (durationGrain.value === 'monthly') return chartData.prMonthly
+  return chartData.prBiweekly
+})
+const durationGrainLabel = computed(() => durationGrain.value === 'weekly' ? '周度' : durationGrain.value === 'monthly' ? '月度' : '双周')
+const selectedRange = computed(() => {
+  if (!selectedPeriod.value) return null
+  const windowStart = props.analysis.pullRequests.window.startUtc ?? props.analysis.pullRequests.window.start
+  const windowEnd = props.analysis.pullRequests.window.endUtc ?? props.analysis.pullRequests.window.end
+  const start = Math.max(Date.parse(selectedPeriod.value.start), windowStart ? Date.parse(windowStart) : -Infinity)
+  const end = Math.min(Date.parse(selectedPeriod.value.end), windowEnd ? Date.parse(windowEnd) : Infinity)
+  return Number.isFinite(start) && Number.isFinite(end) && start < end
+    ? { start: new Date(start).toISOString(), end: new Date(end).toISOString() }
+    : { start: selectedPeriod.value.start, end: selectedPeriod.value.end }
+})
+const selectedPeriodKey = computed(() => selectedRange.value ? `${selectedRange.value.start}|${selectedRange.value.end}` : '')
+const selectedPeriodText = computed(() => {
+  if (!selectedRange.value) return ''
+  const lastIncluded = new Date(Date.parse(selectedRange.value.end) - 1).toISOString()
+  return `UTC ${formatDate(selectedRange.value.start)} 至 ${formatDate(lastIncluded)}`
+})
 const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<PullRequestActivityPage>(
   () => props.analysis.repository.id,
-  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search),
+  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search, selectedRange.value?.start, selectedRange.value?.end),
   'Pull Request 记录加载失败',
+  () => selectedPeriodKey.value,
 )
 const exporting = ref(false)
 let detailRequest = 0
+
+watch(durationGrain, () => { selectedPeriod.value = null })
+watch(() => props.analysis.repository.id, () => { selectedPeriod.value = null; page.value = 1 })
+watch(durationPeriods, (periods) => {
+  if (selectedPeriod.value && !periods.some((period) => period.start === selectedPeriod.value?.start && period.end === selectedPeriod.value?.end)) selectedPeriod.value = null
+})
+
+function selectDurationPeriod(period: PrDurationPeriod) {
+  selectedPeriod.value = selectedPeriod.value?.start === period.start ? null : period
+  page.value = 1
+}
 
 async function openPullRequest(item: PullRequestActivityRecord) {
   const requestId = ++detailRequest
@@ -60,7 +103,7 @@ async function openPullRequest(item: PullRequestActivityRecord) {
 async function exportCsv() {
   exporting.value = true
   try {
-    downloadBlob(await source.exportPullRequestRecords(props.analysis.repository.id, appliedSearch.value), `${props.analysis.repository.id}-pull-requests.csv`)
+    downloadBlob(await source.exportPullRequestRecords(props.analysis.repository.id, appliedSearch.value, selectedRange.value?.start, selectedRange.value?.end), `${props.analysis.repository.id}-pull-requests.csv`)
   } catch (cause) {
     ui.toast(cause instanceof Error ? cause.message : '导出 Pull Request 记录失败', 'error')
   } finally {
@@ -80,24 +123,29 @@ async function exportCsv() {
       </div>
       <GdCoverageNote :coverage="analysis.pullRequests.coverage" />
     </div>
-    <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :height="250" />
+    <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :duration-p90="analysis.prDuration.percentiles.p90" :height="270" />
     <GroupedChart v-else :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#2E8FCB']" :height="250" />
-    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，散点为单条 PR 耗时，折线为每周耗时中位数；覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；中位数使用全部有效样本。</template></p>
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，圆点为单条 PR 耗时，折线为每周中位耗时；耗时轴随当前时间窗口缩放，超过全窗口 P90 的长尾以三角标记，悬浮仍显示真实耗时。窗口只筛选显示范围，柱和中位数仍按 UTC 自然周聚合。覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；P90 阈值和周中位数使用全部有效样本。</template></p>
     <p v-else class="text-[11px] text-muted">当前数据未提供逐条耗时，显示已采集的每周合并数量。</p>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
     <GdCard class="h-[420px] min-h-0 overflow-hidden">
-      <div class="flex items-start justify-between gap-3">
+      <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? '月度合并耗时分布' : '合并耗时分布' }}</h3>
-          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '堆叠柱为各耗时区间样本数 · 菱形为中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
+          <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? `${durationGrainLabel}合并耗时分布` : '合并耗时分布' }}</h3>
+          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '堆叠柱为各耗时区间样本数 · 折线为区间中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
         </div>
-        <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
+          <div v-if="analysis.chartData" class="flex items-center gap-1" aria-label="耗时分布时间粒度">
+            <GdButton v-for="option in durationGrains" :key="option.value" size="sm" :variant="durationGrain === option.value ? 'primary' : 'outline'" :aria-pressed="durationGrain === option.value" @click="durationGrain = option.value">{{ option.label }}</GdButton>
+          </div>
+        </div>
       </div>
-      <PrMonthlyDurationChart v-if="analysis.chartData" :months="analysis.chartData.prMonthly" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <PrMonthlyDurationChart v-if="analysis.chartData" :periods="durationPeriods" :grain="durationGrain" :selected-period-start="selectedPeriod?.start" :height="200" class="min-h-[200px] flex-1 w-full" @select="selectDurationPeriod" />
       <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" class="min-h-[200px] flex-1 w-full" />
-      <div class="text-[11px] text-muted"><template v-if="analysis.chartData">半透明柱表示该月仅观察到部分样本。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
+      <div class="text-[11px] text-muted"><template v-if="analysis.chartData">柱体始终使用实色；柱顶 n 为该时段样本数，* 表示覆盖不完整。点击柱体可按该时段筛选 PR 记录。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
     </GdCard>
 
@@ -107,13 +155,18 @@ async function exportCsv() {
           <h3 class="m-0 text-[15.5px] font-semibold">PR 逐条记录</h3>
           <GdCoverageNote v-if="records" :coverage="records.coverage" compact />
         </div>
-        <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : '导出 PR CSV' }}</GdButton>
+        <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : selectedPeriod ? '导出筛选结果 CSV' : '导出 PR CSV' }}</GdButton>
       </div>
 
       <div class="flex flex-wrap items-center gap-2">
         <GdInput v-model="searchInput" size="sm" class="min-w-[190px] flex-1" placeholder="搜索 PR 编号或标题" @enter="applySearch" />
         <GdButton variant="outline" size="sm" :disabled="loading" @click="applySearch">搜索</GdButton>
         <span v-if="records?.available" class="shrink-0 text-[11px] text-muted">{{ records.total.toLocaleString('zh-CN') }} 条 · {{ formatDate(records.windowStart) }} 至 {{ formatDate(records.windowEnd) }}</span>
+      </div>
+
+      <div v-if="selectedPeriod" class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-soft px-2.5 py-1.5 text-[11px] text-ink">
+        <span>已按合并时间筛选：{{ selectedPeriodText }}</span>
+        <button type="button" class="text-muted underline decoration-line underline-offset-2 hover:text-ink" @click="selectDurationPeriod(selectedPeriod)">清除筛选</button>
       </div>
 
       <p v-if="records?.note" class="m-0 text-[11px] leading-relaxed text-muted">{{ records.note }}</p>
@@ -124,7 +177,7 @@ async function exportCsv() {
         <GdButton variant="outline" size="sm" @click="loadRecords">重新加载</GdButton>
       </div>
       <div v-else-if="records && !records.available" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] leading-relaxed text-muted">{{ records.note }}</div>
-      <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ appliedSearch ? '没有找到匹配的 PR。' : '本次采集窗口内没有已关闭的 PR。' }}</div>
+      <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ selectedPeriod ? '该时段没有已采集的已合并 PR。' : appliedSearch ? '没有找到匹配的 PR。' : '本次采集窗口内没有已关闭的 PR。' }}</div>
       <div v-else class="min-h-0 flex-1 overflow-auto overscroll-contain">
         <table class="w-full min-w-[560px] table-fixed border-collapse text-[12px]">
           <thead class="sticky top-0 z-10 bg-panel">

@@ -224,8 +224,31 @@ function demoChartData(seed: RepoSeed, window: TimeWindow): RepositoryChartData 
   const prWeekly = merged.map((point) => {
     const end = addDays(point.date, 7)
     const values = samples.filter((sample) => sample.mergedAt.slice(0, 10) >= point.date && sample.mergedAt.slice(0, 10) < end).map((sample) => sample.durationHours)
-    return { start: point.date, medianHours: median(values), validSamples: values.length }
+    const edges = [0, 24, 72, 168, 720, Infinity]
+    return {
+      start: point.date, end: `${end}T00:00:00.000Z`,
+      counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length),
+      medianHours: median(values), validSamples: values.length,
+      complete: seed.coverage.state === 'complete' && point.date >= range.start && end <= range.end,
+    }
   })
+  const prBiweekly: RepositoryChartData['prBiweekly'] = []
+  let biweek = new Date(`${range.start}T00:00:00Z`)
+  biweek.setUTCDate(biweek.getUTCDate() - ((biweek.getUTCDay() + 6) % 7))
+  while (biweek.toISOString().slice(0, 10) < range.end) {
+    const start = biweek.toISOString().slice(0, 10)
+    const endDate = new Date(biweek.getTime() + 14 * DAY)
+    const end = endDate.toISOString().slice(0, 10)
+    const values = samples.filter((sample) => sample.mergedAt >= biweek.toISOString() && sample.mergedAt < endDate.toISOString()).map((sample) => sample.durationHours)
+    const edges = [0, 24, 72, 168, 720, Infinity]
+    prBiweekly.push({
+      start, end: `${end}T00:00:00.000Z`,
+      counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length),
+      medianHours: median(values), validSamples: values.length,
+      complete: seed.coverage.state === 'complete' && start >= range.start && end <= range.end,
+    })
+    biweek = endDate
+  }
   const prMonthly: RepositoryChartData['prMonthly'] = []
   let month = new Date(`${range.start.slice(0, 7)}-01T00:00:00Z`)
   while (month.toISOString().slice(0, 10) < range.end) {
@@ -233,20 +256,23 @@ function demoChartData(seed: RepoSeed, window: TimeWindow): RepositoryChartData 
     const next = new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth() + 1, 1)).toISOString().slice(0, 10)
     const values = samples.filter((sample) => sample.mergedAt.slice(0, 10) >= start && sample.mergedAt.slice(0, 10) < next).map((sample) => sample.durationHours)
     const edges = [0, 24, 72, 168, 720, Infinity]
-    prMonthly.push({ month: start, counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length), medianHours: median(values), validSamples: values.length, complete: seed.coverage.state === 'complete' && start >= range.start && next <= range.end })
+    prMonthly.push({ start, end: `${next}T00:00:00.000Z`, month: start, counts: edges.slice(0, -1).map((low, index) => values.filter((value) => value >= low && value < edges[index + 1]).length), medianHours: median(values), validSamples: values.length, complete: seed.coverage.state === 'complete' && start >= range.start && next <= range.end })
     month = new Date(`${next}T00:00:00Z`)
   }
-  const formal = releasesOf(seed).filter((release) => !release.prerelease && release.publishedAt >= addDays(range.end, -365) && release.publishedAt < range.end)
+  const formal = releasesOf(seed).filter((release) => !release.prerelease && release.publishedAt < range.end)
   const daily = dailyPoints(seed, window)
   const releaseIntervals = formal.slice(1).map((release, index) => {
     const previous = formal[index]
     const covered = seed.coverage.state === 'complete' && previous.publishedAt >= range.start && release.publishedAt <= range.end
-    return { id: release.tag, previousPublishedAt: previous.publishedAt, publishedAt: release.publishedAt,
+    return { id: release.tag, previousId: previous.tag, previousPublishedAt: previous.publishedAt, publishedAt: release.publishedAt,
+      days: (Date.parse(release.publishedAt) - Date.parse(previous.publishedAt)) / DAY,
       commitCount: covered ? daily.filter((point) => point.date >= previous.publishedAt && point.date < release.publishedAt).reduce((sum, point) => sum + (point.value ?? 0), 0) : null,
       reason: covered ? null : 'Commit 未完整覆盖此发布间隔' }
   })
   return { commitAccounts: accounts, commitWeekly, issueOpenedWeekly: issuesSeries(seed, window).series[0]?.points ?? [], issueClosedWeekly: issuesSeries(seed, window).series[1]?.points ?? [], prMergedWeekly: merged,
-    prMonthly, prWeekly, prSamples: samples, prSampleTotal: samples.length, prSamplesTruncated: false, releaseIntervals }
+    prMonthly, prWeekly, prBiweekly, prSamples: samples, prSampleTotal: samples.length, prSamplesTruncated: false,
+    releaseHistory: formal.map((release) => ({ id: release.tag, publishedAt: release.publishedAt, identifierType: 'tag' as const })),
+    releaseHistoryCoverage: seed.coverage.state, releaseIntervals }
 }
 
 function observationsOf(seed: RepoSeed) {
@@ -288,6 +314,19 @@ function demoPullRequestRecords(seed: RepoSeed): PullRequestActivityDetail[] {
     url: `https://github.com/${seed.fullName}/pull/${number}`,
     body: `## 改动说明\n\n这是用于界面预览的示例 Pull Request。\n\n- 目的：${title}\n- 状态：${state === 'merged' ? '已合并' : '关闭未合并'}\n\n演示内容不代表真实 GitHub 数据。`,
   }))
+}
+
+function filterPullRequests(records: PullRequestActivityDetail[], search: string, mergedFrom?: string, mergedTo?: string) {
+  const query = search.trim().toLocaleLowerCase()
+  const from = mergedFrom ? Date.parse(mergedFrom) : null
+  const to = mergedTo ? Date.parse(mergedTo) : null
+  return records.filter((record) => {
+    const matchesSearch = !query || String(record.number).includes(query) || record.title.toLocaleLowerCase().includes(query)
+    if (!matchesSearch) return false
+    if (from === null && to === null) return true
+    const mergedAt = record.mergedAt ? Date.parse(record.mergedAt) : NaN
+    return Number.isFinite(mergedAt) && (from === null || mergedAt >= from) && (to === null || mergedAt < to)
+  })
 }
 
 const sha = (n: number) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(7, '0').slice(0, 7)
@@ -648,13 +687,10 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     return new Blob(['\ufeff', cells.map((row) => row.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
   }
 
-  async getPullRequestRecords(id: string, page: number, perPage: number, search: string): Promise<PullRequestActivityPage> {
+  async getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string): Promise<PullRequestActivityPage> {
     const seed = repoSeed(id) ?? REPOSITORIES[0]
     const available = seed.coverage.state !== 'missing'
-    const query = search.trim().toLocaleLowerCase()
-    const filtered = (available ? demoPullRequestRecords(seed) : []).filter((record) =>
-      !query || String(record.number).includes(query) || record.title.toLocaleLowerCase().includes(query),
-    )
+    const filtered = filterPullRequests(available ? demoPullRequestRecords(seed) : [], search, mergedFrom, mergedTo)
     const window = windowRange(seed, 90)
     return {
       items: filtered.slice((page - 1) * perPage, page * perPage).map(({ body: _body, ...record }) => record),
@@ -700,13 +736,10 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async exportPullRequestRecords(id: string, search: string): Promise<Blob> {
+  async exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string): Promise<Blob> {
     const seed = repoSeed(id) ?? REPOSITORIES[0]
     if (seed.coverage.state === 'missing') throw new Error('当前示例没有可导出的 Pull Request 逐条数据')
-    const query = search.trim().toLocaleLowerCase()
-    const records = demoPullRequestRecords(seed).filter((record) =>
-      !query || String(record.number).includes(query) || record.title.toLocaleLowerCase().includes(query),
-    )
+    const records = filterPullRequests(demoPullRequestRecords(seed), search, mergedFrom, mergedTo)
     const cells = [
       ['pull_number', 'title', 'state', 'created_at', 'closed_at', 'merged_at', 'merge_duration_days', 'draft', 'comments_count', 'url'],
       ...records.map((record) => [record.number, record.title, record.state, record.createdAt ?? '', record.closedAt ?? '', record.mergedAt ?? '', record.durationDays, record.draft, record.commentsCount, record.url ?? '']),
