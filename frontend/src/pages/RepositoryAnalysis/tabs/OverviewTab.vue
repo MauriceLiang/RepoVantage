@@ -6,7 +6,7 @@ import KpiStrip from '@/components/common/KpiStrip.vue'
 import ObservationList from '@/components/common/ObservationList.vue'
 import CommitActivityComboChart from '@/components/charts/CommitActivityComboChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
-import TimelineChart from '@/components/charts/TimelineChart.vue'
+import ReleaseIntervalMiniChart from '@/components/charts/ReleaseIntervalMiniChart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
 import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
@@ -22,17 +22,42 @@ const commitsPoints = computed(() => {
   const points = props.analysis.commits.series[0]?.points ?? []
   return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
 })
-const releasesYear = computed(() => props.analysis.releases)
-const latestRelease = computed(() => [...props.analysis.releases].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt))[0])
+const formalReleases = computed(() => props.analysis.releases
+  .filter((release) => !release.prerelease)
+  .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt)))
+const issueColors = computed(() => props.analysis.issues.series.map((series) => series.key === 'opened' ? '#E5A03A' : '#CE3F7C'))
+const releaseIntervalPoints = computed(() => {
+  const intervals = new Map(props.analysis.releaseIntervals.map((interval) => [interval.tag, interval.days]))
+  return formalReleases.value.slice(1).flatMap((release, index) => {
+    const previous = formalReleases.value[index]
+    const days = intervals.get(release.tag) ?? release.intervalDays
+    if (days == null || !Number.isFinite(days)) return []
+    return [{
+      previousTag: previous.tag,
+      tag: release.tag,
+      previousPublishedAt: previous.publishedAt,
+      publishedAt: release.publishedAt,
+      days,
+    }]
+  })
+})
+const latestRelease = computed(() => formalReleases.value.at(-1))
 const latestReleaseLabel = computed(() => {
   if (!latestRelease.value) return '—'
   return latestRelease.value.identifierType === 'release_id' ? `Release #${latestRelease.value.tag}` : latestRelease.value.tag
 })
 const medianInterval = computed(() => {
-  const days = props.analysis.releaseIntervals.map((r) => r.days).sort((a, b) => a - b)
+  const days = releaseIntervalPoints.value.map((interval) => interval.days).sort((a, b) => a - b)
   if (!days.length) return null
-  return days[Math.floor(days.length / 2)]
+  const middle = Math.floor(days.length / 2)
+  return days.length % 2 ? days[middle] : (days[middle - 1] + days[middle]) / 2
 })
+
+function durationLabel(days: number | null) {
+  if (days === null) return '—'
+  if (days >= 365) return `${(days / 365).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 年`
+  return `${days.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天`
+}
 
 function selectCommit(dataIndex: number) {
   const point = commitsPoints.value[dataIndex]
@@ -107,14 +132,19 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[14.5px] font-semibold">Issue 处理</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">Issue {{ analysis.chartData ? '新增与关闭数' : '关闭数' }} · 按周</p>
+          <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-muted">
+            <span>Issue {{ analysis.chartData ? '新增与关闭数' : '关闭数' }} · 按周</span>
+            <span v-for="(series, index) in analysis.issues.series" :key="series.key" class="inline-flex items-center gap-1 text-[10.5px]">
+              <span class="inline-block h-2 w-2 rounded-sm" :style="{ backgroundColor: issueColors[index] }" />{{ series.label }}
+            </span>
+          </p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/issues`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
       <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#E5A03A', '#CE3F7C']" :height="112" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">关闭耗时中位数<br />n={{ analysis.issueDuration.sampleSize }} · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</span>
+        <span class="text-[11px] leading-tight text-muted">关闭耗时 P50<br />n={{ analysis.issueDuration.sampleSize }} · P90 <span :title="analysis.issueDuration.percentiles.p90 == null ? undefined : `${analysis.issueDuration.percentiles.p90.toLocaleString('zh-CN')} 天`">{{ durationLabel(analysis.issueDuration.percentiles.p90) }}</span></span>
       </div>
     </GdCard>
 
@@ -129,7 +159,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#CE3F7C', '#2E8FCB']" :height="112" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.prDuration.percentiles.p50 ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">合并耗时中位数<br />n={{ analysis.prDuration.sampleSize }} · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</span>
+        <span class="text-[11px] leading-tight text-muted">合并耗时 P50<br />n={{ analysis.prDuration.sampleSize }} · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</span>
       </div>
     </GdCard>
 
@@ -137,14 +167,15 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[14.5px] font-semibold">版本发布</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">GitHub Releases · 近 365 天</p>
+          <p class="mt-0.5 text-[11.5px] text-muted">相邻正式发布间隔 · 近 365 天</p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <TimelineChart :releases="releasesYear" :commits="commitsPoints" :height="112" compact />
+      <ReleaseIntervalMiniChart v-if="releaseIntervalPoints.length" :items="releaseIntervalPoints" :height="112" />
+      <div v-else class="flex h-[112px] items-center justify-center text-center text-[11px] text-muted">至少需要两次正式发布才能比较间隔</div>
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ medianInterval?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">典型发布间隔 · {{ analysis.releases.filter((r) => !r.prerelease).length }} 次正式发布<br />最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
+        <span class="text-[11px] leading-tight text-muted">发布间隔 P50 · n={{ releaseIntervalPoints.length }} 个间隔<br />{{ formalReleases.length }} 次正式发布 · 最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
       </div>
     </GdCard>
   </div>
