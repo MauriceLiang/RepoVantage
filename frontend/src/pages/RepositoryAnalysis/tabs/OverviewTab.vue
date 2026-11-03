@@ -66,7 +66,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div>
         <h3 class="m-0 text-[15.5px] font-semibold">开发活动</h3>
         <p class="mt-0.5 text-[12px] text-muted">
-          默认分支提交事件，按 UTC 自然周聚合 · {{ analysis.commits.window.start }} 至 {{ analysis.commits.window.end }}
+          提交规模与活跃账号按 UTC 自然周聚合 · Release 标记在对应周 · {{ analysis.commits.window.start }} 至 {{ analysis.commits.window.end }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -97,8 +97,8 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       </div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>柱为每周提交；均线仅统计连续 4 个完整周。{{ analysis.chartData ? '空心点与半透明柱为已观察样本；未关联账号的提交不计入活跃账号。' : '当前数据未提供活跃账号趋势。' }}发布仅显示已采集的正式 Release。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
-      <span>点击柱或账号点查看 Commit；点击菱形查看版本</span>
+      <span>橙色面积为完整周提交量；{{ analysis.chartData ? '蓝线为活跃账号，空心点表示未完整周的已观察样本。' : '当前数据未提供活跃账号趋势。' }}左右轴分别计量，粉色菱形标记正式 Release；未覆盖数据不补零。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span>点击面积或账号点查看 Commit；点击菱形查看版本</span>
     </div>
   </GdCard>
 

@@ -26,7 +26,6 @@ export function buildCommitActivity(
       commits,
       authors: complete || (authors !== null && authors > 0) ? authors : null,
       unidentifiedCommits: commits !== null ? week?.unidentifiedCommits ?? null : null,
-      average: null as number | null,
       releases: [] as ReleaseRecord[],
     }
   }).filter((row) => {
@@ -34,16 +33,6 @@ export function buildCommitActivity(
     const weekStart = Date.parse(row.date)
     return Number.isFinite(weekStart) && weekStart < end && weekStart + WEEK_MS > start
   })
-
-  // 只有连续四个完整 UTC 周才计算均值，缺失周与边界周不参与计算。
-  for (let index = 3; index < rows.length; index += 1) {
-    const window = rows.slice(index - 3, index + 1)
-    if (window.every((row, offset) => row.complete && row.commits !== null && (
-      offset === 0 || Date.parse(row.date) - Date.parse(window[offset - 1].date) === WEEK_MS
-    ))) {
-      rows[index].average = window.reduce((sum, row) => sum + (row.commits ?? 0), 0) / 4
-    }
-  }
 
   if (hasWindow) {
     for (const release of releases) {
