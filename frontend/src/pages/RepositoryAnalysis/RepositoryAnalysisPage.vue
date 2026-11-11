@@ -12,6 +12,7 @@ import type { RepositoryAnalysis } from '@/services/types'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import OverviewTab from './tabs/OverviewTab.vue'
+import AnalysisTab from './tabs/AnalysisTab.vue'
 import ActivityTab from './tabs/ActivityTab.vue'
 import IssuesTab from './tabs/IssuesTab.vue'
 import PrsTab from './tabs/PrsTab.vue'
@@ -26,7 +27,8 @@ const refreshing = ref(false)
 const clearing = ref(false)
 
 const repoId = computed(() => String(route.params.id ?? ''))
-const tab = computed(() => String(route.params.tab ?? 'overview'))
+const tab = computed(() => String(route.params.tab || 'overview'))
+const showingAnalysis = computed(() => tab.value === 'analysis')
 const tabComponent = computed(() => ({ overview: OverviewTab, activity: ActivityTab, issues: IssuesTab, prs: PrsTab, releases: ReleasesTab }[tab.value] ?? OverviewTab))
 
 const { data, loading, error, reload } = useAsyncData<RepositoryAnalysis>(
@@ -78,8 +80,8 @@ function openWeek(payload: { date: string; count: number }) {
 </script>
 
 <template>
-  <ModuleTabs v-if="data && !notAnalyzed && !failed" :repo-id="repoId" :active="tab" />
-  <div class="flex flex-col gap-[18px] px-7 pb-8 pt-[22px]" data-testid="repository-analysis" :data-window-days="data?.windowAvailability.requestedDays" :data-window-available="data?.windowAvailability.available">
+  <ModuleTabs v-if="repoId" :repo-id="repoId" :active="tab" />
+  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]" data-testid="repository-analysis" :data-window-days="data?.windowAvailability.requestedDays" :data-window-available="data?.windowAvailability.available">
     <RepoHeader
       v-if="data"
       :repository="data.repository"
@@ -101,10 +103,14 @@ function openWeek(payload: { date: string; count: number }) {
       </div>
     </div>
 
+    <div v-else-if="showingAnalysis" class="analysis-tab-stage" data-testid="repository-ml-analysis">
+      <AnalysisTab :repository-id="repoId" :repository="data?.repository ?? null" />
+    </div>
+
     <GdCard v-else-if="failed">
       <GdEmptyState title="采集失败，暂时没有可展示的分析结果" :description="error ?? data?.coverage.detail ?? '请检查任务状态后重试。'">
         <template #action>
-          <GdButton size="sm" class="mt-1" @click="refresh">重试采集</GdButton>
+          <GdButton data-testid="retry-collection" size="sm" class="mt-1" @click="refresh(analysisStore.collectionScope)">重试采集</GdButton>
         </template>
       </GdEmptyState>
     </GdCard>
@@ -112,7 +118,7 @@ function openWeek(payload: { date: string; count: number }) {
     <GdCard v-else-if="notAnalyzed">
       <GdEmptyState title="尚未分析这个仓库" description="还没有采集任何模块。开始分析后，这里会出现开发活动、Issue / PR 与发布节奏。">
         <template #action>
-          <GdButton size="sm" class="mt-1" @click="refresh">开始分析</GdButton>
+          <GdButton data-testid="start-analysis" size="sm" class="mt-1" @click="refresh(analysisStore.collectionScope)">开始分析</GdButton>
         </template>
       </GdEmptyState>
     </GdCard>
@@ -127,8 +133,12 @@ function openWeek(payload: { date: string; count: number }) {
       </div>
     </GdCard>
 
-    <div v-else-if="data && data.windowAvailability.available" data-testid="analysis-content" class="contents">
-      <component :is="tabComponent" :analysis="data" @select-week="openWeek" />
+    <div v-else-if="data && data.windowAvailability.available" data-testid="analysis-content" class="analysis-tab-stage">
+      <Transition name="analysis-tab">
+        <div :key="`${repoId}:${tab}`" class="analysis-tab-page min-w-0" :class="tab === 'overview' ? 'flex flex-col gap-[18px]' : ''">
+          <component :is="tabComponent" :analysis="data" @select-week="openWeek" />
+        </div>
+      </Transition>
     </div>
   </div>
 </template>

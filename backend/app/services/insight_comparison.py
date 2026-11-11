@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from backend.app.analytics.metrics import numeric_summary, spearman_summary
 from backend.app.core.clock import iso_z, parse_github_datetime
 from backend.app.core.exceptions import AppError
-from backend.app.persistence.models import Dataset, DatasetRepository, Repository
+from backend.app.persistence.models import Dataset, DatasetRepository, MaintenanceRun, Repository
 from backend.app.services.insights import repository_insights, repository_insights_for_window
 
 INSIGHT_FIELDS = {'commits_weekly_mean': ('commit_activity', 'commits/week'), 'issue_median_hours': ('issue_resolution', 'hours'), 'pr_median_hours': ('pr_merges', 'hours'), 'release_interval_days': ('release_cadence', 'days')}
@@ -20,6 +20,59 @@ def metric_value(result, key):
         points = [p['value'] for p in metric['weekly'] if p['quality'] == 'ready']
         return mean(points) if points else None
     return metric.get('median_interval_days' if key == 'release_interval_days' else 'median_hours')
+
+
+def _maintenance_commit_fallback(session, result, window_days):
+    """Use an integrity-checked weekly maintenance snapshot when it is newer than event analysis."""
+    from backend.app.services.maintenance import maintenance_observation
+
+    observation = maintenance_observation(session, result['repository_id'])
+    pattern = observation['maintenance_pattern']
+    if pattern['status'] not in {'available', 'unclassified'} or not observation['weeks']:
+        return None
+    analyzed_at = parse_github_datetime(result.get('analyzed_at'))
+    captured_at = parse_github_datetime(pattern.get('collected_at'))
+    if analyzed_at and captured_at and analyzed_at > captured_at:
+        return None
+    week_count = {30: 4, 90: 12, 180: 24}.get(window_days)
+    if not week_count:
+        return None
+    weeks = observation['weeks'][-week_count:]
+    if (len(weeks) != week_count
+            or any(row['commit_coverage'] not in {'complete', 'true_zero'} for row in weeks)
+            or any(weeks[index]['week_end_exclusive_utc'] != weeks[index + 1]['week_start_utc'] for index in range(len(weeks) - 1))):
+        return None
+    start = parse_github_datetime(weeks[0]['week_start_utc'])
+    end = parse_github_datetime(weeks[-1]['week_end_exclusive_utc'])
+    if not start or not end or (end - start).total_seconds() < window_days * 86400 * 0.8:
+        return None
+    points = [{
+        'start': row['week_start_utc'], 'end': row['week_end_exclusive_utc'], 'value': row['commits'],
+        'quality': 'ready', 'complete_week': True,
+    } for row in weeks]
+    pattern_run = session.get(MaintenanceRun, pattern['source_run_id'])
+    details = {}
+    if pattern_run and pattern_run.details_json:
+        try:
+            details = json.loads(pattern_run.details_json)
+        except (TypeError, ValueError):
+            details = {}
+    source_kind = 'course_research_historical_snapshot' if details.get('data_source') == 'course_research_historical_snapshot' else 'maintenance_weekly_aggregation'
+    metric = {
+        'quality': {'status': 'ready', 'valid_samples': week_count, 'reason': None},
+        'weekly': points, 'window_start': iso_z(start), 'window_end': iso_z(end),
+        'source_run_id': pattern['source_run_id'], 'source_kind': source_kind,
+    }
+    result['insights'] = dict(result.get('insights') or {})
+    result['insights']['commit_activity'] = metric
+    result['window_start'], result['window_end'] = iso_z(start), iso_z(end)
+    result['analyzed_at'] = pattern.get('collected_at')
+    result['window_available'] = True
+    result['window_reason'] = None
+    result['comparison_source_kind'] = source_kind
+    result['maintenance_source_run_id'] = pattern['source_run_id']
+    result['run_id'] = None
+    return source_kind
 
 
 def compare_insights(session, ids, mode='same_period', window_days=90):
@@ -36,6 +89,8 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
     if window_days not in {30, 90, 180}:
         raise AppError(422, 'VALIDATION_ERROR', '分析范围只支持 30、90 或 180 天')
     results = [repository_insights(session, id, window_days=window_days) for id in ids]
+    for result in results:
+        _maintenance_commit_fallback(session, result, window_days)
     repos = [session.get(Repository, id) for id in ids]
     candidate_windows = [(result['window_start'], result['window_end']) for result in results]
     comparison_basis = {
@@ -67,7 +122,7 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
                 comparison_basis['effective_days'] = round(effective_days, 6)
                 if effective_days + 1e-9 >= window_days * 0.8:
                     comparison_basis.update({'status': 'comparable', 'reason_code': None, 'reason': None})
-                    results = [repository_insights_for_window(session, result['repository_id'], shared_start, shared_end, result) for result in results]
+                    results = [result if result.get('comparison_source_kind') else repository_insights_for_window(session, result['repository_id'], shared_start, shared_end, result) for result in results]
                 else:
                     comparison_basis.update({
                         'reason_code': 'SHARED_WINDOW_BELOW_THRESHOLD',
@@ -88,6 +143,16 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
     elif mode == 'individual_periods' and not same_observation_window:
         warnings.append('各仓库分别使用自身最近一次分析中的完整周与可用指标；观察窗口可能不同，适合查看各自活跃度和处理节奏，不代表同期对比。')
     rows = []
+    course_dataset = session.get(Dataset, 'course-research-300-v1')
+    course_metadata = {}
+    if course_dataset and course_dataset.source_metadata_json:
+        try:
+            course_metadata = json.loads(course_dataset.source_metadata_json)
+        except (TypeError, ValueError):
+            course_metadata = {}
+    course_snapshot_as_of = course_metadata.get('data_as_of') if any(result.get('comparison_source_kind') == 'course_research_historical_snapshot' for result in results) else None
+    if course_snapshot_as_of:
+        warnings.append(f'课程研究资料来自固定历史快照，仓库资料采集截至 {course_snapshot_as_of}；不代表实时状态。')
     for repo, result in zip(repos, results):
         if not result.get('window_available', result.get('run_id') is not None):
             warnings.append(f"{repo.full_name}：{result['window_reason']}")
@@ -102,6 +167,7 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             point for point in ready_weeks if point['start'] in (common_weeks or set())
         ]
         weekly_commits = selected_weeks
+        course_membership = session.get(DatasetRepository, ('course-research-300-v1', repo.repository_id))
         for key, (name, unit) in INSIGHT_FIELDS.items():
             metric = result['insights'].get(name)
             value = metric_value(result, key)
@@ -128,7 +194,9 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
                 'value': value if comparable else None,
                 'unit': unit,
                 'comparable': comparable,
-                'valid_samples': sum(p['value'] for p in points) if key == 'commits_weekly_mean' else metric['quality']['valid_samples'] if metric else 0,
+                'valid_samples': len(points) if key == 'commits_weekly_mean' else metric['quality']['valid_samples'] if metric else 0,
+                'source_run_id': metric.get('source_run_id') if metric else None,
+                'source_kind': metric.get('source_kind') if metric else None,
                 'quality': metric['quality']['status'] if metric else 'missing',
                 'reason_code': reason_code,
                 'reason': comparison_basis['reason'] if reason_code in {'NO_SHARED_WINDOW', 'MISSING_REPOSITORY_WINDOW', 'SHARED_WINDOW_BELOW_THRESHOLD'} else metric['quality'].get('reason') if metric else None,
@@ -143,6 +211,9 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             'created_at': iso_z(repo.created_at),
             'analyzed_at': result['analyzed_at'],
             'run_id': result['run_id'],
+            'source_kind': result.get('comparison_source_kind'),
+            'maintenance_source_run_id': result.get('maintenance_source_run_id'),
+            'sample_role': course_membership.selection_tier if course_membership else None,
             'window_start': result['window_start'],
             'window_end': result['window_end'],
             'source_window_start': original_start,
@@ -152,14 +223,19 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             'metrics': values,
             'weekly_commits': weekly_commits,
         })
-    return {'metric_version': 'insights-v1', 'timezone': 'UTC', 'mode': mode, 'requested_window_days': window_days, 'comparison_basis': comparison_basis, 'common_complete_weeks': len(common_weeks or []), 'repositories': rows, 'warnings': warnings}
+    return {'metric_version': 'insights-v1', 'timezone': 'UTC', 'mode': mode, 'requested_window_days': window_days, 'comparison_basis': comparison_basis, 'common_complete_weeks': len(common_weeks or []), 'course_snapshot_as_of': course_snapshot_as_of, 'repositories': rows, 'warnings': warnings}
 
 
 def research_insights(session, dataset_id, analysis_mode='formal'):
     dataset = session.get(Dataset, dataset_id)
-    expected_type = {'formal': 'research', 'exploratory': 'featured'}.get(analysis_mode)
+    expected_type = {'formal': 'research', 'exploratory': 'featured', 'course': 'research'}.get(analysis_mode)
     if expected_type is None:
         raise AppError(422, 'VALIDATION_ERROR', '不支持的研究分析模式')
+    if analysis_mode == 'course':
+        if dataset_id != 'course-research-300-v1' or dataset is None or dataset.type != 'research':
+            raise AppError(422, 'VALIDATION_ERROR', '课程研究模式必须选择 300 仓库课程研究数据集')
+        from backend.app.services.course_research_dataset import course_research_insights
+        return course_research_insights(session, dataset_id)
     if dataset is None or dataset.type != expected_type:
         label = '研究数据集' if analysis_mode == 'formal' else '精选数据集'
         raise AppError(422, 'VALIDATION_ERROR', f'当前模式必须选择{label}')

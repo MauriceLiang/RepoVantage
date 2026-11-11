@@ -16,11 +16,32 @@ const emit = defineEmits<{
 const el = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let observer: ResizeObserver | null = null
+let motionPreference: MediaQueryList | null = null
+let reduceMotion = false
+
+function chartOption(option: EChartsOption): EChartsOption {
+  return {
+    ...option,
+    animation: !reduceMotion,
+    animationDuration: reduceMotion ? 0 : 520,
+    animationDurationUpdate: reduceMotion ? 0 : 320,
+    animationEasing: 'cubicOut',
+    animationEasingUpdate: 'cubicInOut',
+  }
+}
+
+function updateMotionPreference() {
+  reduceMotion = motionPreference?.matches ?? false
+  if (chart) chart.setOption(chartOption(props.option), true)
+}
 
 onMounted(() => {
   if (!el.value) return
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reduceMotion = motionPreference.matches
+  motionPreference.addEventListener('change', updateMotionPreference)
   chart = echarts.init(el.value, undefined, { renderer: 'canvas' })
-  chart.setOption(props.option)
+  chart.setOption(chartOption(props.option))
   chart.on('click', (params) => {
     if (typeof params.dataIndex !== 'number') return
     if (props.hideTooltipOnSelect) chart?.dispatchAction({ type: 'hideTip' })
@@ -38,11 +59,13 @@ onMounted(() => {
   observer.observe(el.value)
 })
 
-watch(() => props.option, (option) => chart?.setOption(option, true), { deep: true })
+watch(() => props.option, (option) => chart?.setOption(chartOption(option), true), { deep: true })
 watch(() => props.height, () => chart?.resize())
 
 onBeforeUnmount(() => {
   observer?.disconnect()
+  motionPreference?.removeEventListener('change', updateMotionPreference)
+  motionPreference = null
   chart?.dispose()
   chart = null
 })

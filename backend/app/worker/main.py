@@ -9,6 +9,7 @@ from backend.app.persistence.db import SessionLocal
 from backend.app.persistence.models import ApiRateLimitState, TaskModuleProgress
 from backend.app.worker.dataset_import import execute_dataset_import_job, fail_dataset_import_job
 from backend.app.worker.executor import execute_task
+from backend.app.worker.maintenance import execute_maintenance_task
 from backend.app.worker.queue import claim_next_dataset_import_job, claim_next_task, heartbeat
 from backend.app.worker.scheduler import start_scheduler
 
@@ -136,7 +137,10 @@ def main() -> None:
                     unbounded=(task.scope_kind in {"window", "incremental"}),
                     on_response=_persist_rate_limit_state,
                 ) as github:
-                    execute_task(SessionLocal, task.task_id, github)
+                    if task.scope_kind == "maintenance":
+                        execute_maintenance_task(SessionLocal, task.task_id, github)
+                    else:
+                        execute_task(SessionLocal, task.task_id, github)
             except Exception:
                 logger.exception("Task %s failed outside executor", task.task_id)
             finally:

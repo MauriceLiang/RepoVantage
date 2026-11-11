@@ -6,6 +6,7 @@ import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import GdInput from '@/components/ui/GdInput.vue'
+import GdSegmented from '@/components/ui/GdSegmented.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
@@ -20,6 +21,10 @@ const analysis = useAnalysisStore()
 
 const query = ref('')
 const tab = ref<'library' | 'search'>('library')
+const repositoryTabOptions = [
+  { value: 'library', label: '我的仓库' },
+  { value: 'search', label: '发现仓库' },
+]
 const status = ref<'all' | RepositoryStatus>('all')
 const selected = ref<string[]>([])
 const searchResults = ref<(RepositorySummary & { alreadyInLibrary: boolean })[]>([])
@@ -59,6 +64,10 @@ onBeforeUnmount(() => {
 })
 
 watch(tab, () => { searchError.value = null })
+
+function setTab(value: string | number) {
+  if (value === 'library' || value === 'search') tab.value = value
+}
 
 const filtered = computed(() =>
   (repositories.value ?? []).filter((repo) => {
@@ -237,7 +246,7 @@ async function exportFeatured() {
 </script>
 
 <template>
-  <div class="flex h-[calc(100dvh-3.5rem)] flex-col gap-3 px-4 pb-8 pt-[22px] sm:gap-[18px] sm:px-7">
+  <div class="flex h-[calc(100dvh-3.5rem)] flex-col gap-3 px-4 pb-8 pt-5 sm:gap-[18px] sm:px-7 sm:pt-[22px]">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="m-0 text-[24px] font-semibold">仓库</h1>
@@ -276,10 +285,7 @@ async function exportFeatured() {
       </div>
     </div>
 
-    <div class="flex gap-[22px] border-b border-line text-[13px]">
-      <button class="flex h-[38px] items-center" :class="tab === 'library' ? 'border-b-2 border-ink font-semibold' : 'text-muted hover:text-ink'" @click="tab = 'library'">我的仓库</button>
-      <button class="flex h-[38px] items-center" :class="tab === 'search' ? 'border-b-2 border-ink font-semibold' : 'text-muted hover:text-ink'" @click="tab = 'search'">发现仓库</button>
-    </div>
+    <GdSegmented :model-value="tab" :options="repositoryTabOptions" aria-label="仓库列表类型" @update:model-value="setTab" />
 
     <div class="flex flex-wrap items-center gap-2">
       <GdInput v-model="query" size="sm" :placeholder="tab === 'library' ? '搜索已加入的仓库' : '搜索 GitHub 仓库或关键词'" class="max-w-[320px] flex-1" @enter="tab === 'search' && searchGithub()">
@@ -300,7 +306,7 @@ async function exportFeatured() {
     </div>
 
     <GdCard padding="sm" class="min-h-[180px] flex-1 overflow-hidden">
-      <div class="hidden grid-cols-[24px_minmax(0,1fr)_132px] gap-3 border-b border-line pb-2 text-[11.5px] text-muted lg:grid">
+      <div class="hidden grid-cols-[40px_minmax(0,1fr)_132px] gap-3 border-b border-line pb-2 text-[11.5px] text-muted lg:grid">
         <span />
         <div class="grid min-w-0 grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_104px_96px_76px] gap-3">
           <span>仓库</span><span>语言 / Stars</span><span>数据状态</span><span>上次分析</span><span>活动变化</span>
@@ -313,16 +319,18 @@ async function exportFeatured() {
         <div v-else-if="tab === 'library' && loading || tab === 'search' && searching" class="flex flex-col gap-2 py-2">
           <div v-for="i in 5" :key="i" class="h-14 animate-pulse rounded bg-track/60" />
         </div>
-        <div v-else class="divide-y divide-line">
-          <div v-for="repo in (tab === 'library' ? filtered : searchResults)" :key="repo.id" class="grid grid-cols-[24px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 py-3 lg:grid-cols-[24px_minmax(0,1fr)_132px]">
-            <input v-if="tab === 'library'" type="checkbox" :aria-label="`选择仓库 ${repo.fullName}`" data-testid="repository-select" :data-repository-id="repo.id" class="size-3.5 accent-ink" :disabled="clearingSelected || busyId === repo.id" :checked="selected.includes(repo.id)" @change="toggle(repo)" />
+        <TransitionGroup v-else tag="div" name="gd-motion-list" class="divide-y divide-line">
+          <div v-for="repo in (tab === 'library' ? filtered : searchResults)" :key="repo.id" class="gd-interactive-row -mx-2 grid grid-cols-[40px_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg px-2 py-3 lg:grid-cols-[40px_minmax(0,1fr)_132px]" :data-selected="tab === 'library' && selected.includes(repo.id)">
+            <label v-if="tab === 'library'" class="grid size-10 place-items-center rounded-md hover:bg-soft/80" :class="clearingSelected || busyId === repo.id ? 'cursor-not-allowed' : 'cursor-pointer'">
+              <input type="checkbox" :aria-label="`选择仓库 ${repo.fullName}`" data-testid="repository-select" :data-repository-id="repo.id" class="size-4 accent-ink" :disabled="clearingSelected || busyId === repo.id" :checked="selected.includes(repo.id)" @change="toggle(repo)" />
+            </label>
             <span v-else />
             <component
               :is="tab === 'library' ? RouterLink : 'div'"
               :to="tab === 'library' ? `/repositories/${repo.id}/overview` : undefined"
               :aria-label="tab === 'library' ? `打开 ${repo.fullName} 的分析` : undefined"
               class="grid min-w-0 self-stretch grid-cols-1 items-center rounded-sm lg:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_104px_96px_76px] lg:gap-3"
-              :class="tab === 'library' ? 'cursor-pointer hover:bg-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/30' : ''"
+              :class="tab === 'library' ? 'cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink/30' : ''"
             >
               <div class="min-w-0">
                 <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
@@ -347,9 +355,9 @@ async function exportFeatured() {
               <GdButton v-else size="sm" :aria-label="repo.alreadyInLibrary ? `${repo.fullName} 已在分析库` : busyId === repo.id ? `正在添加 ${repo.fullName}` : `添加并分析 ${repo.fullName}`" :disabled="repo.alreadyInLibrary || busyId === repo.id" @click="add(repo)">{{ repo.alreadyInLibrary ? '已在分析库' : busyId === repo.id ? '正在添加…' : '添加并分析' }}</GdButton>
             </div>
           </div>
-          <p v-if="tab === 'library' && !filtered.length" class="py-6 text-center text-[12px] text-muted">没有匹配的仓库。</p>
-          <p v-else-if="tab === 'search' && !searchResults.length && !searching" class="py-6 text-center text-[12px] text-muted">输入关键词并搜索 GitHub。</p>
-        </div>
+          <p v-if="tab === 'library' && !filtered.length" key="empty-library" class="py-6 text-center text-[12px] text-muted">没有匹配的仓库。</p>
+          <p v-else-if="tab === 'search' && !searchResults.length && !searching" key="empty-search" class="py-6 text-center text-[12px] text-muted">输入关键词并搜索 GitHub。</p>
+        </TransitionGroup>
       </div>
       <div class="flex items-center justify-between pt-2 text-[11.5px] text-muted">
         <span>{{ tab === 'library' ? `分析库 ${filtered.length} 个仓库（最多加载 100 个）` : `搜索结果 ${searchResults.length} 个（最多显示 20 个）` }}</span>

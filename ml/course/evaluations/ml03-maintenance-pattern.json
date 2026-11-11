@@ -1,0 +1,129 @@
+{
+  "candidate_comparison": {
+    "2": {
+      "cluster_sizes_validation": {
+        "0": 37,
+        "1": 8
+      },
+      "nmi_with_commit_size_tertiles": 0.3540345880408164,
+      "seed_ari": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "size_only_validation_silhouette": 0.25367981078639384,
+      "train_silhouette": 0.47842855980116294,
+      "validation_silhouette": 0.40248576111289525
+    },
+    "3": {
+      "cluster_sizes_validation": {
+        "0": 11,
+        "1": 29,
+        "2": 5
+      },
+      "nmi_with_commit_size_tertiles": 0.4347233258189067,
+      "seed_ari": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "size_only_validation_silhouette": 0.14068321216428845,
+      "train_silhouette": 0.519078184935228,
+      "validation_silhouette": 0.4737817363028338
+    },
+    "4": {
+      "cluster_sizes_validation": {
+        "0": 5,
+        "1": 27,
+        "2": 5,
+        "3": 8
+      },
+      "nmi_with_commit_size_tertiles": 0.34827098289175495,
+      "seed_ari": [
+        0.9720897475952036,
+        1.0,
+        1.0
+      ],
+      "size_only_validation_silhouette": 0.09217540968790472,
+      "train_silhouette": 0.5201930759016408,
+      "validation_silhouette": 0.4779651348124806
+    }
+  },
+  "cluster_profiles": {
+    "0": {
+      "feature_means": {
+        "commit_active_fraction": 0.20567375886524816,
+        "commit_log_cv": 0.573684351090735,
+        "commit_longest_zero_fraction": 0.5656028368794327,
+        "commit_recent_change_log1p": 0.3854133942535287,
+        "commit_top2_share": 0.8899694300587672
+      },
+      "median_commit_total_12w": 7.0,
+      "name": "集中活动型",
+      "repositories": 47
+    },
+    "1": {
+      "feature_means": {
+        "commit_active_fraction": 0.0,
+        "commit_log_cv": 0.0,
+        "commit_longest_zero_fraction": 1.0,
+        "commit_recent_change_log1p": 0.0,
+        "commit_top2_share": 0.0
+      },
+      "median_commit_total_12w": 0.0,
+      "name": "低活动型",
+      "repositories": 45
+    },
+    "2": {
+      "feature_means": {
+        "commit_active_fraction": 0.6333333333333334,
+        "commit_log_cv": 1.2352132493423222,
+        "commit_longest_zero_fraction": 0.21666666666666665,
+        "commit_recent_change_log1p": -0.9939679841137247,
+        "commit_top2_share": 0.6161803778178672
+      },
+      "median_commit_total_12w": 86.0,
+      "name": "阶段波动型",
+      "repositories": 40
+    },
+    "3": {
+      "feature_means": {
+        "commit_active_fraction": 0.9275067750677507,
+        "commit_log_cv": 0.6474233989774909,
+        "commit_longest_zero_fraction": 0.042005420054200535,
+        "commit_recent_change_log1p": 0.29650140192363583,
+        "commit_top2_share": 0.3573411673993406
+      },
+      "median_commit_total_12w": 227.0,
+      "name": "持续活动型",
+      "repositories": 123
+    }
+  },
+  "decision": "选用聚类",
+  "decision_checks": {
+    "beats_size_only_silhouette": true,
+    "mean_seed_ari_at_least_0_70": true,
+    "size_nmi_below_0_85": true
+  },
+  "feature_names": [
+    "commit_active_fraction",
+    "commit_log_cv",
+    "commit_longest_zero_fraction",
+    "commit_recent_change_log1p",
+    "commit_top2_share"
+  ],
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "selected_k": 4,
+  "status": "available",
+  "task": "M1 maintenance_pattern",
+  "test_cluster_sizes": {
+    "0": 14,
+    "1": 5,
+    "2": 7,
+    "3": 19
+  },
+  "test_repositories": 45,
+  "test_silhouette": 0.40414210108153853,
+  "training_repositories": 210,
+  "validation_repositories": 45
+}

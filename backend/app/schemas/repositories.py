@@ -97,6 +97,7 @@ class ClearedRepositoryData(DTO):
     activity_windows: int
     analysis_results: int
     insight_runs: int
+    maintenance_runs: int = 0
     checkpoints: int
     collection_logs: int
     raw_archive_directory_removed: bool

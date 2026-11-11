@@ -1,7 +1,7 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, ReleaseDetails, ReleaseRecord,
-  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryChartData, RepositoryStatus, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, TaskItem, TaskStatus, TimePoint, TimeWindow,
+  ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
+  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryStatus, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 
@@ -129,6 +129,64 @@ function repositoryId(id: string): number {
   if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new Error('仓库编号无效，请从仓库列表重新打开')
   return parsed
 }
+function selectionPayload(input: SelectionRequest) {
+  return { repository_ids: input.repositoryIds.map(repositoryId), scenario: input.scenario, candidate_group: input.candidateGroup,
+    candidates_confirmed: input.candidatesConfirmed, window_days: input.windowDays, allowed_languages: input.allowedLanguages, allowed_licenses: input.allowedLicenses, weights: input.weights }
+}
+function selectionFeedback(value: Record<string, any>): SelectionFeedback {
+  return { id: String(value.feedback_id), scenario: String(value.scenario), candidateGroup: String(value.candidate_group),
+    chosenRepositoryId: String(value.chosen_repository_id), chosenRepositoryName: String(value.chosen_repository_name),
+    choiceKind: value.choice_kind === 'actual_choice' ? 'actual_choice' : 'preference', reason: String(value.reason),
+    createdAt: String(value.created_at), reviewStatus: 'pending' }
+}
+function maintenancePattern(raw: unknown): MaintenancePattern {
+  const value = object(raw)
+  const status = ['available', 'unclassified', 'temporarily_unavailable'].includes(value.status) ? value.status : 'insufficient_data'
+  const method = value.method === 'machine_learning' || value.method === 'statistical_baseline' ? value.method : 'none'
+  const evidence = Object.fromEntries(Object.entries(object(value.evidence)).filter((entry): entry is [string, number] => typeof entry[1] === 'number' && Number.isFinite(entry[1])))
+  return { status, method, reasonCode: textOrNull(value.reason_code), modelId: textOrNull(value.model_id), modelVersion: textOrNull(value.model_version),
+    featureSchemaVersion: textOrNull(value.feature_schema_version), patternId: textOrNull(value.pattern_id), patternName: textOrNull(value.pattern_name),
+    displayName: textOrNull(value.display_name),
+    asOf: textOrNull(value.as_of_utc), historyStart: textOrNull(value.history_start), sourceRunId: textOrNull(value.source_run_id),
+    sourceSha256: textOrNull(value.source_sha256), collectedAt: textOrNull(value.collected_at),
+    coverage: Object.fromEntries(Object.entries(object(value.coverage)).filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
+    windowWeeks: Number.isInteger(value.window_weeks) ? Number(value.window_weeks) : 0, evidence,
+    limitations: Array.isArray(value.limitations) ? value.limitations.map(String) : [] }
+}
+function activityTrendPrediction(raw: unknown): ActivityTrendPrediction {
+  const value = object(raw)
+  const status = ['available', 'baseline_only', 'partial_data', 'temporarily_unavailable', 'model_unavailable'].includes(value.status)
+    ? value.status as ActivityTrendPrediction['status'] : 'insufficient_data'
+  const method = value.method === 'machine_learning' || value.method === 'statistical_baseline' ? value.method : 'none'
+  const evidence = Object.fromEntries(Object.entries(object(value.evidence)).filter((entry): entry is [string, number | string] =>
+    (typeof entry[1] === 'number' && Number.isFinite(entry[1])) || typeof entry[1] === 'string'))
+  return { status, method, trend: textOrNull(value.trend), modelId: textOrNull(value.model_id), modelVersion: textOrNull(value.model_version),
+    horizonWeeks: Number.isInteger(value.horizon_weeks) ? Number(value.horizon_weeks) : 4, probabilities: null,
+    reasonCode: textOrNull(value.reason_code), evidence, notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
+}
+function recentActivityChange(raw: unknown): RecentActivityChange {
+  const value = object(raw)
+  const status = value.status === 'available' || value.status === 'partial_data' ? value.status : 'insufficient_data'
+  return { status, method: 'factual', reasonCode: textOrNull(value.reason_code),
+    previous4wCommits: numberOrNull(value.previous_4w_commits), recent4wCommits: numberOrNull(value.recent_4w_commits),
+    changeCount: numberOrNull(value.change_count), threshold: numberOrNull(value.threshold), trend: textOrNull(value.trend),
+    previousWindowStart: textOrNull(value.previous_window_start_utc), previousWindowEndExclusive: textOrNull(value.previous_window_end_exclusive_utc),
+    recentWindowStart: textOrNull(value.recent_window_start_utc), recentWindowEndExclusive: textOrNull(value.recent_window_end_exclusive_utc),
+    notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
+}
+function activityAnomalySummary(raw: unknown): ActivityAnomalySummary {
+  const value = object(raw)
+  const status = ['baseline_only', 'partial_data', 'temporarily_unavailable'].includes(value.status)
+    ? value.status as ActivityAnomalySummary['status'] : 'insufficient_data'
+  return { status, method: value.method === 'statistical_baseline' ? 'statistical_baseline' : 'none',
+    suspected: value.suspected === true, reasonCode: textOrNull(value.reason_code),
+    weeks: array(value.weeks).map((rawWeek) => {
+      const week = object(rawWeek)
+      const direction = week.direction === 'up' || week.direction === 'down' ? week.direction : null
+      return { weekStart: String(week.week_start_utc ?? ''), commitCount: Number(week.commit_count ?? 0),
+        robustZ: Number(week.commit_robust_z ?? 0), direction }
+    }), notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
+}
 function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysisMode, insights: Record<string, any>, quality: Record<string, any>): ResearchDataset {
   const datasetId = String(selected.dataset_id)
   const rows = array(insights.rows)
@@ -180,6 +238,37 @@ function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysi
       reasons: array(metric.missing_reasons).map((item) => `${String(item.reason ?? '未知原因')}（${Number(item.count ?? 0)}）`),
     }
   })
+  const courseSummaryValue = object(insights.course_summary)
+  const courseWindow = object(courseSummaryValue.observation_window)
+  const courseSplit = object(courseSummaryValue.split_counts)
+  const courseSummary = mode === 'course' ? {
+    dataAsOf: textOrNull(courseSummaryValue.data_as_of),
+    observationWindow: { start: textOrNull(courseWindow.start), endExclusive: textOrNull(courseWindow.end_exclusive) },
+    weeklyRecords: Number(courseSummaryValue.weekly_records ?? 0),
+    completeCommitRepositories: Number(courseSummaryValue.repositories_with_12_complete_commit_weeks ?? 0),
+    splitCounts: { train: Number(courseSplit.train ?? 0), test: Number(courseSplit.test ?? 0) },
+    coverage: Object.fromEntries(Object.entries(object(courseSummaryValue.coverage)).map(([key, value]) => [key, Number(value ?? 0)])),
+  } : null
+  const courseRepositories = mode === 'course' ? rows.map((row) => {
+    const values = object(row.values)
+    return {
+      repositoryId: String(row.repository_id ?? ''),
+      fullName: String(row.full_name ?? ''),
+      language: String(row.language ?? '未知'),
+      sampleRole: row.sample_role === 'test' ? 'test' as const : 'train' as const,
+      weeklyCommitMean: numberOrNull(values.commits_weekly_mean),
+      activeWeeks: numberOrNull(values.course_active_weeks_12w),
+    }
+  }) : []
+  const courseLanguageGroups = mode === 'course' ? array(insights.groups).map((group) => {
+    const metric = object(object(group.metrics).commits_weekly_mean)
+    return {
+      language: String(group.language ?? '未知'),
+      repositoryCount: Number(group.n ?? 0),
+      commitSampleCount: Number(metric.count ?? 0),
+      weeklyCommitMean: numberOrNull(metric.mean),
+    }
+  }) : []
   const windows = new Set(rows.filter((row) => row.window_start && row.window_end).map((row) => `${row.window_start}|${row.window_end}`))
   const uniqueWindow = windows.size === 1 ? [...windows][0].split('|') : [null, null]
   const datasetVersion = textOrNull(insights.dataset_version)
@@ -207,6 +296,9 @@ function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysi
     prMedianDays: numberOrNull(prSummary.median) === null ? null : Number((prSummary.median / 24).toFixed(1)),
     prSample: Number(prSummary.count ?? 0),
     groups,
+    courseSummary,
+    courseLanguageGroups,
+    courseRepositories,
     scatter: {
       points: scatter,
       spearman: numberOrNull(correlation.coefficient),
@@ -649,6 +741,48 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getEvaluation(id: string): Promise<RepositoryEvaluation> {
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/evaluation`)
+    return {
+      repositoryId: String(result.repository_id),
+      researchSample: result.research_sample ? {
+        datasetId: String(result.research_sample.dataset_id),
+        datasetVersion: String(result.research_sample.dataset_version),
+        sampleRole: result.research_sample.sample_role === 'test' ? 'test' : 'train',
+        dataAsOf: textOrNull(result.research_sample.data_as_of),
+        observationStart: textOrNull(result.research_sample.observation_start),
+        observationEndExclusive: textOrNull(result.research_sample.observation_end_exclusive),
+      } : null,
+      metrics: array(result.metrics).map((metric) => ({
+        metric: metric.metric,
+        status: metric.status,
+        method: metric.method,
+        asOf: textOrNull(metric.as_of),
+        prediction: numberOrNull(metric.prediction),
+        dataCoverage: String(metric.data_coverage ?? 'not_collected'),
+        historyStart: textOrNull(metric.history_start),
+        historyEnd: textOrNull(metric.history_end),
+        targetStart: textOrNull(metric.target_start),
+        targetEnd: textOrNull(metric.target_end),
+        sourceRunId: textOrNull(metric.source_run_id),
+        sourceCollectedAt: textOrNull(metric.source_collected_at),
+        notes: Array.isArray(metric.notes) ? metric.notes.map(String) : [],
+      })),
+      limitations: Array.isArray(result.limitations) ? result.limitations.map(String) : [],
+      maintenancePattern: maintenancePattern(result.maintenance_pattern),
+      recentActivityChange: recentActivityChange(result.recent_activity_change),
+      activityTrend: activityTrendPrediction(result.activity_trend),
+      activityAnomaly: activityAnomalySummary(result.activity_anomaly),
+    }
+  }
+
+  async collectMaintenance(id: string, lookbackWeeks: 12 | 24 = 12): Promise<MaintenanceCollectionResult> {
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/maintenance-collection?lookback_weeks=${lookbackWeeks}`, { method: 'POST' })
+    if (result.status !== 'cached' && typeof result.task_id !== 'string') throw new Error('后端未返回维护活动采集任务编号')
+    return { taskId: typeof result.task_id === 'string' ? result.task_id : null, reused: result.reused === true,
+      runId: textOrNull(result.run_id), lookbackWeeks: result.lookback_weeks === 24 ? 24 : 12 }
+  }
+
   async getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage> {
     const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
     if (search.trim()) params.set('search', search.trim())
@@ -850,6 +984,52 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getSelection(input: SelectionRequest): Promise<SelectionResult> {
+    const result = await data<Record<string, any>>('/comparisons/selection', {
+      method: 'POST', body: JSON.stringify(selectionPayload(input)),
+    })
+    const basis = object(result.comparison_basis)
+    const shared = object(basis.shared_window)
+    const maintenance = object(result.maintenance)
+    const maintenanceWindow = object(maintenance.common_window)
+    return {
+      status: result.status === 'available' ? 'available' : 'insufficient_data',
+      sharedWindow: textOrNull(shared.start) && textOrNull(shared.end) ? { start: String(shared.start), end: String(shared.end) } : null,
+      ranking: array(result.ranking).map((row) => ({
+        id: String(row.repository_id), name: String(row.full_name), score: Number(row.score),
+        evidence: Object.entries(object(row.evidence)).map(([metric, raw]) => {
+          const entry = object(raw)
+          return { metric, value: Number(entry.value), unit: String(entry.unit), contribution: Number(entry.contribution),
+            validSamples: Number(entry.valid_samples), windowStart: String(entry.window_start), windowEnd: String(entry.window_end), sourceRunId: String(entry.source_run_id ?? ''), sourceKind: String(entry.source_kind ?? 'online_event_analysis') }
+        }),
+      })),
+      excluded: array(result.excluded).map((row) => ({ id: String(row.repository_id), name: String(row.full_name), reasons: Array.isArray(row.reasons) ? row.reasons.map(String) : [] })),
+      sensitivity: array(result.sensitivity).map((row) => ({ criterion: String(row.criterion), repositoryIds: Array.isArray(row.repository_ids) ? row.repository_ids.map(String) : [] })),
+      maintenance: { commonWindow: textOrNull(maintenanceWindow.start) && textOrNull(maintenanceWindow.end) ? { start: String(maintenanceWindow.start), end: String(maintenanceWindow.end) } : null,
+        dataAsOf: textOrNull(maintenance.data_as_of),
+        repositories: array(maintenance.repositories).map((row) => ({ id: String(row.repository_id), name: String(row.full_name), sampleRole: row.sample_role === 'train' || row.sample_role === 'test' ? row.sample_role : null, pattern: maintenancePattern(row.pattern),
+          recentActivityChange: recentActivityChange(row.recent_activity_change),
+          activityTrend: activityTrendPrediction(row.activity_trend), activityAnomaly: activityAnomalySummary(row.activity_anomaly) })) },
+      notes: Array.isArray(result.notes) ? result.notes.map(String) : [],
+      reportMarkdown: String(result.report_markdown ?? ''),
+      resultSignature: String(result.result_signature ?? ''),
+    }
+  }
+
+  async listSelectionFeedback(): Promise<SelectionFeedback[]> {
+    return array(await data<unknown>('/feedback/selection')).map(selectionFeedback)
+  }
+
+  async saveSelectionFeedback(input: SelectionRequest, signature: string, chosen: string, choiceKind: SelectionFeedback['choiceKind'], reason: string): Promise<SelectionFeedback> {
+    const result = await data<Record<string, any>>('/feedback/selection', { method: 'POST', body: JSON.stringify({ selection: selectionPayload(input),
+      result_signature: signature, chosen_repository_id: repositoryId(chosen), choice_kind: choiceKind, reason, consent: true }) })
+    return selectionFeedback(result)
+  }
+
+  async deleteSelectionFeedback(id: string): Promise<void> {
+    await request(`/feedback/selection/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
   async getComparison(ids: string[], window: TimeWindow, mode: ComparisonMode): Promise<ComparisonBundle> {
     const repositoryIds = ids.map(repositoryId)
     const result = await data<Record<string, any>>('/comparisons/insights', {
@@ -885,6 +1065,8 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         prQuality: String(prMetric.quality ?? 'missing'),
         prReasonCode: textOrNull(prMetric.reason_code),
         releaseMedianDays: numberOrNull(releaseMetric.value),
+        sampleRole: row.sample_role === 'train' || row.sample_role === 'test' ? row.sample_role : null,
+        sourceKind: textOrNull(row.source_kind),
       }
     })
     const points = entries.flatMap((entry) => entry.points)
@@ -928,20 +1110,56 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       return mapResearchDataset(selected, selectedMode, insights, quality)
     }
 
+    const course = research.find((item) => item.dataset_id === 'course-research-300-v1')
+    const curated = featured.find((item) => item.dataset_id === 'featured-default') ?? featured[0]
     if (mode === 'auto' && !id) {
-      const formal = research[0]
+      if (course) {
+        try {
+          const result = await load(course, 'course')
+          if (result.studyStatus === 'analyzable') return result
+        } catch {
+          // The bundled course snapshot can be absent or fail validation; continue to the curated fallback.
+        }
+      }
+      if (curated) {
+        const result = await load(curated, 'exploratory')
+        if (course) result.limitations.unshift('课程研究数据暂不可用，当前已回退到 15 仓库精选数据集。')
+        return result
+      }
+      const formal = research.find((item) => item.dataset_id !== 'course-research-300-v1')
       if (formal) {
         const formalResult = await load(formal, 'formal')
         if (formalResult.studyStatus === 'analyzable') return formalResult
       }
-      const curated = featured.find((item) => item.dataset_id === 'featured-default') ?? featured[0]
-      if (curated) return load(curated, 'exploratory')
       if (formal) return load(formal, 'formal')
       throw new Error('当前没有可分析的研究或精选数据集')
     }
 
     const requestedMode = mode === 'auto' ? 'formal' : mode
-    const pool = requestedMode === 'formal' ? research : featured
+    if (requestedMode === 'course') {
+      if (course) {
+        try {
+          const result = await load(course, 'course')
+          if (result.studyStatus === 'analyzable' && result.repositoryCount > 0) return result
+          if (!curated) return result
+          const fallback = await load(curated, 'exploratory')
+          fallback.limitations.unshift('课程研究数据尚未完成导入，当前已回退到 15 仓库精选数据集。')
+          return fallback
+        } catch (cause) {
+          if (!curated) throw cause
+          const fallback = await load(curated, 'exploratory')
+          fallback.limitations.unshift('课程研究数据暂不可用，当前已回退到 15 仓库精选数据集。')
+          return fallback
+        }
+      }
+      if (curated) {
+        const fallback = await load(curated, 'exploratory')
+        fallback.limitations.unshift('课程研究数据未安装，当前已回退到 15 仓库精选数据集。')
+        return fallback
+      }
+      throw new Error('课程研究数据未安装，且没有可用的精选数据集')
+    }
+    const pool = requestedMode === 'formal' ? research.filter((item) => item.dataset_id !== 'course-research-300-v1') : featured
     const selected = pool.find((item) => item.dataset_id === id) ?? pool[0]
     if (!selected) throw new Error(requestedMode === 'formal' ? '当前没有可分析的正式研究数据集' : '当前没有精选数据集')
     return load(selected, requestedMode)
@@ -976,7 +1194,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         phase: textOrNull(task.phase),
         progressPercent: numberOrNull(task.progress_percent),
         progressKind: task.progress_kind === 'stages' || task.progress_kind === 'records' || task.progress_kind === 'indeterminate' ? task.progress_kind : 'unknown',
-        scopeKind: task.scope_kind === 'backfill' || task.scope_kind === 'incremental' || task.scope_kind === 'window' ? task.scope_kind : task.scope_kind === null ? null : 'quick',
+        scopeKind: task.scope_kind === 'backfill' || task.scope_kind === 'incremental' || task.scope_kind === 'window' || task.scope_kind === 'maintenance' ? task.scope_kind : task.scope_kind === null ? null : 'quick',
         windowDays: numberOrNull(task.window_days),
         windowStart: textOrNull(task.window_start),
         windowEnd: textOrNull(task.window_end),

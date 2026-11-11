@@ -3,6 +3,7 @@ import { ChevronRight, ListChecks, Moon, Settings, Sun } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AboutRepoVantageDialog from '@/components/layout/AboutRepoVantageDialog.vue'
+import MobileNavMenu from '@/components/layout/MobileNavMenu.vue'
 import { useUiStore } from '@/stores/ui'
 
 const route = useRoute()
@@ -12,8 +13,9 @@ const current = computed(() => (route.meta.title as string) ?? '')
 </script>
 
 <template>
-  <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-7">
+  <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-7">
     <div class="flex min-w-0 items-center gap-1.5 text-[12.5px] text-muted">
+      <MobileNavMenu />
       <RouterLink to="/" class="hover:text-ink">{{ crumb }}</RouterLink>
       <ChevronRight :size="13" />
       <b class="truncate font-medium text-ink">{{ current }}</b>

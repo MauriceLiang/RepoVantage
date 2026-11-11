@@ -1,0 +1,46 @@
+{
+  "coverage": {
+    "commit_week_complete_or_true_zero": 3600,
+    "commit_week_failed": 0,
+    "commit_week_partial": 0,
+    "commits_in_complete_or_true_zero_weeks": 125246,
+    "pr_merged_week_complete_or_true_zero": 3588,
+    "pr_merged_week_partial_concurrent_change": 12,
+    "pr_opened_week_complete_or_true_zero": 3600,
+    "prs_merged_in_complete_or_true_zero_weeks": 64800,
+    "prs_opened_in_complete_or_true_zero_weeks": 104247
+  },
+  "data_as_of": "2026-11-08T10:38:27Z",
+  "dataset_id": "course-research-300-v1",
+  "dataset_name": "300 仓库课程研究样本（历史快照）",
+  "generated_at": "2026-11-11T15:47:51.713881+08:00",
+  "limitations": [
+    "仓库来自既有课程研究样本，不是 GitHub 全体仓库的随机样本。",
+    "提交周统计反映采集时默认分支可见历史，不是精确历史分支快照。",
+    "partial、failed、not_applicable 与 true_zero 状态保持区分；缺失记录不解释为零。",
+    "150/150 是同一历史数据集上的重新分组回测，不是全新外部或前瞻性验证。",
+    "周级聚合数据不包含 issue / PR 正文、原始事件、checkpoint、token 或续采日志。"
+  ],
+  "observation_window": {
+    "end_exclusive": "2026-11-02T00:00:00Z",
+    "start": "2026-08-10T00:00:00Z",
+    "weeks": 12
+  },
+  "profiles_sha256": "a7c97d3a048eb77082a75e91b6fa869f8b633c0e235760fd8fd098fb53bdfa90",
+  "quality": "partial",
+  "repositories_with_12_complete_commit_weeks": 300,
+  "schema_version": 1,
+  "source": "本地 repo-evaluation-2026-v1 聚合数据；不重新访问 GitHub",
+  "source_dataset_id": "repo-evaluation-2026-v1",
+  "source_sha256": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
+  "split_counts": {
+    "test": 150,
+    "train": 150
+  },
+  "split_manifest_sha256": "2bb8460365e8e6e69a7d67ef250b7c9aedb0507597f3fdf84ab0b37df5ccdba4",
+  "split_seed": 20261111,
+  "split_version": "course-150-150-v1",
+  "total_repositories": 300,
+  "version": "course-research-300-v1",
+  "weekly_records": 3600
+}

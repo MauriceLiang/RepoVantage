@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
-  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryChartData, RepositorySummary,
-  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
+  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositorySummary,
+  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
@@ -513,6 +513,21 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getEvaluation(id: string): Promise<RepositoryEvaluation> {
+    return { repositoryId: id, metrics: [], limitations: ['演示数据没有计算未来活动估算。'], researchSample: null,
+      maintenancePattern: { status: 'insufficient_data', method: 'none', reasonCode: 'not_collected', modelId: null, modelVersion: null,
+        featureSchemaVersion: null, patternId: null, patternName: null, displayName: null, asOf: null, historyStart: null, sourceRunId: null, sourceSha256: null,
+        collectedAt: null, coverage: {}, windowWeeks: 0, evidence: {}, limitations: ['演示模式没有近期维护活动来源。'] },
+      recentActivityChange: { status: 'insufficient_data', method: 'factual', reasonCode: 'not_collected', previous4wCommits: null,
+        recent4wCommits: null, changeCount: null, threshold: null, trend: null, previousWindowStart: null, previousWindowEndExclusive: null,
+        recentWindowStart: null, recentWindowEndExclusive: null, notes: ['演示数据没有最近 8 个完整 UTC 周。'] },
+      activityTrend: { status: 'insufficient_data', method: 'none', trend: null, modelId: null, modelVersion: null, horizonWeeks: 4,
+        probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] },
+      activityAnomaly: { status: 'insufficient_data', method: 'none', suspected: false, reasonCode: 'not_collected', weeks: [], notes: ['演示数据没有异常检测输入。'] } }
+  }
+
+  async collectMaintenance(): Promise<import('./types').MaintenanceCollectionResult> { throw new Error('演示模式不能采集真实维护活动。') }
+
   async getAnalysis(id: string, window: TimeWindow): Promise<RepositoryAnalysis> {
     const seed = repoSeed(id) ?? REPOSITORIES[0]
     const availableDays = windowAvailableDays(seed)
@@ -752,6 +767,14 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     return new Blob(['\ufeff', cells.map((row) => row.map(escape).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
   }
 
+  async getSelection(_input: SelectionRequest): Promise<SelectionResult> {
+    return { status: 'insufficient_data', sharedWindow: null, ranking: [], excluded: [], sensitivity: [], maintenance: { commonWindow: null, dataAsOf: null, repositories: [] }, notes: ['演示模式不生成真实选型结果。'], reportMarkdown: '', resultSignature: '' }
+  }
+
+  async listSelectionFeedback(): Promise<SelectionFeedback[]> { return [] }
+  async saveSelectionFeedback(): Promise<SelectionFeedback> { throw new Error('演示模式不能保存真实选型反馈。') }
+  async deleteSelectionFeedback(): Promise<void> { throw new Error('演示模式没有真实选型反馈。') }
+
   async getComparison(ids: string[], window: TimeWindow, mode: ComparisonMode): Promise<ComparisonBundle> {
     let entries: ComparisonEntry[] = ids.map((id, i) => {
       const seed = repoSeed(id) ?? REPOSITORIES[0]
@@ -779,6 +802,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         windowEnd: observationWindow.end,
         windowAvailable: available,
         windowReason: reason,
+        sampleRole: null,
+        sourceKind: null,
         issueP50: issueQuality === 'ready' ? seed.issueP50 : null,
         issueSample,
         issueQuality,

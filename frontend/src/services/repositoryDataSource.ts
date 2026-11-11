@@ -1,6 +1,6 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, ReleaseDetails, RepositoryAnalysis, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, TaskItem, TimeWindow,
+  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
 } from './types'
 
 /**
@@ -32,6 +32,8 @@ export interface RepositoryDataSource {
    * 不可用的值保持为 null，不能通过聚合总数倒推出明细。
    */
   getAnalysis(id: string, window: TimeWindow): Promise<RepositoryAnalysis>
+  getEvaluation(id: string): Promise<RepositoryEvaluation>
+  collectMaintenance(id: string, lookbackWeeks?: 12 | 24): Promise<MaintenanceCollectionResult>
   getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
   getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
@@ -45,6 +47,10 @@ export interface RepositoryDataSource {
 
   /** 对比 2 至 5 个仓库，可选共同时间区间或各仓库自己的完整区间。 */
   getComparison(ids: string[], window: TimeWindow, mode: ComparisonMode): Promise<ComparisonBundle>
+  getSelection(input: SelectionRequest): Promise<SelectionResult>
+  listSelectionFeedback(): Promise<SelectionFeedback[]>
+  saveSelectionFeedback(input: SelectionRequest, signature: string, repositoryId: string, choiceKind: SelectionFeedback['choiceKind'], reason: string): Promise<SelectionFeedback>
+  deleteSelectionFeedback(id: string): Promise<void>
 
   getResearchDataset(id?: string, mode?: ResearchAnalysisMode | 'auto'): Promise<ResearchDataset>
 

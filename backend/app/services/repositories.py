@@ -22,6 +22,7 @@ def ensure_default_datasets(session: Session) -> None:
     defaults = (
         (LIBRARY_ID, "我的分析库", "library", None, None, "共享课程工作区的仓库集合"),
         (RESEARCH_ID, "开源软件研究样本 v1", "research", "selection-v1", None, "等待通过真实采样清单导入冻结成员；空样本不是研究结果"),
+        ("course-research-300-v1", "300 仓库课程研究样本（历史快照）", "research", "course-research-300-v1", None, "固定历史快照；用于课程研究、仓库分析与桌面演示"),
         (FEATURED_ID, "首页精选", "featured", None, None, "人工维护的公开仓库集合"),
     )
     for dataset_id, name, kind, rules, frozen_at, description in defaults:
@@ -86,7 +87,17 @@ def make_task(
     for existing in active:
         same_scope = existing.scope_kind == scope_kind
         same_window = scope_kind not in {"quick", "window"} or _task_window_days(existing) == window_days
-        if (existing.depth == depth and (depth == "basic" or (same_scope and same_window))) or (depth == "basic" and existing.depth == "deep"):
+        if scope_kind == "maintenance":
+            try:
+                existing_scope = json.loads(existing.scope_json or "{}")
+            except (TypeError, ValueError):
+                existing_scope = {}
+            try:
+                requested_scope = json.loads(scope_json or "{}")
+            except (TypeError, ValueError):
+                requested_scope = {}
+            same_window = existing_scope.get("lookback_weeks", 12) == requested_scope.get("lookback_weeks", 12)
+        if (existing.depth == depth and (depth == "basic" or (same_scope and same_window))) or (depth == "basic" and existing.depth == "deep" and existing.scope_kind != "maintenance"):
             return existing
     now = utc_now()
     if depth == "deep" and scope_json is None:

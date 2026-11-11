@@ -17,6 +17,7 @@ from backend.app.persistence.models import (
     CollectionTask,
     DatasetImportJob,
     DatasetRepository,
+    MaintenanceRun,
     Repository,
     RepositoryActivityEvent,
     RepositoryInsightRun,
@@ -116,6 +117,7 @@ def clear_repository_data(
             "activity_windows": ActivityWindow,
             "analysis_results": AnalysisResult,
             "insight_runs": RepositoryInsightRun,
+            "maintenance_runs": MaintenanceRun,
             "checkpoints": CollectionCheckpoint,
             "collection_logs": CollectionLog,
         }

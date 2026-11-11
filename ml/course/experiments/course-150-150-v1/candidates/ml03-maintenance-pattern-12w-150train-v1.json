@@ -1,0 +1,92 @@
+{
+  "centers_scaled": [
+    [
+      -0.7724111092468464,
+      0.22606119750429485,
+      0.39787419400775936,
+      -0.22702481831656943,
+      1.1952886432820877
+    ],
+    [
+      -1.4626960143941194,
+      -1.3754689055415983,
+      1.8795260324403433,
+      0.018115638805408806,
+      -1.4932116257449803
+    ],
+    [
+      0.8656880695064886,
+      0.24261723052136322,
+      -0.7555941753257494,
+      0.13123309031845423,
+      -0.306539988889383
+    ]
+  ],
+  "cluster_count": 3,
+  "cluster_profiles": {
+    "0": {
+      "feature_means": {
+        "commit_active_fraction": 0.2708333333333333,
+        "commit_log_cv": 0.724484923980409,
+        "commit_longest_zero_fraction": 0.46701388888888884,
+        "commit_recent_change_log1p": -0.19831177831236704,
+        "commit_top2_share": 0.8406659800583128
+      },
+      "median_commit_total_12w": 11.0,
+      "name": "集中活动型",
+      "repositories": 48
+    },
+    "1": {
+      "feature_means": {
+        "commit_active_fraction": 0.0,
+        "commit_log_cv": 0.0,
+        "commit_longest_zero_fraction": 1.0,
+        "commit_recent_change_log1p": 0.0,
+        "commit_top2_share": 0.0
+      },
+      "median_commit_total_12w": 0.0,
+      "name": "低活动型",
+      "repositories": 22
+    },
+    "2": {
+      "feature_means": {
+        "commit_active_fraction": 0.9135416666666666,
+        "commit_log_cv": 0.7319743844026488,
+        "commit_longest_zero_fraction": 0.05208333333333333,
+        "commit_recent_change_log1p": 0.09150885672271106,
+        "commit_top2_share": 0.37105983811771354
+      },
+      "median_commit_total_12w": 156.5,
+      "name": "持续活动型",
+      "repositories": 80
+    }
+  },
+  "feature_names": [
+    "commit_active_fraction",
+    "commit_log_cv",
+    "commit_longest_zero_fraction",
+    "commit_recent_change_log1p",
+    "commit_top2_share"
+  ],
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "limitations": [
+    "聚类描述近期行为，不代表质量、健康度或采用价值。"
+  ],
+  "model_id": "M1-maintenance-pattern",
+  "scaler_mean": [
+    0.5738888888888891,
+    0.6222215140218101,
+    0.3238888888888889,
+    -0.014655045474511578,
+    0.46691169394810733
+  ],
+  "scaler_scale": [
+    0.39235007359106444,
+    0.45237046909236167,
+    0.35972425996848817,
+    0.8089720507198455,
+    0.31268956516137464
+  ],
+  "status": "candidate",
+  "version": "ml03-12w-150train-v1"
+}

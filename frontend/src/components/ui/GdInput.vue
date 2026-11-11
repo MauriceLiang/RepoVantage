@@ -7,8 +7,8 @@ defineEmits<{ 'update:modelValue': [value: string]; enter: [] }>()
 
 <template>
   <div
-    class="flex items-center gap-2 rounded-lg border bg-panel px-3 transition-shadow"
-    :class="[size === 'sm' ? 'h-[38px]' : 'h-11', invalid ? 'border-danger ring-3 ring-danger/12' : 'border-line focus-within:border-ink/30']"
+    class="flex items-center gap-2 rounded-[var(--gd-radius-control)] border bg-panel px-3 transition-[border-color,box-shadow,background-color] duration-200"
+    :class="[size === 'sm' ? 'h-[38px]' : 'h-11', invalid ? 'border-danger ring-3 ring-danger/12' : 'border-line focus-within:border-s1/55 focus-within:shadow-sm']"
   >
     <slot name="icon" />
     <input

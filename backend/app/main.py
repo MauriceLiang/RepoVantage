@@ -17,6 +17,7 @@ from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import SessionLocal
 from backend.app.schemas.common import ErrorResponse
 from backend.app.services.repositories import ensure_default_datasets
+from backend.app.services.course_research_dataset import CourseBundleError, import_course_research_bundle
 
 
 logger = logging.getLogger("repovantage.api")
@@ -27,6 +28,12 @@ async def lifespan(_app: FastAPI):
     session = SessionLocal()
     try:
         ensure_default_datasets(session)
+        try:
+            imported = import_course_research_bundle(session)
+            logger.info("Course research snapshot ready: %s", imported)
+        except (CourseBundleError, OSError, ValueError, SQLAlchemyError) as exc:
+            session.rollback()
+            logger.warning("Course research snapshot unavailable; research page will use its fallback: %s", exc)
     except SQLAlchemyError:
         session.rollback()
         logger.exception("Database schema is missing; run `alembic upgrade head` before starting the API")

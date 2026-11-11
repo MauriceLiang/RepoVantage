@@ -20,7 +20,7 @@ def export_csv(
     scope: Literal["research", "library"],
     dataset_id: str | None = None,
     language: str | None = None,
-    analysis_mode: Literal["formal", "exploratory"] = "formal",
+    analysis_mode: Literal["formal", "exploratory", "course"] = "formal",
     session: Session = Depends(get_session),
 ):
     content, filename = export_repositories(session, scope, dataset_id, language, analysis_mode)
@@ -30,7 +30,7 @@ def export_csv(
 @router.get("/research-insights.csv")
 def export_research_insights_csv(
     dataset_id: str,
-    analysis_mode: Literal["formal", "exploratory"] = "formal",
+    analysis_mode: Literal["formal", "exploratory", "course"] = "formal",
     session: Session = Depends(get_session),
 ):
     from backend.app.services.insight_comparison import research_insights

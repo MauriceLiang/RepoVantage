@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, ChevronRight, RefreshCw, Search } from 'lucide-vue-next'
+import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, RefreshCw, Search } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import GdBadge from '@/components/ui/GdBadge.vue'
@@ -8,7 +8,7 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
-import type { ActivityTrend, RepositorySummary, TaskItem } from '@/services/types'
+import type { RepositorySummary, TaskItem } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const router = useRouter()
@@ -22,10 +22,17 @@ const submitError = ref<string | null>(null)
 const { data: repositories, loading, error, reload: reloadRepositories } = useAsyncData(() => source.listRepositories())
 const { data: tasks, loading: tasksLoading, error: tasksError, reload: reloadTasks } = useAsyncData(() => source.listTasks())
 
-const recent = computed(() => (repositories.value ?? []).slice(0, 5))
+const hasRepositories = computed(() => Boolean(repositories.value?.length))
+const showGettingStarted = computed(() => repositories.value !== null && repositories.value.length === 0 && !error.value)
+const overviewTitle = computed(() => error.value ? '仓库列表暂不可用' : hasRepositories.value ? '继续查看仓库动态' : '从一个仓库开始')
+const overviewDescription = computed(() => {
+  if (error.value) return '可以在下方重试读取仓库列表，或直接输入公开仓库地址开始分析。'
+  return hasRepositories.value
+    ? '查看近期活动变化和正在执行的采集任务，也可以添加新的 GitHub 仓库。'
+    : '输入 GitHub 仓库地址，查看它的开发活动、协作效率和版本节奏。'
+})
+
 const activeTasks = computed(() => (tasks.value ?? []).filter((task) => ['queued', 'running', 'analyzing'].includes(task.status)))
-type ActivityTrendState = { status: 'loading' } | { status: 'error' } | { status: 'ready'; trend: ActivityTrend }
-const activityTrendStates = ref<Record<string, ActivityTrendState>>({})
 const activityChanges = ref<{ repo: RepositorySummary; changePercent: number }[]>([])
 const changesLoading = ref(false)
 const changesError = ref<string | null>(null)
@@ -36,15 +43,13 @@ let pollTimer: number | undefined
 watch(repositories, async (items) => {
   const requestId = ++changesRequestId
   activityChanges.value = []
-  activityTrendStates.value = {}
   changesError.value = null
   if (!items) {
     changesLoading.value = false
     return
   }
 
-  // 仓库列表已按最近采集时间排序；只读取最近五个可分析的仓库，
-  // 再按变化幅度排序，避免首页为全部仓库发起分析请求。
+  // 只检查最近采集的五个可分析仓库，避免总览为全部仓库发起分析请求。
   const candidates = items.filter((repo) => repo.status === 'ready' || repo.status === 'partial').slice(0, 5)
   changeCandidateCount.value = candidates.length
   if (!candidates.length) {
@@ -52,28 +57,21 @@ watch(repositories, async (items) => {
     return
   }
 
-  const pending: Record<string, ActivityTrendState> = {}
-  for (const repo of candidates) pending[repo.id] = { status: 'loading' }
-  activityTrendStates.value = pending
   changesLoading.value = true
   const results = await Promise.allSettled(candidates.map((repo) => source.getActivityTrend(repo.id)))
   if (requestId !== changesRequestId) return
 
-  const trendStates: Record<string, ActivityTrendState> = {}
   const available: { repo: RepositorySummary; changePercent: number }[] = []
   const failures: unknown[] = []
   for (const [index, result] of results.entries()) {
     const repo = candidates[index]
     if (result.status === 'fulfilled') {
       const trend = result.value
-      trendStates[repo.id] = { status: 'ready', trend }
       if (trend.changePercent !== null) available.push({ repo, changePercent: trend.changePercent })
     } else {
-      trendStates[repo.id] = { status: 'error' }
       failures.push(result.reason)
     }
   }
-  activityTrendStates.value = trendStates
   activityChanges.value = available.sort((left, right) => Math.abs(right.changePercent) - Math.abs(left.changePercent)).slice(0, 3)
   if (failures.length === candidates.length) {
     changesError.value = String(failures[0] instanceof Error ? failures[0].message : '趋势数据读取失败')
@@ -94,23 +92,6 @@ const changes = computed(() => activityChanges.value.map(({ repo, changePercent 
   }
 }))
 
-function activityTrendSummary(repo: RepositorySummary): string {
-  const state = activityTrendStates.value[repo.id]
-  if (!state || state.status === 'loading') return '正在读取 Commit 趋势…'
-  if (state.status === 'error') return '趋势数据暂时无法读取'
-
-  const trend = state.trend
-  if (trend.changePercent !== null) {
-    return `近 4 周较前 4 周 ${trend.changePercent > 0 ? '+' : ''}${Number(trend.changePercent.toFixed(1))}%`
-  }
-  if (trend.qualityStatus === 'ready' && trend.previousCommits === 0 && trend.recentCommits !== null) {
-    return trend.recentCommits > 0
-      ? `此前 4 周无 Commit，近 4 周 ${trend.recentCommits.toLocaleString('zh-CN')} 次`
-      : '前后 8 周均无 Commit'
-  }
-  return trend.comparisonReason ?? '当前没有可比较的 Commit 趋势'
-}
-
 const taskStatusLabel: Record<string, string> = {
   queued: '排队中', running: '执行中', analyzing: '分析中',
 }
@@ -130,14 +111,6 @@ onMounted(() => {
   }, 3000)
 })
 onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTimer) })
-
-const statusLabel: Record<RepositorySummary['status'], { text: string; cls: string }> = {
-  ready: { text: '已完成', cls: '' },
-  partial: { text: '部分数据', cls: 'warn' },
-  running: { text: '正在更新', cls: '' },
-  failed: { text: '采集失败', cls: 'warn' },
-  idle: { text: '尚未分析', cls: 'plain' },
-}
 
 async function submit() {
   const raw = input.value.trim()
@@ -163,11 +136,11 @@ async function submit() {
 <template>
   <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
     <header>
-      <h1 class="m-0 text-[26px] font-semibold tracking-[-0.3px]">仓库数据分析</h1>
-      <p class="mt-1.5 text-muted">输入 GitHub 开源仓库，查看开发活动、Issue / PR 协作与发布节奏。</p>
+      <h1 class="m-0 text-[26px] font-semibold tracking-[-0.3px]">{{ overviewTitle }}</h1>
+      <p class="mt-1.5 text-muted">{{ overviewDescription }}</p>
     </header>
 
-    <GdCard padding="none" class="gap-2.5 p-4 sm:p-[22px]">
+    <GdCard padding="none" class="gap-3.5 p-4 sm:p-5">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
         <div class="min-w-0 flex-1">
           <div class="flex min-w-0 items-center gap-2">
@@ -177,92 +150,45 @@ async function submit() {
             <GdButton class="h-11 px-4" :disabled="submitting" @click="submit">{{ submitting ? '正在提交…' : '开始分析' }}</GdButton>
           </div>
           <p v-if="invalid" class="mt-1.5 text-[12px] text-danger">请输入 owner/repo 或完整的 GitHub 仓库链接</p>
-          <p v-else-if="submitError" class="mt-1.5 text-[12px] text-danger">{{ submitError }}</p>
-          <p v-else class="mt-2 text-[11.5px] text-muted">支持公开仓库；分析结果包含采集时点与覆盖状态。</p>
+          <p v-else-if="submitError" class="mt-1.5 text-[12px] text-danger" role="alert">{{ submitError }}</p>
+          <p v-else class="mt-2 text-[12px] text-muted">支持公开仓库。提交后会直接进入分析页面，采集进度可在任务中心查看。</p>
         </div>
       </div>
     </GdCard>
 
-    <section aria-labelledby="how-to-use-title" class="flex flex-col gap-3.5">
-      <div>
-        <p class="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted">GET STARTED</p>
-        <h2 id="how-to-use-title" class="m-0 text-[20px] font-semibold tracking-[-0.2px]">开始使用</h2>
-        <p class="mt-1.5 text-[12px] leading-relaxed text-muted">提交后会直接进入仓库详情；采集进度可以在总览任务卡或任务中心查看。</p>
+    <section v-if="showGettingStarted" aria-labelledby="how-to-use-title" class="flex flex-col gap-3">
+      <div class="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 id="how-to-use-title" class="m-0 text-[18px] font-semibold tracking-[-0.2px]">使用流程</h2>
+          <p class="mt-1 text-[12px] text-muted">从仓库活动开始，按需深入协作和版本数据。</p>
+        </div>
+        <RouterLink to="/repositories" class="gd-link text-[12px]">浏览仓库 <ArrowRight :size="12" /></RouterLink>
       </div>
 
-      <ol class="m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 xl:grid-cols-4">
-        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+      <ol class="gd-stagger m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-3">
+        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
           <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">01</span>
-            <h3 class="m-0 text-[13px] font-semibold">输入公开仓库</h3>
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">01</span>
+            <h3 class="m-0 text-[13.5px] font-semibold">输入仓库地址</h3>
           </div>
-          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">输入 GitHub 仓库的 <code class="rounded bg-soft px-1 py-0.5 font-mono text-[11px] text-ink">owner/repo</code> 或完整链接，点击“开始分析”。</p>
+          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">输入 GitHub 的 <code class="rounded bg-soft px-1 py-0.5 font-mono text-[11px] text-ink">owner/repo</code> 或完整链接，开始采集公开数据。</p>
         </li>
-        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
           <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">02</span>
-            <h3 class="m-0 text-[13px] font-semibold">进入详情看状态</h3>
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">02</span>
+            <h3 class="m-0 text-[13.5px] font-semibold">查看分析结果</h3>
           </div>
-          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">提交后立即进入该仓库详情，不需要等待采集完成。查看当前可用结果、采集时点和覆盖状态；从总览任务卡或<RouterLink to="/tasks" class="gd-link">任务中心</RouterLink>跟进进度。</p>
+          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">在仓库详情查看活动、Issue、PR 和 Release；采集中的数据会标明当前进度与覆盖范围。</p>
         </li>
-        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
+        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
           <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">03</span>
-            <h3 class="m-0 text-[13px] font-semibold">查看单仓库分析</h3>
+            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">03</span>
+            <h3 class="m-0 text-[13.5px] font-semibold">比较或开展研究</h3>
           </div>
-          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在开发活动、Issue、PR 和 Release 页签查看相应数据，并结合分析时间范围、样本和覆盖说明理解结果。</p>
-        </li>
-        <li class="min-w-0 rounded-[10px] border border-line bg-panel p-4">
-          <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-ink font-mono text-[11px] font-semibold text-bg">04</span>
-            <h3 class="m-0 text-[13px] font-semibold">按需比较或研究</h3>
-          </div>
-          <p class="mb-0 mt-3 text-[12px] leading-[1.75] text-muted">在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>勾选 2–5 个候选仓库后，点击“进入比较”查看结果；需要研究时，前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看可用样本、分组统计与数据分布。</p>
+          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>选择 2–5 个仓库进行比较，或前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看分组与样本质量。</p>
         </li>
       </ol>
     </section>
-
-    <GdCard>
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">最近分析</h3>
-          <p class="mt-0.5 text-[12px] text-muted">继续上次的分析，或查看采集状态</p>
-        </div>
-        <RouterLink to="/repositories" class="gd-link text-[12px]">全部仓库 <ArrowRight :size="12" /></RouterLink>
-      </div>
-      <div class="divide-y divide-line">
-        <p v-if="error" class="py-3 text-[12px] text-danger">加载最近分析失败：{{ error }}</p>
-        <div v-else-if="loading" class="divide-y divide-line">
-          <div v-for="i in 4" :key="i" class="h-14 animate-pulse bg-track/60" />
-        </div>
-        <template v-else-if="recent.length">
-          <RouterLink v-for="repo in recent" :key="repo.id" :to="`/repositories/${repo.id}/overview`"
-            class="grid cursor-pointer grid-cols-1 items-center gap-3 py-3 transition-colors hover:bg-soft/40 sm:grid-cols-[1.6fr_1.4fr_auto_auto] sm:gap-5">
-            <div class="min-w-0">
-              <div class="truncate text-[13px] font-semibold">{{ repo.fullName }}</div>
-              <div class="truncate text-[11.5px] text-muted">{{ repo.description }}</div>
-            </div>
-            <div class="text-[11.5px] text-muted">
-              <template v-if="repo.status === 'ready' || repo.status === 'partial'">
-                {{ activityTrendSummary(repo) }}
-              </template>
-              <template v-else>{{ repo.status === 'failed' ? '采集失败，可重试' : '尚未产出分析结果' }}</template>
-            </div>
-            <GdBadge :variant="(statusLabel[repo.status].cls as 'default' | 'warn' | 'plain')">
-              {{ statusLabel[repo.status].text }}
-            </GdBadge>
-            <div class="flex items-center gap-2 text-[11.5px] text-muted">
-              <span class="font-mono">{{ repo.lastAnalyzedAt ?? '—' }}</span>
-              <ChevronRight :size="14" />
-            </div>
-          </RouterLink>
-        </template>
-        <div v-else class="flex flex-wrap items-center justify-between gap-3 py-4 text-[12px] text-muted">
-          <span>还没有已加入的仓库。提交公开仓库后，会在这里保留最近分析记录。</span>
-          <RouterLink to="/repositories" class="gd-link shrink-0">浏览仓库 <ArrowRight :size="12" /></RouterLink>
-        </div>
-      </div>
-    </GdCard>
 
     <div class="grid items-stretch gap-[18px] lg:grid-cols-[1.4fr_1fr]">
       <GdCard class="h-[320px] min-h-0 overflow-hidden">
@@ -352,6 +278,10 @@ async function submit() {
                 <span class="shrink-0 font-mono text-[10.5px] tabular-nums text-muted">{{ Math.round(taskProgress(task)!) }}%</span>
               </div>
             </RouterLink>
+          </div>
+          <div v-else class="flex h-full flex-col items-center justify-center gap-1 text-center">
+            <p class="m-0 text-[12px] font-medium text-ink">当前没有执行中的分析</p>
+            <p class="m-0 text-[11px] text-muted">新提交仓库后的采集进度会显示在这里。</p>
           </div>
         </div>
         <div class="mt-auto flex items-center justify-between border-t border-line pt-2.5">

@@ -108,6 +108,8 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
 }
 .gd-about-overlay[data-state='open'] { animation: gd-about-fade-in 0.18s ease; }
 .gd-about-overlay[data-state='closed'] { animation: gd-about-fade-out 0.16s ease; }
+.gd-about-dialog[data-state='open'] { animation: gd-about-dialog-in 200ms var(--gd-ease-emphasized) both; }
+.gd-about-dialog[data-state='closed'] { animation: gd-about-dialog-out 160ms var(--gd-ease-standard) both; }
 @media (max-width: 480px) {
   .gd-about-dialog {
     width: calc(100vw - 24px);
@@ -116,4 +118,6 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
 }
 @keyframes gd-about-fade-in { from { opacity: 0 } to { opacity: 1 } }
 @keyframes gd-about-fade-out { from { opacity: 1 } to { opacity: 0 } }
+@keyframes gd-about-dialog-in { from { opacity: 0; scale: 0.98; } to { opacity: 1; scale: 1; } }
+@keyframes gd-about-dialog-out { from { opacity: 1; scale: 1; } to { opacity: 0; scale: 0.98; } }
 </style>

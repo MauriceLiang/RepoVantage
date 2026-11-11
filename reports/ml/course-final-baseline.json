@@ -1,0 +1,27 @@
+{
+  "baseline_commit": "311f3c40e9ec8fd34ea415107050d41e23fa2c00",
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "artifacts": {
+    "ml/course/artifacts/ml03-maintenance-pattern-12w.json": {
+      "sha256": "5cddec2e2e4d935896357c376bcf5018576a226aa0a27d1b7c9c059af890e0ae",
+      "model_id": "M1-maintenance-pattern",
+      "version": "ml03-12w-v1"
+    },
+    "ml/course/artifacts/ml01-activity-trend-12w.json": {
+      "sha256": "18a9fb8700de49b1ac27fea995f433ebcba53b71df5d9f915b402535667a918a",
+      "model_id": "M2-activity-trend",
+      "version": "ml01-trend-12w-v1"
+    }
+  },
+  "evaluation_evidence": {
+    "ml/course/evaluations/manifest.json": "c2bc7e6edb397124ff6220ec0c3d52b06758c1847aa1564a46d374d927aebe7d",
+    "ml/course/evaluations/ml01-activity-trend.json": "60123559f7b71645ef99162a8bcc529ed33b7913676b340dd6b9d6f8acfa6e2f",
+    "ml/course/evaluations/ml03-maintenance-pattern.json": "d66c71cb7ed74d0a343290984d899cbd5efb9736832e6af5d2ab666ade682ef2",
+    "ml/course/evaluations/ml06-activity-anomaly.json": "6a278e066ea3f5d601332dc9a3d672585d14df90a3c7ad0abcb65e1460b301ee"
+  },
+  "restore_backups": {
+    "ml03-maintenance-pattern-12w.json": "5cddec2e2e4d935896357c376bcf5018576a226aa0a27d1b7c9c059af890e0ae",
+    "ml01-activity-trend-12w.json": "18a9fb8700de49b1ac27fea995f433ebcba53b71df5d9f915b402535667a918a"
+  },
+  "note": "P0 rollback point captured before v4.1 acceptance work; do not replace existing study outputs or user database."
+}

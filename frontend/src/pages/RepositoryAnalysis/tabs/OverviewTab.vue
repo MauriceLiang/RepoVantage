@@ -14,6 +14,7 @@ import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
+const overviewObservations = computed(() => props.analysis.observations.filter((item) => item.id !== 'commit-trend'))
 const { openRelease } = useReleaseDrawer(() => repoId.value)
 const selectedReleaseWeek = ref<{ date: string; releases: ReleaseRecord[] } | null>(null)
 watch([repoId, () => props.analysis.windowAvailability.requestedDays, () => props.analysis.releases], () => { selectedReleaseWeek.value = null })
@@ -187,7 +188,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <p class="mt-0.5 text-[12px] text-muted">完整 8 周提交趋势、Issue/PR 耗时（n≥10）、正式发布节奏（至少 2 次）；部分覆盖只描述已观察样本。</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-        <ObservationList :observations="analysis.observations" />
+        <ObservationList :observations="overviewObservations" />
       </div>
     </GdCard>
 

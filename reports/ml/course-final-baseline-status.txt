@@ -1,0 +1,107 @@
+ M .gitignore
+ M backend/app/api/v1/analytics.py
+ M backend/app/api/v1/insights.py
+ M backend/app/persistence/models.py
+ M backend/app/schemas/repositories.py
+ M backend/app/schemas/tasks.py
+ M backend/app/services/repositories.py
+ M backend/app/services/repository_data.py
+ M backend/app/worker/main.py
+ M backend/app/worker/queue.py
+ M frontend/.gitignore
+ M frontend/src/App.vue
+ M frontend/src/components/charts/EChart.vue
+ M frontend/src/components/layout/AboutRepoVantageDialog.vue
+ M frontend/src/components/layout/AppSidebar.vue
+ M frontend/src/components/layout/AppTopbar.vue
+ M frontend/src/components/layout/ModuleTabs.vue
+ M frontend/src/components/ui/GdBadge.vue
+ M frontend/src/components/ui/GdButton.vue
+ M frontend/src/components/ui/GdInput.vue
+ M frontend/src/components/ui/GdSegmented.vue
+ M frontend/src/pages/Comparison/ComparisonPage.vue
+ M frontend/src/pages/Overview/OverviewPage.vue
+ M frontend/src/pages/Repositories/RepositoriesPage.vue
+ M frontend/src/pages/RepositoryAnalysis/RepositoryAnalysisPage.vue
+ M frontend/src/pages/RepositoryAnalysis/tabs/OverviewTab.vue
+ M frontend/src/pages/Research/ResearchPage.vue
+ M frontend/src/pages/Settings/SettingsPage.vue
+ M frontend/src/pages/Tasks/TasksPage.vue
+ M frontend/src/services/httpRepositoryDataSource.ts
+ M frontend/src/services/mockRepositoryDataSource.ts
+ M frontend/src/services/repositoryDataSource.ts
+ M frontend/src/services/types.ts
+ M frontend/src/styles/theme.css
+ M migrations/versions/0001_initial_schema.py
+ M tests/backend/test_repository_data.py
+ M tests/backend/test_task_progress_migration.py
+?? .DS_Store
+?? .agents/
+?? "ML_\345\256\236\351\252\214\347\273\223\346\236\234\344\270\216\351\200\211\345\236\213\350\247\243\351\207\212.md"
+?? backend/.DS_Store
+?? backend/app/analytics/course_ml_features.py
+?? backend/app/analytics/maintenance_features.py
+?? backend/app/analytics/maintenance_features_v2.py
+?? backend/app/api/.DS_Store
+?? backend/app/ml/
+?? backend/app/schemas/ml_evaluation.py
+?? backend/app/services/course_ml.py
+?? backend/app/services/issue_comment_repair.py
+?? backend/app/services/maintenance.py
+?? backend/app/services/maintenance_collection.py
+?? backend/app/services/ml_evaluation.py
+?? backend/app/services/model_registry.py
+?? backend/app/services/selection.py
+?? backend/app/worker/maintenance.py
+?? frontend/src/components/layout/MobileNavMenu.vue
+?? frontend/src/components/layout/navigation.ts
+?? migrations/versions/0007_selection_feedback.py
+?? migrations/versions/0008_maintenance.py
+?? ml-production/
+?? ml/
+?? reports/
+?? scripts/build_anomaly_review_set.py
+?? scripts/build_ml_coverage_matrix.py
+?? scripts/collect_ml03_candidates.py
+?? scripts/collect_ml03_external.py
+?? scripts/collect_ml03_external_v2.py
+?? scripts/collect_ml_holdout.py
+?? scripts/collect_ml_release_holdout.py
+?? scripts/describe_ml03_external.py
+?? scripts/disable_ml03.py
+?? scripts/evaluate_ml03_external.py
+?? scripts/evaluate_ml03_external_v2.py
+?? scripts/evaluate_ml_clusters.py
+?? scripts/evaluate_ml_holdout.py
+?? scripts/evaluate_ml_release_holdout.py
+?? scripts/export_ml03_features.py
+?? scripts/freeze_ml03_protocol.py
+?? scripts/freeze_ml_shadow_predictions.py
+?? scripts/improve_ml_activity.py
+?? scripts/ml01_shadow_outcome.py
+?? scripts/ml03_feature_parity.py
+?? scripts/repair_issue_comments.py
+?? scripts/start_ml_shadow.py
+?? scripts/train_course_ml.py
+?? scripts/train_ml03.py
+?? scripts/train_ml03_v2.py
+?? scripts/train_ml03_v3.py
+?? scripts/verify_ml03_parity.py
+?? scripts/verify_ml_reproduction.py
+?? tests/backend/test_anomaly_review_set.py
+?? tests/backend/test_course_ml_features.py
+?? tests/backend/test_issue_comment_repair.py
+?? tests/backend/test_maintenance_collection.py
+?? tests/backend/test_maintenance_features.py
+?? tests/backend/test_maintenance_features_v2.py
+?? tests/backend/test_maintenance_product.py
+?? tests/backend/test_ml01_shadow_outcome.py
+?? tests/backend/test_ml03_feature_parity.py
+?? tests/backend/test_ml_coverage_matrix.py
+?? tests/backend/test_ml_evaluation.py
+?? tests/backend/test_ml_holdout_collection.py
+?? tests/backend/test_ml_release_features.py
+?? tests/backend/test_ml_release_holdout.py
+?? tests/backend/test_ml_shadow.py
+?? tests/backend/test_model_registry.py
+?? tests/backend/test_selection_report.py
