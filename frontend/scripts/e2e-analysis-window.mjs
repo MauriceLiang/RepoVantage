@@ -194,15 +194,11 @@ try {
     if (theme === 'light') {
       await navigate('/research')
       await page.waitForSelector('[data-testid="research-empty-state"]')
-      assert.match(await text('[data-testid="research-empty-state"]'), /标准测试数据暂不可用/, '演示模式不能伪造真实标准测试样本')
+      assert.match(await text('[data-testid="research-empty-state"]'), /默认 300 仓库数据暂不可用/, '演示模式不能伪造真实默认仓库样本')
       assert.equal(await page.$('[data-testid="research-kpis"]'), null, '没有真实标准样本时不应展示空指标与图表')
       assert.equal(await page.$('[data-testid="export-research-statistics"]'), null, '空样本不应导出统计结果')
-      await select('research-mode', 'formal')
-      await page.waitForFunction(() => document.querySelector('[data-testid="research-empty-state"]')?.textContent?.includes('待负责人确认'))
-      assert.equal(await page.$('[data-testid="research-mode"] button[data-value="exploratory"]'), null, '研究页不再提供旧精选样本模式')
+      assert.equal(await page.$('[data-testid="research-mode"]'), null, '研究页固定使用默认仓库数据，不保留模式选择')
       assert.equal(await page.$('[data-testid="import-featured"]'), null, '研究页不再提供旧精选导入入口')
-      await select('research-mode', 'course')
-      await page.waitForFunction(() => document.querySelector('[data-testid="research-empty-state"]')?.textContent?.includes('标准测试数据暂不可用'))
       const repositoryPages = await page.evaluate(async () => {
         const { HttpRepositoryDataSource } = await import('/src/services/httpRepositoryDataSource.ts')
         const originalFetch = window.fetch
@@ -323,7 +319,7 @@ try {
     await page.screenshot({ path: join(artifacts, `${theme}-mobile.png`) })
     assert.deepEqual(apiRequests, [], 'Mock smoke 不应访问后端或真实 GitHub API')
     assert.deepEqual(errors, [], '浏览器出现未处理错误')
-    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-issue-pr-comments', ...(theme === 'light' ? ['drawer-stale-response', 'drawer-online-error', 'standard-test-default', 'repository-pagination-150', 'featured-sample-retired', 'research-mode-isolation'] : []), 'layout-desktop-mobile'] })
+    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-issue-pr-comments', ...(theme === 'light' ? ['drawer-stale-response', 'drawer-online-error', 'standard-test-default', 'repository-pagination-150', 'featured-sample-retired', 'research-default-dataset'] : []), 'layout-desktop-mobile'] })
     await context.close()
     console.log(`PASS ${theme}: analysis, collection, comparison, CSV, layout`)
   }

@@ -4,13 +4,11 @@ import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
-import GdSegmented from '@/components/ui/GdSegmented.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
-import type { ResearchAnalysisMode } from '@/services/types'
 import CourseResearchDashboard from './CourseResearchDashboard.vue'
 
 const ResearchGroupComboChart = defineAsyncComponent(() => import('@/components/charts/ResearchGroupComboChart.vue'))
@@ -20,9 +18,8 @@ const ui = useUiStore()
 const analysisStore = useAnalysisStore()
 const source = useDataSource()
 const exporting = ref(false)
-const requestedMode = ref<ResearchAnalysisMode | 'auto'>('auto')
 const repositorySearch = ref('')
-const { data, loading, error } = useAsyncData(() => source.getResearchDataset(undefined, requestedMode.value), () => requestedMode.value)
+const { data, loading, error } = useAsyncData(() => source.getResearchDataset(undefined, 'course'))
 const entrySkeletonVisible = ref(true)
 let entrySkeletonTimer: ReturnType<typeof setTimeout> | undefined
 const showSkeleton = computed(() => loading.value || entrySkeletonVisible.value)
@@ -38,12 +35,6 @@ onBeforeUnmount(() => {
   if (entrySkeletonTimer) clearTimeout(entrySkeletonTimer)
 })
 
-const modeOptions = [
-  { value: 'course', label: '默认 300 仓库', hint: '使用 dataprepare 中已采集的 300 个仓库数据；查看分析和比较时复用本地快照。' },
-  { value: 'formal', label: '正式研究', hint: '只读取已确认并导入的研究样本；不会替用户冻结样本清单。' },
-]
-const selectedMode = computed(() => requestedMode.value === 'auto' ? data.value?.analysisMode ?? 'course' : requestedMode.value)
-
 const groupChartItems = computed(() => data.value?.groups.map((group) => ({
   label: group.label,
   repositoryCount: group.count,
@@ -58,10 +49,6 @@ const qualityItems = computed(() => (data.value?.quality ?? []).flatMap((quality
     : [{ field: quality.field, missingCount: quality.missingCount, totalRecords: quality.totalRecords }],
 ))
 const groups = computed(() => (data.value?.groups ?? []).map((group) => group.label))
-
-function setMode(value: string | number) {
-  if (value === 'formal' || value === 'course') requestedMode.value = value
-}
 
 function qualityFieldLabel(field: string) {
   return ({ language: '主语言', stars: 'Star 数', forks: 'Fork 数', pushed_at: '最近推送时间', created_at: '创建时间' } as Record<string, string>)[field] ?? field
@@ -115,7 +102,6 @@ async function exportResearchStatistics() {
         <p class="mt-1.5 text-muted">默认仓库为已采集的 300 个项目；仓库分析与比较直接复用本地历史数据。</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <GdSegmented :model-value="selectedMode" :options="modeOptions" aria-label="研究分析模式" data-testid="research-mode" @update:model-value="setMode" />
         <template v-if="data && data.repositoryCount > 0">
           <GdButton variant="outline" :disabled="exporting" data-testid="export-research-members" @click="exportResearchMembers"><Download :size="14" /> 导出样本成员</GdButton>
           <GdButton variant="outline" :disabled="exporting" data-testid="export-research-statistics" @click="exportResearchStatistics"><Download :size="14" /> 导出统计结果</GdButton>
