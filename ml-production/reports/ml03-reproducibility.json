@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-11-10T00:22:38.145802+00:00",
+  "all_exact": true,
+  "files": {
+    "numeric_model.json": {
+      "reference": "13f9db7cedfef15ba477a60f838dfd1f39051501a522503d93eb64c3a84254c7",
+      "reproduced": "13f9db7cedfef15ba477a60f838dfd1f39051501a522503d93eb64c3a84254c7",
+      "equal": true
+    },
+    "model.joblib": {
+      "reference": "c9455a338ef951a2a1f1cc0bbbb7e338309c631c00f0f3b7e84b89dc003d805a",
+      "reproduced": "c9455a338ef951a2a1f1cc0bbbb7e338309c631c00f0f3b7e84b89dc003d805a",
+      "equal": true
+    },
+    "size_baseline.joblib": {
+      "reference": "f4a2edb91ad1cd97754cd04876811510171b7f9b448ac2024705990bb254c9bb",
+      "reproduced": "f4a2edb91ad1cd97754cd04876811510171b7f9b448ac2024705990bb254c9bb",
+      "equal": true
+    },
+    "metrics_development.json": {
+      "reference": "e70de7636f7f0bd93ace8ece05855fafdd3efba2248d89a95af0c78b6191c4c8",
+      "reproduced": "e70de7636f7f0bd93ace8ece05855fafdd3efba2248d89a95af0c78b6191c4c8",
+      "equal": true
+    }
+  },
+  "scope": "仅研究训练复现；不构成外部验收或批准。"
+}

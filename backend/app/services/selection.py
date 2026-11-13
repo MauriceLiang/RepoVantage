@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import json
+import math
 import uuid
 
 from sqlalchemy import select
@@ -19,6 +20,7 @@ CRITERIA = {
     "pr_median_hours": ("pulls", "pull_request", "merged_at", "lower"),
     "release_interval_days": ("releases", "release", "published_at", "lower"),
 }
+SCORING_VERSION = "weighted-relative-v4"
 
 
 def selection_signature(body, result):
@@ -29,8 +31,10 @@ def selection_signature(body, result):
 
 def _feedback_entry(record):
     snapshot = json.loads(record.snapshot_json)
-    return {"feedback_id": record.feedback_id, "scenario": snapshot["selection"]["scenario"],
-            "candidate_group": snapshot["selection"]["candidate_group"],
+    selection = snapshot["selection"]
+    result = snapshot.get("result", {})
+    return {"feedback_id": record.feedback_id, "scenario": result.get("scenario") or selection.get("scenario") or "自定义权重对比",
+            "candidate_group": result.get("candidate_group") or selection.get("candidate_group") or "当前所选仓库",
             "chosen_repository_id": snapshot["chosen_repository_id"], "chosen_repository_name": snapshot["chosen_repository_name"],
             "choice_kind": snapshot["choice_kind"], "reason": snapshot["reason"],
             "created_at": iso_z(record.created_at), "review_status": "pending"}
@@ -66,6 +70,11 @@ def delete_feedback(session, feedback_id):
 
 
 def _covered(session, run, metric, module, event_type, time_field):
+    if metric.get("source_kind") == "course_test_events_v1":
+        lower, upper = (parse_github_datetime(metric.get(key)) for key in ("window_start", "window_end"))
+        return (metric.get("comparable") is True and metric.get("quality") in {"ready", "partial"}
+                and metric.get("value") is not None and metric.get("valid_samples", 0) >= 1
+                and lower is not None and upper is not None and lower < upper)
     if metric.get("source_kind") in {"course_research_historical_snapshot", "maintenance_weekly_aggregation"}:
         maintenance_run = session.get(MaintenanceRun, metric.get("source_run_id"))
         return (module == "commits" and maintenance_run is not None and maintenance_run.status == "complete"
@@ -74,7 +83,7 @@ def _covered(session, run, metric, module, event_type, time_field):
                 and metric.get("window_start") is not None and metric.get("window_end") is not None)
     if not run or not metric.get("comparable") or metric.get("value") is None:
         return False
-    if module in {"issues", "pulls"} and metric.get("valid_samples", 0) < 10:
+    if metric.get("valid_samples", 0) < 1:
         return False
     lower, upper = (parse_github_datetime(metric.get(key)) for key in ("window_start", "window_end"))
     if not lower or not upper or lower >= upper:
@@ -84,9 +93,9 @@ def _covered(session, run, metric, module, event_type, time_field):
     except (TypeError, ValueError) as exc:
         raise AppError(503, "INSIGHT_RUN_UNAVAILABLE", "分析运行的来源信息无法读取，请重新采集仓库数据") from exc
     source = sources.get(module) if isinstance(sources, dict) else None
-    if not isinstance(source, dict) or source.get("coverage") != "complete":
+    if not isinstance(source, dict) or source.get("coverage") not in {"complete", "partial", "budget_exhausted"}:
         return False
-    if source.get("limit_reached") or source.get("rejected_records", 0) or source.get("invalid_event_times", 0):
+    if source.get("coverage") == "complete" and (source.get("limit_reached") or source.get("rejected_records", 0) or source.get("invalid_event_times", 0)):
         return False
     interval = source.get("requested_interval")
     if interval is None:
@@ -108,8 +117,23 @@ def _covered(session, run, metric, module, event_type, time_field):
     return updated_later is None
 
 
+def _score_input(metric_name, value):
+    return math.log1p(value) if metric_name == "commits_weekly_mean" else value
+
+
+def _relative_score(metric_name, value, low, high):
+    if low == high:
+        return 0.5
+    score = (_score_input(metric_name, value) - low) / (high - low)
+    return 1 - score if CRITERIA[metric_name][3] == "lower" else score
+
+
 def selection_report(session, body):
     comparison = compare_insights(session, body.repository_ids, "same_period", body.window_days)
+    shared_window_reason = None
+    if comparison["comparison_basis"]["status"] != "comparable":
+        shared_window_reason = comparison["comparison_basis"].get("reason") or "没有可用的共同观察窗口。"
+        comparison = compare_insights(session, body.repository_ids, "individual_periods", body.window_days)
     from backend.app.services.maintenance import maintenance_observation
     maintenance_rows = []
     for row in comparison['repositories']:
@@ -131,17 +155,19 @@ def selection_report(session, body):
     raw_weights = {name: value for name, value in body.weights.model_dump().items() if value > 0}
     total = sum(raw_weights.values())
     weights = {name: value / total for name, value in raw_weights.items()}
-    result = {"status": "insufficient_data", "method": "rule_based", "scenario": body.scenario,
-              "candidate_group": body.candidate_group, "comparison_basis": comparison["comparison_basis"],
+    result = {"status": "insufficient_data", "method": "rule_based", "scoring_version": SCORING_VERSION,
+              "scenario": body.scenario or "自定义权重对比",
+              "candidate_group": body.candidate_group or "当前所选仓库", "comparison_basis": comparison["comparison_basis"],
               "weights": weights, "ranking": [], "excluded": [], "sensitivity": [],
               "maintenance": {'common_window': common_window, 'data_as_of': comparison.get('course_snapshot_as_of'), 'repositories': maintenance_rows},
-              "notes": ["只比较使用者确认用途相近的候选；规则排序不是采用成功概率。",
-                        "缺失、不满足硬约束或覆盖不足的候选不参与评分。",
+              "notes": ["直接比较当前选择的候选；综合分是规则结果，不是采用成功概率。",
+                        "未满足语言或许可证硬约束的候选不参与评分；缺少有效样本的指标按中性 50 分计入，不代表该仓库的实际表现。",
+                        "历史快照的部分覆盖指标按已观察样本计算。",
+                        "综合分为当前候选间的相对分（0–100），不是成功概率；每周 Commit 先做 log(1+x) 后归一化，耗时类指标按低值优先归一化。",
                         "归一化分数随候选集合与权重变化；Release 使用单独的 365 天窗口。",
                         f"历史指标口径：{comparison['metric_version']}；ML 结果只作维护行为证据，不参与排序。"]}
-    if comparison["comparison_basis"]["status"] != "comparable":
-        result["notes"].append(comparison["comparison_basis"].get("reason") or "没有可比较的共同时间范围。")
-        return result
+    if shared_window_reason:
+        result["notes"].append(f"{shared_window_reason} 综合分改用各仓库自身观察窗口，不代表同期表现；没有有效值的单项使用中性 50 分。")
     eligible = []
     languages = {value.casefold() for value in body.allowed_languages}
     licenses = {value.casefold() for value in body.allowed_licenses}
@@ -153,36 +179,49 @@ def selection_report(session, body):
             reasons.append("语言不满足约束或未知")
         if licenses and (not repository.license_spdx or repository.license_spdx.casefold() not in licenses):
             reasons.append("许可证不满足约束或未知")
-        for metric_name in weights:
-            module, event_type, time_field, _ = CRITERIA[metric_name]
-            if not _covered(session, run, row["metrics"][metric_name], module, event_type, time_field):
-                reasons.append(f"{metric_name} 覆盖不足或有效样本不足")
         if reasons:
             result["excluded"].append({"repository_id": repository.repository_id, "full_name": repository.full_name, "reasons": reasons})
         else:
-            eligible.append((repository, run, row))
+            metric_coverage = {}
+            for metric_name in weights:
+                module, event_type, time_field, _ = CRITERIA[metric_name]
+                metric_coverage[metric_name] = _covered(session, run, row["metrics"][metric_name], module, event_type, time_field)
+            eligible.append((repository, run, row, metric_coverage))
     if len(eligible) < 2:
-        result["notes"].append("满足约束且数据可比的仓库不足两个。")
+        result["notes"].append("满足语言和许可证硬约束的候选不足两个。")
         return result
-    bounds = {key: (min(row["metrics"][key]["value"] for _, _, row in eligible),
-                    max(row["metrics"][key]["value"] for _, _, row in eligible)) for key in weights}
-    for repository, run, row in eligible:
+    observed_values = {
+        key: [_score_input(key, row["metrics"][key]["value"])
+              for _, _, row, coverage in eligible if coverage[key]]
+        for key in weights
+    }
+    bounds = {key: (min(values), max(values)) if values else None for key, values in observed_values.items()}
+    for repository, run, row, metric_coverage in eligible:
         evidence = {}
         for key, weight in weights.items():
             metric = row["metrics"][key]
-            low, high = bounds[key]
-            normalized = 0.5 if low == high else (metric["value"] - low) / (high - low)
-            if CRITERIA[key][3] == "lower":
-                normalized = 1 - normalized
-            evidence[key] = {"value": metric["value"], "unit": metric["unit"], "normalized": normalized, "weight": weight,
-                             "contribution": normalized * weight, "valid_samples": metric["valid_samples"],
-                             "window_start": metric["window_start"], "window_end": metric["window_end"],
+            has_value = metric_coverage[key] and metric.get("value") is not None and bounds[key] is not None
+            if has_value:
+                low, high = bounds[key]
+                normalized = _relative_score(key, metric["value"], low, high)
+            else:
+                normalized = 0.5
+            evidence[key] = {"value": metric.get("value") if has_value else None, "unit": metric["unit"], "normalized": normalized, "weight": weight,
+                             "contribution": normalized * weight * 100, "valid_samples": metric.get("valid_samples", 0) if has_value else 0,
+                             "quality": metric.get("quality"),
+                             "window_start": metric.get("window_start") if has_value else None, "window_end": metric.get("window_end") if has_value else None,
                              "source_run_id": metric.get("source_run_id") or (run.run_id if run else None),
-                             "source_kind": metric.get("source_kind") or "online_event_analysis"}
+                             "source_kind": metric.get("source_kind") or "online_event_analysis",
+                             "missing_policy": "observed" if has_value else "neutral_50"}
         result["ranking"].append({"repository_id": repository.repository_id, "full_name": repository.full_name,
                                   "language": repository.language, "license_spdx": repository.license_spdx,
                                   "score": sum(item["contribution"] for item in evidence.values()), "evidence": evidence})
     result["ranking"].sort(key=lambda row: (-row["score"], row["full_name"].casefold()))
+    if any(item.get("quality") == "partial" and item["missing_policy"] == "observed"
+           for row in result["ranking"] for item in row["evidence"].values()):
+        result["notes"].append("部分指标仅反映已观察样本，综合分需结合覆盖状态解读。")
+    if any(item["missing_policy"] == "neutral_50" for row in result["ranking"] for item in row["evidence"].values()):
+        result["notes"].append("缺少有效样本的指标按中性 50 分计算；这只用于保持候选评分口径一致，不代表该仓库实际表现达到中等水平。")
     for criterion in weights:
         changed = {key: value * (1.25 if key == criterion else 1.0) for key, value in raw_weights.items()}
         denominator = sum(changed.values())
@@ -217,12 +256,12 @@ def selection_markdown(result):
     basis = result["comparison_basis"]
     window = basis.get("shared_window") or {}
     lines = ["# 技术候选比较报告", "", f"- 场景：{safe(result['scenario'])}", f"- 同类候选：{safe(result['candidate_group'])}",
-             f"- 方法：可解释规则，不是机器学习预测", f"- 共同观察窗口：{safe(window.get('start', '—'))} 至 {safe(window.get('end', '—'))}",
+             f"- 方法：{safe(result['scoring_version'])} · 相对加权规则（0–100 分），不是机器学习预测", f"- 共同观察窗口：{safe(window.get('start', '—'))} 至 {safe(window.get('end', '—'))}",
              f"- 结果状态：{safe(result['status'])}", "", "## 指标权重", ""]
     data_as_of = result['maintenance'].get('data_as_of')
     if data_as_of:
         lines.insert(6, f"- 课程仓库资料快照截至：{safe(data_as_of)}；周活动窗口仍按各指标行标示")
-    lines.extend(f"- {safe(name)}：{weight:.3f}" for name, weight in result["weights"].items())
+    lines.extend(f"- {safe(name)}：{weight * 100:.1f}%" for name, weight in result["weights"].items())
     lines.extend(["", "## 近期维护行为证据", "",
                   "本节分别呈现近期默认分支提交模式（M1）、最近 4 周实际变化（统计事实）、未来 4 周活动趋势预测（M2）、近期活动异常提示（MAD 规则）与数据口径。",
                   "M1 只描述采集时默认分支最近 12 周的 Commit 模式，不包含 PR、Issue 或社区总体活动判断。",
@@ -299,11 +338,12 @@ def selection_markdown(result):
                          f"暂不提供未来 4 周活动趋势预测（M2）：{safe(forecast_reason)}。")
     lines.extend(["", "## 比较结果", ""])
     for index, row in enumerate(result["ranking"], 1):
-        lines.extend([f"### {index}. {safe(row['full_name'])}", "", f"规则得分：{row['score']:.3f}；语言：{safe(row['language'] or '未知')}；许可证：{safe(row['license_spdx'] or '未知')}。", "",
-                      "| 指标 | 观察值 | 贡献 | 有效样本 | 窗口 | 来源运行 |", "|---|---:|---:|---:|---|---|"])
+        lines.extend([f"### {index}. {safe(row['full_name'])}", "", f"综合分：{row['score']:.1f}/100；语言：{safe(row['language'] or '未知')}；许可证：{safe(row['license_spdx'] or '未知')}。", "",
+                      "| 指标 | 观察值 | 权重 | 单项相对分 | 加权贡献 | 有效样本 | 窗口 | 来源运行 |", "|---|---:|---:|---:|---:|---:|---|---|"])
         for name, evidence in row["evidence"].items():
-            source_label = '课程研究历史快照' if evidence.get('source_kind') == 'course_research_historical_snapshot' else '在线事件分析'
-            lines.append(f"| {safe(name)} | {evidence['value']:.3f} {safe(evidence['unit'])} | {evidence['contribution']:.3f} | {evidence['valid_samples']} 周 | {safe(evidence['window_start'])} — {safe(evidence['window_end'])} | {safe(source_label)} · {safe(evidence['source_run_id'] or '—')} |")
+            source_label = '缺少有效样本，中性计分' if evidence.get('missing_policy') == 'neutral_50' else ('课程研究历史快照' if evidence.get('source_kind') in {'course_research_historical_snapshot', 'course_test_events_v1', 'course-test-events-v1'} else '在线事件分析')
+            observed = f"{evidence['value']:.3f} {safe(evidence['unit'])}" if evidence.get('value') is not None else '无有效样本（中性 50 分）'
+            lines.append(f"| {safe(name)} | {observed} | {evidence['weight'] * 100:.1f}% | {evidence['normalized'] * 100:.1f} | {evidence['contribution']:.1f} | {evidence['valid_samples']} | {safe(evidence.get('window_start') or '—')} — {safe(evidence.get('window_end') or '—')} | {safe(source_label)} · {safe(evidence['source_run_id'] or '—')} |")
         lines.append("")
     if not result["ranking"]:
         lines.extend(["当前没有足够可比较的候选。", ""])
@@ -324,13 +364,25 @@ def selection_markdown(result):
                   "", "## 技术选型辅助结论（规则与证据分别说明）", ""])
     if result["ranking"]:
         first = result["ranking"][0]
-        lines.append(f"在当前场景、候选范围、硬约束和指标权重下，规则排序优先列出 {safe(first['full_name'])}（规则得分 {first['score']:.3f}）。")
-        if first["evidence"]:
+        observed_evidence = {name: evidence for name, evidence in first["evidence"].items() if evidence.get("missing_policy") != "neutral_50"}
+        any_observed_evidence = any(
+            evidence.get("missing_policy") != "neutral_50"
+            for row in result["ranking"] for evidence in row["evidence"].values()
+        )
+        scores_tied = all(row["score"] == first["score"] for row in result["ranking"])
+        if not any_observed_evidence:
+            lines.append("当前选中指标均无有效样本，候选以中性 50 分计分；名称顺序只用于显示，不代表实际表现排名。")
+        elif scores_tied:
+            lines.append(f"当前候选综合分并列（{first['score']:.1f}/100）；名称顺序只控制展示顺序，不表示实际表现优先级。")
+        elif observed_evidence:
+            lines.append(f"在当前候选、硬约束和指标权重下，相对综合分优先列出 {safe(first['full_name'])}（{first['score']:.1f}/100）。")
             reasons = "；".join(
                 f"{safe(name)} {evidence['value']:.3f} {safe(evidence['unit'])}"
-                for name, evidence in first["evidence"].items()
+                for name, evidence in observed_evidence.items()
             )
             lines.append(f"该排序依据当前纳入评分的指标事实：{reasons}。")
+        else:
+            lines.append(f"{safe(first['full_name'])} 当前以 {first['score']:.1f}/100 排列第一，但其加权指标均无有效样本，分数主要来自中性基准，不构成实测表现优势。")
     else:
         lines.append("当前没有足够可比较的候选，不能形成规则排序或技术选型方向。")
     lines.append("M1、M2 与 M3 只作为近期维护行为证据，不参与规则排名；本报告不表示功能适配、代码质量或采用成功率，仍需结合具体需求和许可证判断。")

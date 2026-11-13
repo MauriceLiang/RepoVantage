@@ -1,0 +1,17 @@
+{
+  "checked_at": "2026-11-10T00:29:42.661659+00:00",
+  "new_holdout_size": 75,
+  "intersections": {
+    "historical_300": 0,
+    "holdout_v1": 0,
+    "ml01_unseen": 0,
+    "ml01_shadow": 0
+  },
+  "duplicate_ids": 0,
+  "manifest_sha256": {
+    "holdout_v2": "8c9a468391e16e6174deef8e8c27808787374e9860617188050084c93294f992",
+    "holdout_v1": "67ed1f9530a274c5a7a8aa514427e130c77088fb8cb9b36f5ad047f0fd3882cd",
+    "ml01_unseen": "f8af2c15620d72b5f4655b62fc9d9119468bf92931b6778e103bb20543998ab8",
+    "ml01_shadow": "eedbd8e9a89d132ba8a1dfa2cdc482aefeb95c981353ca90a4b87e19f073c1af"
+  }
+}

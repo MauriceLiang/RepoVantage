@@ -10,7 +10,7 @@ import type { RepositoryAnalysis } from '@/services/types'
 import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
-const { openRelease } = useReleaseDrawer(() => props.analysis.repository.id)
+const { openRelease } = useReleaseDrawer(() => props.analysis.repository.id, () => props.analysis.provenance?.origin === 'course-test-events-v1')
 const cadenceRange = ref<'year' | 'threeYears' | 'all'>('year')
 const cadenceRanges = [
   { value: 'year' as const, label: '近 365 天' },
@@ -132,7 +132,7 @@ function openReleaseByTag(tag: string) {
         <span class="text-[10.5px] text-muted">本地 Release：{{ releaseSpan || '暂无' }}<span v-if="cadenceItems.length > 0 && cadenceItems.length < 5" class="ml-2 rounded bg-warnbg px-1.5 py-0.5 text-warnfg">样本较少</span></span>
       </div>
       <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :height="235" @select="openReleaseByTag" />
-      <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">相邻间隔至少需要 2 次正式发布；当前范围没有可比较的连续版本。</div>
+      <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前范围暂未形成可计算的正式发布间隔。</div>
       <p v-if="cadenceItems.length && !hasCommitCounts" class="mb-0 mt-1 text-[10.5px] text-warnfg">当前没有 Commit 完整覆盖这些发布间隔的数据；提交数不可比较，不代表 0。</p>
       <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">横轴为前版日期 → 新版日期；间隔按本地已采集记录计算，采集不完整时可能跨过遗漏版本。折线只显示 Commit 覆盖完整的区间，点击柱查看新版说明。</p>
       <p class="mb-0 mt-1 text-[10px] text-muted">{{ releaseCoverageNote }}；“全部已采集”不代表 GitHub 全历史。</p>

@@ -11,17 +11,17 @@
 
 ## 分析窗口与派生结果来源
 
-`GET /repositories/{id}/insights?window_days=30|90|180` 默认 90 天。选择最近一个可证明所需长度的运行，以它的 `window_end` 为结束时间，从当前本地去重事件表按左闭右开窗口重新计算；不同仓库不保证结束时间一致。Release 仍以同一结束时间向前 365 天计算。
+`GET /repositories/{id}/insights?window_days=30|90|180` 默认 90 天。默认 300 仓库可直接使用本地历史事件快照；若存在更新且完整的在线采集，则优先使用该采集。其他情况从可用的本地事件表按左闭右开窗口重新计算。Release 仍以同一结束时间向前 365 天计算。
 
 | 字段 | 含义 |
 | --- | --- |
-| `run_id` / `analyzed_at` | 所选覆盖证明运行及该运行的分析时间，未新建持久化快照 |
+| `run_id` / `analyzed_at` | 所选覆盖证明运行及其分析时间；使用历史事件快照时 `run_id` 为空，`analyzed_at` 为快照截止时间 |
 | `source_task_ids` / `source_archive_paths` | 覆盖证明运行关联的任务与归档，并非当前事件全部输入的归档清单 |
-| `calculation_basis` | `current_local_event_store`，本次派生计算读取当前本地事件表 |
+| `calculation_basis` | `current_local_event_store` 表示读取当前本地事件表；`course-test-events-v1` 表示读取 300 仓库本地历史事件快照 |
 | `calculated_at` | 本次计算时间，范围未覆盖时为空 |
-| `event_source_task_ids` | 本次读取事件记录实际对应的来源任务，去重并排序 |
+| `event_source_task_ids` | 本次读取事件记录实际对应的来源任务，去重并排序；历史快照没有关联任务时为空 |
 | `observed_counts` | 所选窗口重新计算的观测计数；Release 计数独立使用近 365 天 |
 
 `window_available` 表示存在所需长度的覆盖证明，不等于所有模块完整。模块质量继续使用覆盖证明运行的覆盖状态，事件存在不能将部分采集升级为完整。完整采集但无事件时保留 0 个事件，未覆盖范围时 `insights` 与 `observed_counts` 为空、任务来源为空。当前事件表保存最新已知对象记录，不是事务一致的历史快照。每次 GET 不写入新运行。
 
-`POST /comparisons/insights` 和活动比较 CSV `/exports/comparison.csv?mode=...` 均接受 `window_days`，默认 90 天。`same_period` 取共同完整 UTC 自然周；耗时与 Release 间隔仍要求观察窗口一致且质量可用。`individual_periods` 使用各自结束时间的所选长度。响应保留未覆盖仓库与缺失原因，未知指标为 null（CSV 空单元格）。不传 `mode` 的基础概况 CSV 仍使用原合同。`/research/insights` 使用各成员最新保存的 run 结果，不受页面全局窗口和当前事件表后续更新影响；冻结的仍是研究成员规则，不是永久锁定运行。
+`POST /comparisons/insights` 和活动比较 CSV `/exports/comparison.csv?mode=...` 均接受 `window_days`，默认 90 天。`same_period` 取共同 UTC 自然周；历史事件的部分覆盖值可按已观察样本参与比较，并保留覆盖标识。`individual_periods` 使用各自结束时间的所选长度。响应保留未覆盖仓库与缺失原因，未知指标为 null（CSV 空单元格）。不传 `mode` 的基础概况 CSV 仍使用原合同。默认 300 仓库的 `/research/insights` 汇总周记录和本地历史事件；正式研究数据集仍使用各成员最新保存的 run 结果。

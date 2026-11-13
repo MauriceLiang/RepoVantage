@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Download, Plus, TriangleAlert, X } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
@@ -10,7 +10,7 @@ import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
-import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, MaintenancePattern, RecentActivityChange, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TimeWindow } from '@/services/types'
+import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, MaintenancePattern, RecentActivityChange, SelectionMetric, SelectionRequest, SelectionResult, TimeWindow } from '@/services/types'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
@@ -42,6 +42,15 @@ const { data, loading, error } = useAsyncData(
 
 const canCompare = computed(() => analysis.compareIds.length >= 2)
 const entries = computed(() => data.value?.entries ?? [])
+const { data: scoringComparison, loading: scoringComparisonLoading, error: scoringComparisonError } = useAsyncData(
+  () => comparisonMode.value === 'same_period' || analysis.compareIds.length < 2
+    ? Promise.resolve(null)
+    : source.getComparison(analysis.compareIds, analysis.timeWindow, 'same_period'),
+  () => [analysis.compareIds.join(','), analysis.timeWindow, comparisonMode.value],
+)
+const selectionBasisEntries = computed(() => comparisonMode.value === 'same_period' ? entries.value : scoringComparison.value?.entries ?? [])
+const selectionBasisLoading = computed(() => comparisonMode.value === 'same_period' ? loading.value : scoringComparisonLoading.value)
+const selectionBasisError = computed(() => comparisonMode.value === 'same_period' ? error.value : scoringComparisonError.value)
 const comparisonBasis = computed(() => data.value?.comparisonBasis)
 const comparisonNotes = computed(() => (data.value?.notes ?? []).filter((note) => !entries.value.some((entry) => entry.windowReason && note === `${entry.label}：${entry.windowReason}`)))
 const short = (label: string) => label.split('/')[1]
@@ -62,10 +71,13 @@ const maintenancePrLabel = (pattern: MaintenancePattern) => pattern.coverage.pul
   : 'PR 覆盖不完整（独立统计）'
 const durationItems = computed(() => entries.value.map((entry) => ({
   label: entry.label,
+  color: entry.color,
   issueP50: entry.issueP50,
   issueSample: entry.issueSample,
+  issueQuality: entry.issueQuality,
   prP50: entry.prP50,
   prSample: entry.prSample,
+  prQuality: entry.prQuality,
 })))
 const missingReason = (quality: string) => ({
   partial: '覆盖不完整',
@@ -75,6 +87,7 @@ const missingReason = (quality: string) => ({
 }[quality] ?? (comparisonMode.value === 'same_period' ? '观察窗口不一致' : '当前口径不可比'))
 const issueMissing = computed(() => entries.value.filter((e) => e.issueP50 === null).map((e) => `${short(e.label)}：${e.windowAvailable ? missingReason(e.issueQuality) : '范围未覆盖'}`))
 const prMissing = computed(() => entries.value.filter((e) => e.prP50 === null).map((e) => `${short(e.label)}：${e.windowAvailable ? missingReason(e.prQuality) : '范围未覆盖'}`))
+const durationReference = computed(() => entries.value[0] ?? null)
 const basisWindowLabel = computed(() => comparisonBasis.value?.sharedWindow
   ? `${comparisonBasis.value.sharedWindow.start.replace('T', ' ').replace('Z', ' UTC')} — ${comparisonBasis.value.sharedWindow.end.replace('T', ' ').replace('Z', ' UTC')}`
   : '无共同窗口')
@@ -87,97 +100,221 @@ const totalCommits = (entry: (typeof entries.value)[number]) => entry.points.len
 const entryWindow = (entry: (typeof entries.value)[number]) => entry.windowStart && entry.windowEnd
   ? `${entry.windowStart} 至 ${entry.windowEnd}`
   : '—'
+const durationQualityLabel = (quality: string, windowAvailable: boolean) => windowAvailable ? missingReason(quality) : '范围未覆盖'
+const durationValueLabel = (value: number | null, samples: number, quality: string, windowAvailable: boolean) => value === null
+  ? `— · ${durationQualityLabel(quality, windowAvailable)} · 有效样本 n=${samples}`
+  : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天 · 有效样本 n=${samples}${quality === 'partial' ? ' · 部分覆盖' : ''}`
+const durationDifferenceLabel = (value: number | null, baselineValue: number | null, quality: string, baselineQuality: string, windowAvailable: boolean, baselineWindowAvailable: boolean) => {
+  if (value === null) return `差值不可用：${durationQualityLabel(quality, windowAvailable)}`
+  if (baselineValue === null) return `差值不可用：参照仓库${durationQualityLabel(baselineQuality, baselineWindowAvailable)}`
+  const difference = value - baselineValue
+  if (difference === 0) return '与参照相同'
+  const percentage = baselineValue === 0 ? null : Math.abs(difference / baselineValue * 100)
+  const direction = difference > 0 ? '更长' : '更短'
+  const percentageLabel = percentage === null ? '' : `（${percentage.toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%）`
+  const partial = quality === 'partial' || baselineQuality === 'partial'
+  return `${partial ? '已观察样本' : ''}比参照${direction} ${Math.abs(difference).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天${percentageLabel}${partial ? '（部分覆盖）' : ''}`
+}
 
-const scenario = ref('')
-const candidateGroup = ref('')
-const candidatesConfirmed = ref(false)
-const languages = ref('')
-const licenses = ref('')
-const weights = reactive<Record<SelectionMetric, number>>({ commits_weekly_mean: 1, issue_median_hours: 0, pr_median_hours: 0, release_interval_days: 0 })
-const selectionMetrics: { key: SelectionMetric; label: string }[] = [
-  { key: 'commits_weekly_mean', label: '每周 Commit（越多越高）' },
-  { key: 'issue_median_hours', label: 'Issue 关闭耗时（越短越高）' },
-  { key: 'pr_median_hours', label: 'PR 合并耗时（越短越高）' },
-  { key: 'release_interval_days', label: 'Release 间隔（越短越高）' },
+const weights = reactive<Record<SelectionMetric, number>>({ commits_weekly_mean: 0, issue_median_hours: 0, pr_median_hours: 0, release_interval_days: 0 })
+const manualWeights = reactive<Record<SelectionMetric, number>>({ ...weights })
+const manualWeightInputOpen = ref(false)
+type WeightPreset = 'balanced' | 'activity' | 'collaboration' | 'release' | 'custom'
+const weightPreset = ref<WeightPreset>('balanced')
+const selectionMetrics: { key: SelectionMetric; label: string; color: string; direction: string }[] = [
+  { key: 'commits_weekly_mean', label: '每周 Commit', color: '#E2683C', direction: '越多越好' },
+  { key: 'issue_median_hours', label: 'Issue 关闭耗时', color: '#CE3F7C', direction: '越短越好' },
+  { key: 'pr_median_hours', label: 'PR 合并耗时', color: '#2E8FCB', direction: '越短越好' },
+  { key: 'release_interval_days', label: 'Release 间隔', color: '#E5A03A', direction: '越短越好' },
 ]
 const selectionLabel = (key: string) => selectionMetrics.find((metric) => metric.key === key)?.label ?? key
-const splitFilter = (value: string) => value.split(/[,，]/).map((item) => item.trim()).filter(Boolean)
 const selectionInput = computed<SelectionRequest>(() => ({
-  repositoryIds: [...analysis.compareIds], scenario: scenario.value.trim(), candidateGroup: candidateGroup.value.trim(), candidatesConfirmed: candidatesConfirmed.value,
-  windowDays: analysis.timeWindow, allowedLanguages: splitFilter(languages.value), allowedLicenses: splitFilter(licenses.value),
-  weights: { ...weights },
+  repositoryIds: [...analysis.compareIds], scenario: '自定义权重对比', candidateGroup: '当前所选仓库', candidatesConfirmed: true,
+  windowDays: analysis.timeWindow, allowedLanguages: [], allowedLicenses: [],
+  weights: Object.fromEntries(selectionMetrics.map((metric) => [metric.key, weights[metric.key] / 10])) as Record<SelectionMetric, number>,
 }))
 const selectionKey = computed(() => JSON.stringify(selectionInput.value))
+const weightsReady = computed(() => {
+  const selected = analysis.compareIds
+  return !selectionBasisLoading.value && selected.length >= 2 && selected.every((id) => selectionBasisEntries.value.some((entry) => entry.id === id))
+})
+const metricReadiness = computed(() => Object.fromEntries(selectionMetrics.map((metric) => {
+  const ready = selectionBasisEntries.value.filter((entry) => {
+    if (!entry.windowAvailable) return false
+    if (metric.key === 'commits_weekly_mean') return entry.coverage.state === 'complete' && entry.points.length > 0 && entry.points.every((point) => point.value !== null)
+    if (metric.key === 'issue_median_hours') return entry.issueP50 !== null && ['ready', 'partial'].includes(entry.issueQuality) && entry.issueSample >= 1
+    if (metric.key === 'pr_median_hours') return entry.prP50 !== null && ['ready', 'partial'].includes(entry.prQuality) && entry.prSample >= 1
+    return entry.releaseMedianDays !== null && ['ready', 'partial'].includes(entry.releaseQuality)
+  }).length
+  const partial = selectionBasisEntries.value.filter((entry) =>
+    metric.key === 'issue_median_hours' ? entry.issueP50 !== null && entry.issueQuality === 'partial'
+      : metric.key === 'pr_median_hours' ? entry.prP50 !== null && entry.prQuality === 'partial'
+        : metric.key === 'release_interval_days' && entry.releaseMedianDays !== null && entry.releaseQuality === 'partial',
+  ).length
+  const total = analysis.compareIds.length
+  return [metric.key, { ready, total, partial, comparableForAll: total > 0 && ready === total }]
+})) as Record<SelectionMetric, { ready: number; total: number; partial: number; comparableForAll: boolean }>)
+const availableMetricCount = computed(() => selectionMetrics.filter((metric) => metricReadiness.value[metric.key].comparableForAll).length)
+const totalWeight = computed(() => selectionMetrics.reduce((sum, metric) => sum + weights[metric.key], 0))
+const manualWeightTotal = computed(() => selectionMetrics.reduce((sum, metric) => {
+  const value = Number(manualWeights[metric.key])
+  return Number.isFinite(value) ? sum + value : Number.NaN
+}, 0))
+const manualWeightsValid = computed(() => selectionMetrics.every((metric) => {
+  const value = Number(manualWeights[metric.key])
+  return Number.isFinite(value) && value >= 0 && value <= 100
+}) && Math.abs(manualWeightTotal.value - 100) < 0.005)
+const activeWeightCount = computed(() => selectionMetrics.filter((metric) => weights[metric.key] > 0).length)
+const weightShare = (key: SelectionMetric) => totalWeight.value > 0 ? weights[key] / totalWeight.value * 100 : 0
+const formatWeight = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
+const weightGradient = computed(() => {
+  if (totalWeight.value <= 0) return 'conic-gradient(var(--gd-track) 0% 100%)'
+  let current = 0
+  const stops = selectionMetrics.filter((metric) => weights[metric.key] > 0).map((metric) => {
+    const next = current + weightShare(metric.key)
+    const stop = `${metric.color} ${current.toFixed(3)}% ${next.toFixed(3)}%`
+    current = next
+    return stop
+  })
+  return `conic-gradient(from -90deg, ${stops.join(', ')})`
+})
+const weightsInitializedFor = ref('')
+watch(
+  () => [analysis.compareIds.join(','), selectionBasisEntries.value.map((entry) => entry.id).join(','), selectionBasisLoading.value] as const,
+  ([compareKey, loadedIds, isLoading]) => {
+    if (!compareKey || isLoading || !weightsReady.value || weightsInitializedFor.value === compareKey) return
+    const loadedSet = new Set(loadedIds.split(',').filter(Boolean))
+    if (!compareKey.split(',').every((id) => loadedSet.has(id))) return
+    selectionMetrics.forEach((metric) => { weights[metric.key] = 0 })
+    const initialMetrics = selectionMetrics
+    const equalShare = initialMetrics.length ? 100 / initialMetrics.length : 0
+    initialMetrics.forEach((metric, index) => {
+      weights[metric.key] = index === initialMetrics.length - 1 ? 100 - equalShare * index : equalShare
+    })
+    syncManualWeights()
+    weightsInitializedFor.value = compareKey
+    weightPreset.value = 'balanced'
+  },
+  { immediate: true },
+)
+const weightPresetOptions: { key: Exclude<WeightPreset, 'custom'>; label: string }[] = [
+  { key: 'balanced', label: '均衡' },
+  { key: 'activity', label: '开发活跃' },
+  { key: 'collaboration', label: '协作效率' },
+  { key: 'release', label: '发布节奏' },
+]
+function applyWeightPreset(preset: Exclude<WeightPreset, 'custom'>) {
+  if (!weightsReady.value) return
+  weightPreset.value = preset
+  selectionMetrics.forEach((metric) => { weights[metric.key] = 0 })
+  if (preset === 'balanced') selectionMetrics.forEach((metric) => { weights[metric.key] = 5 })
+  else if (preset === 'activity') weights.commits_weekly_mean = 10
+  else if (preset === 'collaboration') {
+    weights.issue_median_hours = 5
+    weights.pr_median_hours = 5
+  } else weights.release_interval_days = 10
+  normalizeConfiguredWeights()
+  syncManualWeights()
+}
+function normalizeConfiguredWeights() {
+  const configured = selectionMetrics.filter((metric) => weights[metric.key] > 0)
+  const total = configured.reduce((sum, metric) => sum + weights[metric.key], 0)
+  let assigned = 0
+  configured.forEach((metric, index) => {
+    const share = index === configured.length - 1 ? 100 - assigned : weights[metric.key] / total * 100
+    weights[metric.key] = share
+    assigned += share
+  })
+}
+function syncManualWeights() {
+  selectionMetrics.forEach((metric) => { manualWeights[metric.key] = weights[metric.key] })
+}
+function updateMetricWeight(key: SelectionMetric, event: Event) {
+  const requestedWeight = Math.max(0, Math.min(100, Number((event.target as HTMLInputElement).value)))
+  const siblings = selectionMetrics.filter((metric) => metric.key !== key)
+  weights[key] = requestedWeight
+  if (!siblings.length) {
+    weights[key] = 100
+  } else {
+    const remaining = 100 - requestedWeight
+    const siblingTotal = siblings.reduce((sum, metric) => sum + weights[metric.key], 0)
+    let assigned = 0
+    siblings.forEach((metric, index) => {
+      const proportion = siblingTotal > 0 ? weights[metric.key] / siblingTotal : 1 / siblings.length
+      const share = index === siblings.length - 1 ? remaining - assigned : remaining * proportion
+      weights[metric.key] = share
+      assigned += share
+    })
+  }
+  weightPreset.value = 'custom'
+  syncManualWeights()
+}
+function toggleManualWeightInput() {
+  if (!manualWeightInputOpen.value) syncManualWeights()
+  manualWeightInputOpen.value = !manualWeightInputOpen.value
+}
+function applyManualWeights() {
+  if (!manualWeightsValid.value) return
+  selectionMetrics.forEach((metric) => { weights[metric.key] = Number(manualWeights[metric.key]) })
+  const lastMetric = selectionMetrics[selectionMetrics.length - 1]
+  if (lastMetric) {
+    weights[lastMetric.key] = 100 - selectionMetrics.slice(0, -1).reduce((sum, metric) => sum + weights[metric.key], 0)
+  }
+  weightPreset.value = 'custom'
+  syncManualWeights()
+  manualWeightInputOpen.value = false
+}
+const scorePercent = (score: number) => Math.max(0, Math.min(100, score))
 const selectionResult = ref<SelectionResult | null>(null)
 const selectionLoading = ref(false)
 const selectionError = ref<string | null>(null)
-const feedback = ref<SelectionFeedback[]>([])
-const feedbackChoice = ref('')
-const feedbackKind = ref<SelectionFeedback['choiceKind'] | ''>('')
-const feedbackReason = ref('')
-const feedbackConsent = ref(false)
-const feedbackBusy = ref(false)
-const feedbackMessage = ref<string | null>(null)
+const selectionContextKey = computed(() => JSON.stringify({ repositoryIds: analysis.compareIds, windowDays: analysis.timeWindow }))
+const selectionResultContextKey = ref('')
+const selectionResultInputKey = ref('')
+const selectionResultIsStale = computed(() => !!selectionResult.value && selectionResultInputKey.value !== selectionKey.value)
 let selectionRequestId = 0
-watch(() => [analysis.compareIds.join(','), scenario.value, candidateGroup.value], () => { candidatesConfirmed.value = false })
+let selectionTimer: ReturnType<typeof setTimeout> | null = null
 watch(selectionKey, () => {
-  selectionRequestId++; selectionResult.value = null; selectionError.value = null; selectionLoading.value = false
-  feedbackChoice.value = ''; feedbackKind.value = ''; feedbackReason.value = ''; feedbackConsent.value = false; feedbackMessage.value = null
+  selectionRequestId++
+  if (selectionResultContextKey.value !== selectionContextKey.value) {
+    selectionResult.value = null
+    selectionResultContextKey.value = ''
+    selectionResultInputKey.value = ''
+  }
+  selectionError.value = null
+  selectionLoading.value = false
+  if (selectionTimer) clearTimeout(selectionTimer)
+  selectionTimer = null
+  if (!weightsReady.value || totalWeight.value <= 0) return
+  selectionLoading.value = true
+  selectionTimer = setTimeout(() => {
+    selectionTimer = null
+    void generateSelection()
+  }, 350)
 })
 
-async function loadFeedback() {
-  try { feedback.value = await source.listSelectionFeedback() }
-  catch (cause) { feedbackMessage.value = cause instanceof Error ? cause.message : '无法读取本机反馈' }
-}
-onMounted(loadFeedback)
-
-async function saveFeedback() {
-  if (feedbackBusy.value) return
-  if (!selectionResult.value || !feedbackChoice.value || !feedbackKind.value || !feedbackConsent.value) {
-    feedbackMessage.value = '请选择候选、反馈类型并勾选同意后再保存。'; return
-  }
-  feedbackBusy.value = true
-  feedbackMessage.value = null
-  try {
-    const saved = await source.saveSelectionFeedback(selectionInput.value, selectionResult.value.resultSignature, feedbackChoice.value, feedbackKind.value, feedbackReason.value)
-    feedback.value = [saved, ...feedback.value]
-    feedbackConsent.value = false
-    feedbackMessage.value = '已保存到本机，待人工复核。'
-  } catch (cause) { feedbackMessage.value = cause instanceof Error ? cause.message : '保存反馈失败' }
-  finally { feedbackBusy.value = false }
-}
-
-async function removeFeedback(id: string) {
-  if (feedbackBusy.value) return
-  feedbackBusy.value = true
-  feedbackMessage.value = null
-  try { await source.deleteSelectionFeedback(id); feedback.value = feedback.value.filter((item) => item.id !== id); feedbackMessage.value = '已删除本机反馈。' }
-  catch (cause) { feedbackMessage.value = cause instanceof Error ? cause.message : '删除反馈失败' }
-  finally { feedbackBusy.value = false }
-}
+onBeforeUnmount(() => { if (selectionTimer) clearTimeout(selectionTimer) })
 
 async function generateSelection() {
   const input = selectionInput.value
-  if (!input.scenario || !input.candidateGroup) { selectionError.value = '请填写使用场景和确认可替代的候选类别。'; return }
-  if (!input.candidatesConfirmed) { selectionError.value = '请确认所有候选适用于同一类需求。'; return }
-  if (Object.values(input.weights).some((value) => !Number.isFinite(value) || value < 0) || !Object.values(input.weights).some((value) => value > 0)) {
-    selectionError.value = '指标权重须为非负数，且至少一个权重大于零。'; return
+  if (Object.values(input.weights).some((value) => !Number.isFinite(value) || value < 0 || value > 10) || !Object.values(input.weights).some((value) => value > 0)) {
+    selectionError.value = '请至少给一个指标设置大于 0 的权重。'; return
   }
   const current = ++selectionRequestId
   selectionLoading.value = true
   selectionError.value = null
   try {
     const result = await source.getSelection(input)
-    if (current === selectionRequestId) selectionResult.value = result
+    if (current === selectionRequestId) {
+      selectionResult.value = result
+      selectionResultContextKey.value = selectionContextKey.value
+      selectionResultInputKey.value = selectionKey.value
+    }
   } catch (cause) {
     if (current === selectionRequestId) selectionError.value = cause instanceof Error ? cause.message : '生成比较失败'
   } finally {
     if (current === selectionRequestId) selectionLoading.value = false
   }
-}
-
-function downloadSelection() {
-  if (selectionResult.value?.reportMarkdown) downloadBlob(new Blob([selectionResult.value.reportMarkdown], { type: 'text/markdown;charset=utf-8' }), 'repovantage-selection.md')
 }
 
 async function exportComparison() {
@@ -246,6 +383,189 @@ async function exportComparison() {
       <span>{{ error ?? comparisonNotes.join(' ') }}</span>
     </div>
 
+    <GdCard data-testid="selection-report">
+      <section class="space-y-4">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="space-y-1">
+            <h3 class="m-0 text-[15.5px] font-semibold">权重与综合分</h3>
+            <p class="m-0 text-[12px] leading-relaxed text-muted">拖动指标权重，系统会按已采集数据自动计算候选排名。</p>
+          </div>
+        </header>
+
+        <div class="grid min-w-0 gap-4 rounded-lg border border-line bg-soft/20 p-3 sm:p-4 lg:grid-cols-[190px_minmax(0,1fr)]">
+          <div class="flex flex-col items-center justify-center gap-2">
+            <div class="relative size-36 rounded-full p-[13px]" :style="{ background: weightGradient }" role="img" :aria-label="`当前权重分布，${activeWeightCount} 项指标参与`" data-testid="weight-donut">
+              <div class="flex size-full flex-col items-center justify-center rounded-full bg-panel text-center">
+                <strong class="text-[22px] leading-none">{{ activeWeightCount }}</strong>
+                <span class="mt-1 text-[11px] text-muted">项指标参与</span>
+                <span class="mt-1 font-mono text-[10px] text-muted">总权重 {{ formatWeight(totalWeight) }}%</span>
+              </div>
+            </div>
+            <p class="m-0 text-center text-[10.5px] text-muted">环图表示归一化后的权重占比</p>
+          </div>
+
+          <div class="min-w-0 space-y-3">
+            <div class="flex flex-wrap items-center gap-2" role="group" aria-label="权重预设">
+              <button v-for="preset in weightPresetOptions" :key="preset.key" type="button" :disabled="!weightsReady" :aria-pressed="weightPreset === preset.key" class="rounded-md border px-2.5 py-1.5 text-[11.5px] transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-45" :class="weightPreset === preset.key ? 'border-[var(--gd-primary-button)] bg-soft font-semibold text-ink' : 'border-line bg-panel text-muted hover:text-ink'" @click="applyWeightPreset(preset.key)">{{ preset.label }}</button>
+              <span v-if="weightPreset === 'custom'" class="text-[11px] text-muted">自定义</span>
+              <button type="button" class="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-45" :disabled="!weightsReady" :aria-expanded="manualWeightInputOpen" data-testid="manual-weight-toggle" @click="toggleManualWeightInput">{{ manualWeightInputOpen ? '收起手动输入' : '手动输入' }}</button>
+            </div>
+
+            <div v-if="manualWeightInputOpen" class="space-y-3 rounded-md border border-line bg-panel p-3" data-testid="manual-weight-editor">
+              <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
+                <p class="m-0 text-muted">填写各项百分比，权重合计必须为 100%。</p>
+                <span class="font-mono text-ink">当前合计 {{ formatWeight(manualWeightTotal) }}%</span>
+              </div>
+              <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <label v-for="metric in selectionMetrics" :key="metric.key" class="min-w-0 space-y-1 text-[10.5px] text-muted" :data-testid="`manual-weight-field-${metric.key}`">
+                  <span>{{ metric.label }}</span>
+                  <span class="flex items-center gap-2">
+                    <input v-model.number="manualWeights[metric.key]" type="number" min="0" max="100" step="any" :aria-label="`${metric.label}百分比权重`" :disabled="!weightsReady" class="block w-full min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] text-ink disabled:cursor-not-allowed disabled:opacity-50" :data-testid="`manual-weight-input-${metric.key}`" />
+                    <span>%</span>
+                  </span>
+                </label>
+              </div>
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-[10.5px]" :class="manualWeightsValid ? 'text-muted' : 'text-warnfg'" role="status" aria-live="polite">{{ manualWeightsValid ? '权重合计为 100%，可以应用。' : '请调整输入值，使权重合计为 100%。' }}</span>
+                <button type="button" class="rounded-md bg-[var(--gd-primary-button)] px-3 py-1.5 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-45" :disabled="!weightsReady || !manualWeightsValid" data-testid="apply-manual-weights" @click="applyManualWeights">应用权重</button>
+              </div>
+            </div>
+
+            <fieldset class="m-0 grid min-w-0 gap-2 border-0 p-0">
+              <legend class="sr-only">拖动每项指标的权重</legend>
+              <label v-for="metric in selectionMetrics" :key="metric.key" class="block min-w-0 rounded-md border border-line bg-panel px-3 py-2.5" :data-testid="`weight-metric-${metric.key}`">
+                <span class="flex min-w-0 items-center justify-between gap-2">
+                  <span class="flex min-w-0 items-center gap-2 text-[12px] font-medium text-ink">
+                    <i class="size-2.5 shrink-0 rounded-full" :style="{ background: metric.color }" aria-hidden="true" />
+                    <span class="truncate">{{ metric.label }}</span>
+                    <span class="shrink-0 text-[10px] font-normal text-muted">{{ metric.direction }}</span>
+                  </span>
+                  <span class="shrink-0 font-mono text-[11px] text-ink">{{ formatWeight(weightShare(metric.key)) }}%</span>
+                </span>
+                <span class="mt-1.5 flex items-center gap-3">
+                  <input :value="weights[metric.key]" :aria-label="`${metric.label}权重`" :aria-valuetext="`${formatWeight(weights[metric.key])}% 权重`" :disabled="!weightsReady" type="range" min="0" max="100" step="any" class="h-2 min-w-0 flex-1 cursor-pointer disabled:cursor-not-allowed" :style="{ accentColor: metric.color }" @input="updateMetricWeight(metric.key, $event)" />
+                  <span class="w-12 shrink-0 text-right font-mono text-[10.5px] text-muted">{{ formatWeight(weights[metric.key]) }}/100</span>
+                </span>
+                <span class="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-muted">
+                  <span>{{ weightsReady ? metricReadiness[metric.key].ready : '—' }}/{{ metricReadiness[metric.key].total }} 仓库有可用数据</span>
+                  <span v-if="!weightsReady">等待数据</span>
+                  <span v-else-if="metricReadiness[metric.key].ready === 0">暂无可计算数据</span>
+                  <span v-else-if="metricReadiness[metric.key].ready < metricReadiness[metric.key].total">{{ metricReadiness[metric.key].total - metricReadiness[metric.key].ready }} 个仓库无有效值，按中性 50 分计</span>
+                  <span v-else-if="metricReadiness[metric.key].partial">含部分覆盖样本，按已观察数据计分</span>
+                  <span v-else>所选仓库均可比</span>
+                </span>
+              </label>
+            </fieldset>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-soft/40 px-3 py-2 text-[11px] leading-relaxed text-muted">
+          <span>四项权重始终合计 100%；拖动一项后其余三项按现有比例分摊。无有效值的单项按中性 50 分计入并明确标注，不作为实际表现事实；部分覆盖按已观察数据计分。调整只重算本地数据。</span>
+          <span v-if="selectionBasisLoading" role="status" aria-live="polite">正在读取同期数据…</span>
+          <span v-else-if="selectionLoading" role="status" aria-live="polite">正在更新综合分…</span>
+          <span v-else-if="selectionResult?.status === 'available'" role="status" aria-live="polite">已按当前权重自动计算</span>
+          <span v-else-if="availableMetricCount === 0">当前没有实测指标，综合分按中性基准显示</span>
+          <span v-else-if="totalWeight === 0">为可用指标分配权重，合计须为 100%</span>
+          <span v-else>权重变化后自动更新</span>
+        </div>
+        <p v-if="selectionBasisError" class="m-0 text-[12px] text-warnfg" role="alert">无法读取综合分所需的同期数据：{{ selectionBasisError }}</p>
+        <p v-if="selectionError" class="m-0 text-[12px] text-warnfg" role="alert">综合分更新失败：{{ selectionError }}</p>
+
+        <section class="space-y-2 rounded-md border border-line px-3 py-2.5" data-testid="selection-scoring-explanation">
+          <h4 class="m-0 text-[11.5px] font-medium">评分说明</h4>
+          <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前候选中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
+          <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。某仓库缺少有效样本时该项按中性 50 分计入，避免把未知数据误算成 0 分或删除仓库；此分只为让候选保持可比较，不代表实际表现。部分覆盖按已观察样本计算。</p>
+        </section>
+
+        <div v-if="selectionResult || selectionLoading" class="space-y-3 border-t border-line pt-4 text-[12px]" :aria-busy="selectionLoading" data-testid="selection-result">
+          <div v-if="selectionLoading" key="ranking-loading" class="space-y-3" role="status" aria-live="polite" aria-label="正在按当前权重更新综合排名">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h4 class="m-0 text-[13px] font-semibold">综合排名</h4>
+                <p class="mb-0 mt-1 text-[10.5px] text-muted">正在按当前权重重新计算…</p>
+              </div>
+              <span class="h-5 w-16 animate-pulse rounded bg-track/60 motion-reduce:animate-none" aria-hidden="true" />
+            </div>
+            <div v-for="repositoryId in analysis.compareIds" :key="repositoryId" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" aria-hidden="true">
+              <div class="flex items-center gap-2.5">
+                <span class="size-7 shrink-0 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
+                <span class="h-4 w-44 max-w-[55%] animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
+                <span class="ml-auto h-7 w-16 animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
+              </div>
+              <div class="h-2 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
+              <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <div v-for="metric in selectionMetrics" :key="metric.key" class="h-[58px] animate-pulse rounded-md bg-track/50 motion-reduce:animate-none" />
+              </div>
+            </div>
+          </div>
+          <div v-else-if="selectionResult" key="ranking-result" class="space-y-3" aria-live="polite">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h4 class="m-0 text-[13px] font-semibold">综合排名</h4>
+              <p v-if="selectionResult.sharedWindow" class="mb-0 mt-1 text-[10.5px] text-muted">共同窗口：{{ selectionResult.sharedWindow.start.slice(0, 10) }} 至 {{ selectionResult.sharedWindow.end.slice(0, 10) }} UTC</p>
+              <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">按各仓库自身可用窗口计分，时间范围不同，不代表同期表现。</p>
+            </div>
+            <GdBadge v-if="selectionResultIsStale" variant="warn">上次结果</GdBadge>
+            <GdBadge v-else :variant="selectionResult.status === 'available' ? 'default' : 'warn'">{{ selectionResult.status === 'available' ? '可比较' : '筛选未通过' }}</GdBadge>
+          </div>
+          <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">语言或许可证筛选后候选不足两个，请调整筛选条件。</p>
+          <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" :data-testid="`selection-score-${row.id}`">
+            <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-2.5">
+                <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold">{{ index + 1 }}</span>
+                <div class="min-w-0">
+                  <h5 class="m-0 break-all text-[13px] font-semibold">{{ row.name }}</h5>
+                  <p class="mb-0 mt-1 text-[10.5px] text-muted">{{ row.evidence.length }} 项指标参与 · 当前候选中的相对分</p>
+                </div>
+              </div>
+              <div class="shrink-0 text-right">
+                <strong class="font-mono text-[25px] leading-none">{{ row.score.toFixed(1) }}</strong>
+                <span class="ml-1 text-[11px] text-muted">/100</span>
+              </div>
+            </div>
+            <div class="h-2 overflow-hidden rounded-full bg-track" role="progressbar" :aria-label="`${row.name} 综合分`" :aria-valuenow="scorePercent(row.score)" aria-valuemin="0" aria-valuemax="100">
+              <div class="h-full rounded-full bg-[var(--gd-primary-button)] transition-[width] duration-300 motion-reduce:transition-none" :style="{ width: `${scorePercent(row.score)}%` }" />
+            </div>
+            <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <div v-for="item in row.evidence" :key="item.metric" class="min-w-0 rounded-md bg-soft/35 px-2.5 py-2">
+                <p class="m-0 flex min-w-0 items-center justify-between gap-2 text-[10.5px] text-muted">
+                  <span class="truncate">{{ selectionLabel(item.metric) }}{{ item.missingPolicy === 'neutral_50' ? ' · 无有效样本' : item.quality === 'partial' ? ' · 部分覆盖' : '' }}</span>
+                  <span class="shrink-0 font-mono">权重 {{ formatWeight(item.weight * 100) }}%</span>
+                </p>
+                <p class="mb-0 mt-1 break-words font-mono text-[12px] font-medium text-ink">{{ item.value === null ? '中性 50 分（无样本）' : `${item.value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${item.unit}` }}</p>
+                <p class="mb-0 mt-1 text-[10px] text-muted">单项 {{ (item.normalized * 100).toFixed(0) }} 分 · 贡献 {{ item.contribution.toFixed(1) }} 分</p>
+              </div>
+            </div>
+          </div>
+          <div v-if="selectionResult.excluded.length" class="space-y-1 rounded-md bg-warnbg px-3 py-2.5 text-[11px] text-warnfg" data-testid="selection-excluded">
+            <p class="m-0 font-medium">未参与排名</p>
+            <p v-for="item in selectionResult.excluded" :key="item.id" class="m-0 break-words">{{ item.name }}：{{ item.reasons.join('；') }}</p>
+          </div>
+          <details v-if="selectionResult.maintenance.repositories.length" class="rounded-md border border-line px-3 py-2.5" data-testid="selection-maintenance">
+            <summary class="cursor-pointer text-[11.5px] font-medium">近期维护行为与预测证据（不参与综合分）</summary>
+            <p v-if="selectionResult.maintenance.dataAsOf" class="mb-2 mt-2 text-[10.5px] text-muted">课程仓库资料来自历史快照，截至 {{ selectionResult.maintenance.dataAsOf }}。</p>
+            <div v-for="item in selectionResult.maintenance.repositories" :key="item.id" class="space-y-1 border-t border-line py-2 text-[10.5px] leading-relaxed text-muted">
+              <p class="m-0 font-medium text-ink">{{ item.name }}<GdBadge v-if="item.sampleRole" class="ml-2" variant="plain">{{ item.sampleRole === 'train' ? '训练组' : '测试组' }}</GdBadge> · {{ maintenancePatternLabel(item.pattern) }}</p>
+              <template v-if="Object.keys(item.pattern.evidence).length">
+                <p v-if="item.pattern.coverage.commits === 'partial'" class="m-0">Commit 覆盖不完整：已观察到 {{ item.pattern.evidence.commit_observed_partial_lower_bound ?? '—' }} 次（下限）；分页 {{ item.pattern.evidence.commit_pages_fetched ?? '—' }}/{{ item.pattern.evidence.commit_page_budget ?? '—' }} 页，请求估算 {{ item.pattern.evidence.github_request_estimate ?? '—' }} 次。</p>
+                <p v-else class="m-0">默认分支 Commit {{ item.pattern.evidence.commit_total_12w ?? item.pattern.evidence.commit_total_window ?? '—' }} · {{ item.pattern.windowWeeks }} 个完整周。</p>
+                <p class="m-0">{{ maintenancePrLabel(item.pattern) }}<span v-if="item.pattern.evidence.commit_total_12w === 0 && item.pattern.coverage.pull_requests_created === 'complete' && (item.pattern.evidence.pr_created_total_12w ?? 0) > 0">；0 Commit 不表示没有 PR 或社区协作活动</span></p>
+                <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
+                <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
+                <p class="m-0">异常提示：{{ item.activityAnomaly.method === 'statistical_baseline' ? `MAD 规则${item.activityAnomaly.suspected ? '疑似偏离，待核查' : '未标记'}` : `未运行（${item.activityAnomaly.reasonCode ?? item.activityAnomaly.status}）` }} · 窗口 {{ item.pattern.historyStart ?? '—' }} 至 {{ item.pattern.asOf ?? '—' }} · 来源 {{ item.pattern.sourceRunId ?? '—' }}</p>
+              </template>
+              <template v-else>
+                <p class="m-0">Commit 事实证据不足（{{ item.pattern.reasonCode ?? '未采集' }}）。</p>
+                <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
+                <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
+              </template>
+            </div>
+          </details>
+          </div>
+        </div>
+      </section>
+    </GdCard>
+
     <GdCard>
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -270,20 +590,80 @@ async function exportComparison() {
     </GdCard>
 
     <GdCard>
-      <div class="flex items-start justify-between gap-3">
+      <div>
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
-          <p class="mt-0.5 text-[12px] text-muted">哑铃线连接同一仓库的 Issue 与 PR P50 · 同一“天”刻度 · 点间距离表示耗时差</p>
+          <p class="mt-0.5 text-[12px] leading-relaxed text-muted">按处理事项分行、按仓库分色；柱长直接比较同一指标。差值以第一个仓库为参照，正负方向描述耗时变化。</p>
+        </div>
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted" aria-label="仓库颜色图例">
+          <span v-for="entry in entries" :key="entry.id" class="inline-flex min-w-0 items-center gap-1.5">
+            <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+            <span class="break-all">{{ entry.label }}</span>
+            <GdBadge v-if="entry.id === durationReference?.id" variant="plain">参照</GdBadge>
+          </span>
         </div>
       </div>
-      <ComparisonDurationChart :items="durationItems" :height="260" />
-      <div class="flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-muted">
-        <span v-for="entry in entries.filter((item) => item.issueP50 !== null || item.prP50 !== null)" :key="entry.id">
-          {{ short(entry.label) }} · Issue n={{ entry.issueSample }} / PR n={{ entry.prSample }}
-        </span>
-        <span v-if="issueMissing.length" class="text-warnfg">Issue 缺失：{{ issueMissing.join(' / ') }}。</span>
-        <span v-if="prMissing.length" class="text-warnfg">PR 缺失：{{ prMissing.join(' / ') }}。</span>
+      <ComparisonDurationChart v-if="entries.some((entry) => entry.issueP50 !== null || entry.prP50 !== null)" :items="durationItems" :height="216" />
+      <p v-else class="py-6 text-center text-[12px] text-muted">当前选择的仓库没有可比较的 Issue 或 PR 处理耗时。</p>
+      <p v-if="entries.some((entry) => (entry.issueP50 !== null && entry.issueQuality === 'partial') || (entry.prP50 !== null && entry.prQuality === 'partial'))" class="m-0 text-[11px] text-muted">浅色条表示部分覆盖，数值依据已观察样本计算。</p>
+      <div v-if="durationReference" class="hidden min-w-0 overflow-x-auto overscroll-x-contain rounded-md border border-line sm:block">
+        <table class="hidden w-full min-w-[650px] border-collapse text-[11.5px] sm:table" data-testid="duration-comparison-values">
+          <thead>
+            <tr class="bg-soft/50 text-left text-[10.5px] text-muted">
+              <th class="px-3 py-2 font-medium">仓库</th>
+              <th class="px-3 py-2 font-medium">Issue 关闭 P50</th>
+              <th class="px-3 py-2 font-medium">PR 合并 P50</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(entry, index) in entries" :key="entry.id" class="border-t border-line align-top">
+              <td class="px-3 py-2.5">
+                <span class="inline-flex min-w-0 items-center gap-2">
+                  <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+                  <span class="break-all font-medium">{{ entry.label }}</span>
+                  <GdBadge v-if="index === 0" variant="plain">参照</GdBadge>
+                </span>
+              </td>
+              <td class="px-3 py-2.5">
+                <p class="m-0 font-mono text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
+                <p v-if="index > 0" class="mb-0 mt-1 text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+              </td>
+              <td class="px-3 py-2.5">
+                <p class="m-0 font-mono text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
+                <p v-if="index > 0" class="mb-0 mt-1 text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
+      <div v-if="durationReference" class="space-y-2 sm:hidden" data-testid="duration-comparison-values-mobile">
+        <div v-for="(entry, index) in entries" :key="entry.id" class="rounded-md border border-line bg-soft/20 p-3">
+          <div class="flex min-w-0 items-start gap-2">
+            <i class="mt-1 size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+            <p class="m-0 min-w-0 break-all text-[11.5px] font-medium">{{ entry.label }}</p>
+            <GdBadge v-if="index === 0" class="ml-auto shrink-0" variant="plain">参照</GdBadge>
+          </div>
+          <div class="mt-2 space-y-2">
+            <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
+              <span class="text-[10.5px] text-muted">Issue 关闭 P50</span>
+              <div class="min-w-0">
+                <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
+                <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+              </div>
+            </div>
+            <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
+              <span class="text-[10.5px] text-muted">PR 合并 P50</span>
+              <div class="min-w-0">
+                <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
+                <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warnfg">
+        没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
+      </p>
     </GdCard>
 
     <GdCard>
@@ -312,9 +692,9 @@ async function exportComparison() {
           <tr v-for="entry in entries" :key="entry.id" data-testid="comparison-row" :data-repository-id="entry.id" :data-window-available="entry.windowAvailable">
             <td class="border-b border-line px-2.5 py-2.5">{{ entry.label }}<GdBadge v-if="entry.sampleRole" class="ml-2" variant="plain">{{ entry.sampleRole === 'train' ? '训练组' : '测试组' }}</GdBadge><div v-if="entry.sourceKind === 'course_research_historical_snapshot'" class="mt-1 text-[10px] text-muted">课程研究历史快照</div></td>
             <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ totalCommits(entry) }}</td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.issueP50 === null ? '—' : `${entry.issueP50} 天` }}</td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.prP50 === null ? '—' : `${entry.prP50} 天` }}</td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.releaseMedianDays === null ? '—' : `${entry.releaseMedianDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天` }}</td>
+            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.issueP50 === null ? '—' : `${entry.issueP50} 天` }}<span v-if="entry.issueP50 !== null && entry.issueQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
+            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.prP50 === null ? '—' : `${entry.prP50} 天` }}<span v-if="entry.prP50 !== null && entry.prQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
+            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.releaseMedianDays === null ? '—' : `${entry.releaseMedianDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天` }}<span v-if="entry.releaseMedianDays !== null && entry.releaseQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
             <td class="border-b border-line px-2.5 py-2.5">
               <GdBadge :variant="entry.coverage.state === 'complete' ? 'default' : 'warn'">{{ entry.windowAvailable ? entry.coverage.label : '范围未覆盖' }}</GdBadge>
             </td>
@@ -325,93 +705,7 @@ async function exportComparison() {
       </table>
       </div>
     </GdCard>
-    <GdCard data-testid="selection-report">
-      <div>
-        <h3 class="m-0 text-[15.5px] font-semibold">按使用场景比较</h3>
-        <p class="mt-1 text-[12px] text-muted">先确认候选可互相替代，再设置硬约束与权重。结果基于同期可用事实，是规则比较，不是成功概率。</p>
-      </div>
-      <form class="space-y-3" @submit.prevent="generateSelection">
-        <div class="grid gap-3 md:grid-cols-2">
-          <label class="space-y-1 text-[12px]">使用场景<input v-model="scenario" maxlength="500" required class="block w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px]" placeholder="例如：构建内部 API 服务" /></label>
-          <label class="space-y-1 text-[12px]">同类候选类别<input v-model="candidateGroup" maxlength="200" required class="block w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px]" placeholder="例如：Python Web 框架" /></label>
-          <label class="space-y-1 text-[12px]">允许的语言（可留空，逗号分隔）<input v-model="languages" class="block w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px]" placeholder="Python, Go" /></label>
-          <label class="space-y-1 text-[12px]">允许的许可证（可留空，逗号分隔）<input v-model="licenses" class="block w-full rounded-md border border-line bg-panel px-3 py-2 text-[13px]" placeholder="MIT, Apache-2.0" /></label>
-        </div>
-        <label class="flex items-start gap-2 text-[12px]"><input v-model="candidatesConfirmed" type="checkbox" class="mt-0.5" />我确认这些候选适用于上述同一类需求，可以互相比较。</label>
-        <fieldset class="m-0 grid gap-2 rounded-md border border-line p-3 sm:grid-cols-2 lg:grid-cols-4">
-          <legend class="px-1 text-[12px] font-medium">指标权重 · 0 表示不参与</legend>
-          <label v-for="metric in selectionMetrics" :key="metric.key" class="space-y-1 text-[11px] text-muted">
-            {{ metric.label }}<input v-model.number="weights[metric.key]" type="number" min="0" step="0.1" class="block w-full rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] text-ink" />
-          </label>
-        </fieldset>
-        <div class="flex flex-wrap items-center gap-2">
-          <GdButton type="submit" :loading="selectionLoading">生成规则比较</GdButton>
-          <GdButton v-if="selectionResult?.reportMarkdown" type="button" variant="outline" @click="downloadSelection">下载选型报告</GdButton>
-          <span v-if="selectionError" class="text-[12px] text-warnfg" role="alert">{{ selectionError }}</span>
-        </div>
-      </form>
-      <div v-if="selectionResult" class="space-y-3 text-[12px]" aria-live="polite" data-testid="selection-result">
-        <p v-if="selectionResult.sharedWindow" class="m-0 text-muted">共同窗口：{{ selectionResult.sharedWindow.start }} 至 {{ selectionResult.sharedWindow.end }}</p>
-        <p v-if="selectionResult.maintenance.dataAsOf" class="m-0 text-muted">课程仓库资料来自历史快照，截至 {{ selectionResult.maintenance.dataAsOf }}。</p>
-        <div class="space-y-2 rounded-md border border-line p-3" data-testid="selection-maintenance">
-          <p class="m-0 font-medium">近期默认分支提交模式、最近实际变化与未来预测</p>
-          <p class="m-0 text-muted">M1 只使用默认分支 Commit；PR / Issue 是独立统计，不代表社区总体活跃度。最近实际变化与未来 M2 预测分别展示，ML 不参与规则得分。</p>
-          <div v-for="item in selectionResult.maintenance.repositories" :key="item.id" class="space-y-1 border-t border-line pt-2 text-muted">
-            <p class="m-0 font-medium text-ink">{{ item.name }}<GdBadge v-if="item.sampleRole" class="ml-2" variant="plain">{{ item.sampleRole === 'train' ? '训练组' : '测试组' }}</GdBadge> · {{ maintenancePatternLabel(item.pattern) }}</p>
-            <template v-if="Object.keys(item.pattern.evidence).length">
-              <p v-if="item.pattern.coverage.commits === 'partial'" class="m-0">Commit 覆盖不完整：已观察到 {{ item.pattern.evidence.commit_observed_partial_lower_bound ?? '—' }} 次（下限）；分页 {{ item.pattern.evidence.commit_pages_fetched ?? '—' }}/{{ item.pattern.evidence.commit_page_budget ?? '—' }} 页，请求估算 {{ item.pattern.evidence.github_request_estimate ?? '—' }} 次。</p>
-              <p v-else class="m-0">默认分支 Commit {{ item.pattern.evidence.commit_total_12w ?? item.pattern.evidence.commit_total_window ?? '—' }} · {{ item.pattern.windowWeeks }} 个完整周。</p>
-              <p class="m-0">{{ maintenancePrLabel(item.pattern) }}<span v-if="item.pattern.evidence.commit_total_12w === 0 && item.pattern.coverage.pull_requests_created === 'complete' && (item.pattern.evidence.pr_created_total_12w ?? 0) > 0">；0 Commit 不表示没有 PR 或社区协作活动</span></p>
-              <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
-              <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
-              <p class="m-0">异常提示：{{ item.activityAnomaly.method === 'statistical_baseline' ? `MAD 规则${item.activityAnomaly.suspected ? '疑似偏离，待核查' : '未标记'}` : `未运行（${item.activityAnomaly.reasonCode ?? item.activityAnomaly.status}）` }} · 窗口 {{ item.pattern.historyStart ?? '—' }} 至 {{ item.pattern.asOf ?? '—' }} · 来源 {{ item.pattern.sourceRunId ?? '—' }}</p>
-            </template>
-            <template v-else>
-              <p class="m-0">Commit 事实证据不足（{{ item.pattern.reasonCode ?? '未采集' }}）。</p>
-              <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
-              <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
-            </template>
-          </div>
-        </div>
-        <p v-if="selectionResult.status !== 'available'" class="m-0 text-warnfg">没有足够的可比较候选。</p>
-        <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="rounded-md border border-line p-3">
-          <div class="flex flex-wrap justify-between gap-2"><b>{{ index + 1 }}. {{ row.name }}</b><span>规则得分 {{ row.score.toFixed(3) }}</span></div>
-          <ul class="mb-0 mt-2 space-y-1 pl-4 text-[11px] text-muted">
-          <li v-for="item in row.evidence" :key="item.metric">{{ selectionLabel(item.metric) }}：{{ item.value.toLocaleString('zh-CN', { maximumFractionDigits: 2 }) }} {{ item.unit }} · 贡献 {{ item.contribution.toFixed(3) }} · 样本 {{ item.validSamples }} 周 · {{ item.windowStart }} 至 {{ item.windowEnd }} · {{ item.sourceKind === 'course_research_historical_snapshot' ? '课程研究历史快照' : '在线事件分析' }} {{ item.sourceRunId }}</li>
-          </ul>
-        </div>
-        <p v-for="item in selectionResult.excluded" :key="item.id" class="m-0 text-warnfg">{{ item.name }} 未评分：{{ item.reasons.join('；') }}</p>
-        <p v-for="item in selectionResult.sensitivity" :key="item.criterion" class="m-0 text-muted">{{ selectionLabel(item.criterion) }} 权重增加 25% 后顺序：{{ item.repositoryIds.map((id) => selectionResult?.ranking.find((row) => row.id === id)?.name ?? id).join(' → ') }}</p>
-        <p class="m-0 text-muted">{{ selectionResult.notes.join(' ') }}</p>
-        <details v-if="selectionResult.reportMarkdown" class="rounded-md border border-line p-3" data-testid="selection-markdown-preview">
-          <summary class="cursor-pointer font-medium">预览将下载的 Markdown 报告</summary>
-          <pre class="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-words text-[11px] text-muted">{{ selectionResult.reportMarkdown }}</pre>
-        </details>
-      </div>
-      <div v-if="selectionResult?.status === 'available'" class="space-y-3 rounded-md border border-line p-3" data-testid="selection-feedback-form">
-        <h4 class="m-0 text-[13px] font-semibold">自愿记录本次选择</h4>
-        <p class="m-0 text-[11px] text-muted">仅在本机保存场景、候选、比较依据、选择及理由，供后续研究和人工复核；不会自动用于训练。可在下方删除。</p>
-        <div class="grid gap-3 sm:grid-cols-2">
-          <label class="space-y-1 text-[12px]">选择候选
-            <select v-model="feedbackChoice" class="block w-full rounded-md border border-line bg-panel px-3 py-2"><option value="">请选择</option><option v-for="row in selectionResult.ranking" :key="row.id" :value="row.id">{{ row.name }}</option></select>
-          </label>
-          <label class="space-y-1 text-[12px]">反馈类型
-            <select v-model="feedbackKind" class="block w-full rounded-md border border-line bg-panel px-3 py-2"><option value="">请选择</option><option value="preference">当前偏好</option><option value="actual_choice">实际采用决定</option></select>
-          </label>
-        </div>
-        <label class="block space-y-1 text-[12px]">理由（可选）<textarea v-model="feedbackReason" maxlength="500" rows="2" class="block w-full rounded-md border border-line bg-panel px-3 py-2" /></label>
-        <label class="flex items-start gap-2 text-[12px]"><input v-model="feedbackConsent" type="checkbox" class="mt-0.5" />同意在本机保存上述反馈，供后续研究与人工复核。</label>
-        <GdButton type="button" size="sm" :loading="feedbackBusy" :disabled="feedbackBusy" @click="saveFeedback">保存反馈</GdButton>
-      </div>
-      <div v-if="feedback.length" class="space-y-2 text-[12px]" data-testid="selection-feedback-list">
-        <h4 class="m-0 text-[13px] font-semibold">已保存的本机反馈</h4>
-        <div v-for="item in feedback" :key="item.id" class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-line p-2">
-          <span>{{ item.scenario }} · {{ item.chosenRepositoryName }} · {{ item.choiceKind === 'actual_choice' ? '实际采用决定' : '当前偏好' }} · 待复核</span>
-          <GdButton type="button" variant="outline" size="sm" :disabled="feedbackBusy" @click="removeFeedback(item.id)">删除</GdButton>
-        </div>
-      </div>
-      <p v-if="feedbackMessage" class="m-0 text-[12px] text-muted" role="status">{{ feedbackMessage }}</p>
-    </GdCard>
+
     </template>
   </div>
 </template>

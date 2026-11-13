@@ -70,9 +70,10 @@ def closed_issues(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     search: str = Query(default="", max_length=100),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_closed_issues(session, repository_id, search)
+    result = repository_closed_issues(session, repository_id, search, window_days=window_days)
     items = result["items"]
     total = len(items)
     result.update({"items": items[(page - 1) * per_page : page * per_page], "page": page, "per_page": per_page, "total": total})
@@ -80,8 +81,8 @@ def closed_issues(
 
 
 @router.get("/{repository_id}/issues/export.csv")
-def export_closed_issues(repository_id: int, search: str = Query(default="", max_length=100), session: Session = Depends(get_session)):
-    result = repository_closed_issues(session, repository_id, search)
+def export_closed_issues(repository_id: int, search: str = Query(default="", max_length=100), window_days: int | None = Query(default=None), session: Session = Depends(get_session)):
+    result = repository_closed_issues(session, repository_id, search, window_days=window_days)
     if not result["available"]:
         raise AppError(409, "ISSUE_ARCHIVE_UNAVAILABLE", result["note"])
     output = io.StringIO(newline="")
@@ -112,9 +113,10 @@ def pull_requests(
     search: str = Query(default="", max_length=100),
     merged_from: datetime | None = Query(default=None),
     merged_to: datetime | None = Query(default=None),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to)
+    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to, window_days=window_days)
     items = result["items"]
     total = len(items)
     result.update({"items": items[(page - 1) * per_page : page * per_page], "page": page, "per_page": per_page, "total": total})
@@ -127,9 +129,10 @@ def export_pull_requests(
     search: str = Query(default="", max_length=100),
     merged_from: datetime | None = Query(default=None),
     merged_to: datetime | None = Query(default=None),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to)
+    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to, window_days=window_days)
     if not result["available"]:
         raise AppError(409, "PULL_REQUEST_ARCHIVE_UNAVAILABLE", result["note"])
     output = io.StringIO(newline="")

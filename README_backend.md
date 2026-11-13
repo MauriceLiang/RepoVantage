@@ -14,7 +14,7 @@ cp .env.example .env
 
 在 `.env` 中设置仅本机使用的 `INTERNAL_API_KEY`。`GITHUB_TOKEN` 可选；未配置时使用 GitHub 匿名额度。密钥只由 API 和 Worker 进程读取。
 
-默认 SQLite 文件固定解析到仓库根目录的 `data/app.db`，不受启动时当前目录影响。兼容旧版的原始压缩 JSON 写入 `data/raw/`；新版逐页采集归档写入 Git 忽略的 `data/collected/`，数据库检查点是断点续传的权威状态。精选数据包已随项目提供在 `data/datasets/featured-v1/`，对应分发 ZIP 为 `data/datasets/featured-v1.zip`。当前包包含 15 个公开仓库，活动数据窗口为 90 天、正式 Release 窗口为 365 天，不代表 GitHub 全历史。可用 `DATABASE_URL` 与 `RAW_DATA_DIR` 覆盖旧版归档路径。
+默认 SQLite 文件固定解析到仓库根目录的 `data/app.db`，不受启动时当前目录影响。兼容旧版的原始压缩 JSON 写入 `data/raw/`；新版逐页采集归档写入 Git 忽略的 `data/collected/`。首次安装或升级旧默认库时，应用将 `course-research-300-v1` 的 300 个仓库加入“我的分析库”，研究页也默认展示这 300 个仓库。用户之后添加或移除的仓库不会在重启时被自动改回。`course-research-test-150-v1` 仅保留机器学习评估分组；旧 `featured-v1` 的 15 个精选仓库不再作为默认集合。可用 `DATABASE_URL` 与 `RAW_DATA_DIR` 覆盖旧版归档路径。
 
 ## 数据库与启动
 
@@ -43,9 +43,13 @@ python -m backend.app.worker.main
 
 健康检查为 `GET /healthz`。其余 `/api/v1/*` 请求须带 `X-Internal-Api-Key`。`/api/browser/*` 是给同源 Vue 前端使用的本机会话入口；密钥不会下发到浏览器。`/docs` 和 `/openapi.json` 用于本机联调，服务默认只绑定回环地址。
 
-## 研究样本
+## 课程标准数据与研究样本
 
-仓库不含演示样本。首次安装会创建空的 `research-2026-v1` 数据集；API 会如实返回 0 个成员。要冻结真实样本，先从 GitHub REST Search 收集公开候选，人工复核项目资格，并按以下结构提供 manifest：
+应用启动时会校验并导入 300 个历史仓库与 12 周特征；固定的 150 成员 `test` 分组仍用于模型留出评估。完整数据集保留 `train` / `test` 角色供实验追溯。导入过程不请求 GitHub。
+
+`data/datasets/course-research-events-300-v1/` 保存 300 个仓库已采集的 Commit、Issue、PR 和 Release 事件，用于单仓分析、比较和研究统计。事件快照的统一分析截止时间为 2026-11-05，页面读取本地数据时不会创建采集任务。Issue 可能遗漏采集起点之前创建、之后关闭的记录；`sgl-project/sglang` 的 PR 更新和 `renovatebot/renovate` 的 Release 原始采集标记为部分覆盖，页面会标注已观察样本。快照未保存提交说明、Issue / PR 标题和正文。首次读取时会校验并解压到 `RAW_DATA_DIR`；可以用 `scripts/build_course_test_events.py` 从 `dataprepare/MachineLearn/run/repo-evaluation-2026-v1/collection.sqlite3` 重新生成。
+
+首次安装还会创建空的 `research-2026-v1` 数据集；API 会如实返回 0 个成员。要冻结额外的正式研究样本，先从 GitHub REST Search 收集公开候选，人工复核项目资格，并按以下结构提供 manifest：
 
 ```json
 {
@@ -94,10 +98,10 @@ Worker 对基础仓库档案采集真实快照。深度任务支持 `quick`、`w
 
 历史回填只针对五个试点仓库提供 CLI 入口，默认仅预览本地数据库中已存在的仓库；加 `--queue` 才会写入任务队列。每次回填按用户页数预算让出 Worker，保留检查点并继续排队，普通任务优先。CLI 本身不访问 GitHub；实际请求只会在 Worker 执行时发生。预算耗尽、部分覆盖和配额延期不会被标为完整；相关进度和采集范围可在任务详情中查看。星标时间序列只包含真实采集日期，不插值。
 
-为现有数据集成员排队采集任务（真正的 GitHub 请求由已运行的 Worker 执行）：
+仅在需要重新采集整个数据集时，可为成员排队任务（实际 GitHub 请求由 Worker 执行，会消耗额度）：
 
 ```bash
-python -m scripts.collect_dataset featured-default --scope window
+python -m scripts.collect_dataset course-research-300-v1 --scope window
 ```
 
 预览五个历史回填试点（不会写入任务）：
@@ -112,7 +116,7 @@ python -m scripts.queue_history_pilot
 python -m scripts.queue_history_pilot --queue
 ```
 
-需要更新精选包时，可生成、校验和导出数据；CLI 导入会写入当前 `DATABASE_URL` 指向的数据库：
+旧 15 仓库精选包工具仅为兼容历史数据保留；它不再是研究页默认样本、回退样本或仓库页导入流程。若需维护旧包，CLI 仍可生成、校验和导出数据；导入会写入当前 `DATABASE_URL` 指向的数据库：
 
 ```bash
 python -m scripts.build_featured_bundle --version featured-v1.0.0
@@ -121,7 +125,7 @@ python -m scripts.export_dataset_bundle data/datasets/featured-v1 --output data/
 python -m scripts.import_dataset_bundle data/datasets/featured-v1.zip
 ```
 
-打包器要求 `featured-default` 恰有 15 个已审核成员，且本地具备快照和分析数据；不会生成虚构的演示记录。仓库页的“导入精选仓库”按钮只读取校验通过的本地目录，不触发 GitHub 请求。`POST /api/v1/datasets/featured/import` 会返回 `202` 和持久化任务 ID；本地 Worker 校验并分批暂存数据，再在一个事务中合并正式数据和完成状态。可通过 `/api/v1/tasks`、`/api/v1/tasks/{task_id}` 查询导入与仓库采集任务；失败的精选数据导入可从任务中心重试。`GET /api/v1/datasets/featured/status` 返回轻量包状态、已导入版本和当前任务，不会在每次轮询时解压并全量解析 JSONL。导入任务不会创建 GitHub 客户端或消耗 API 配额。“下载数据包”按钮通过 `GET /api/v1/datasets/featured/export` 下载与该目录校验一致的 ZIP。
+打包器要求 `featured-default` 恰有 15 个已审核成员，且本地具备快照和分析数据；不会生成虚构的演示记录。该数据包已退出产品默认路径：仓库页不再提供导入/下载按钮，研究页不再提供精选模式或回退，任务页不再展示旧精选导入任务。`/api/v1/datasets/featured/*` 与相关 CLI 仍保留为兼容接口；显式调用时仍可能导入旧数据，但不会把它设为标准样本，也不会请求 GitHub。`POST /api/v1/datasets/featured/import` 返回 `202` 和持久化任务 ID；本地 Worker 校验并分批暂存数据，再在一个事务中合并正式数据和完成状态。`GET /api/v1/datasets/featured/status` 返回轻量包状态、已导入版本和当前任务；旧下载接口返回与内置目录校验一致的 ZIP。
 
 ## 验证与诊断
 

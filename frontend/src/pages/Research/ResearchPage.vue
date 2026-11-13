@@ -1,10 +1,6 @@
 <script setup lang="ts">
-import { BookOpen, Download, LoaderCircle } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
-import { RouterLink } from 'vue-router'
-import ResearchGroupComboChart from '@/components/charts/ResearchGroupComboChart.vue'
-import ResearchQualityChart from '@/components/charts/ResearchQualityChart.vue'
-import ScatterChart from '@/components/charts/ScatterChart.vue'
+import { BookOpen, Download } from 'lucide-vue-next'
+import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, ref } from 'vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
@@ -15,25 +11,38 @@ import { downloadBlob } from '@/lib/download'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import type { ResearchAnalysisMode } from '@/services/types'
+import CourseResearchDashboard from './CourseResearchDashboard.vue'
 
+const ResearchGroupComboChart = defineAsyncComponent(() => import('@/components/charts/ResearchGroupComboChart.vue'))
+const ResearchQualityChart = defineAsyncComponent(() => import('@/components/charts/ResearchQualityChart.vue'))
+const ScatterChart = defineAsyncComponent(() => import('@/components/charts/ScatterChart.vue'))
 const ui = useUiStore()
 const analysisStore = useAnalysisStore()
 const source = useDataSource()
 const exporting = ref(false)
-const importing = ref(false)
 const requestedMode = ref<ResearchAnalysisMode | 'auto'>('auto')
 const repositorySearch = ref('')
-const roleFilter = ref<'all' | 'train' | 'test'>('all')
-const { data, loading, error, reload } = useAsyncData(() => source.getResearchDataset(undefined, requestedMode.value), () => requestedMode.value)
-const { data: featuredStatus, error: featuredStatusError, reload: reloadFeaturedStatus } = useAsyncData(() => source.getFeaturedDatasetStatus())
+const { data, loading, error } = useAsyncData(() => source.getResearchDataset(undefined, requestedMode.value), () => requestedMode.value)
+const entrySkeletonVisible = ref(true)
+let entrySkeletonTimer: ReturnType<typeof setTimeout> | undefined
+const showSkeleton = computed(() => loading.value || entrySkeletonVisible.value)
+
+onMounted(() => {
+  entrySkeletonTimer = setTimeout(() => {
+    entrySkeletonVisible.value = false
+    entrySkeletonTimer = undefined
+  }, 480)
+})
+
+onBeforeUnmount(() => {
+  if (entrySkeletonTimer) clearTimeout(entrySkeletonTimer)
+})
+
 const modeOptions = [
-  { value: 'course', label: '课程研究', hint: '默认使用 300 仓库历史快照，显示固定 150/150 实验角色与覆盖范围。' },
-  { value: 'exploratory', label: '精选探索', hint: '基于当前本地已采集的精选仓库数据，不代表 GitHub 总体。' },
+  { value: 'course', label: '默认 300 仓库', hint: '使用 dataprepare 中已采集的 300 个仓库数据；查看分析和比较时复用本地快照。' },
   { value: 'formal', label: '正式研究', hint: '只读取已确认并导入的研究样本；不会替用户冻结样本清单。' },
 ]
 const selectedMode = computed(() => requestedMode.value === 'auto' ? data.value?.analysisMode ?? 'course' : requestedMode.value)
-const activeFeaturedImport = computed(() => ['queued', 'running'].includes(featuredStatus.value?.activeTask?.status ?? ''))
-const featuredImportUnavailable = computed(() => !featuredStatus.value?.available)
 
 const groupChartItems = computed(() => data.value?.groups.map((group) => ({
   label: group.label,
@@ -49,18 +58,17 @@ const qualityItems = computed(() => (data.value?.quality ?? []).flatMap((quality
     : [{ field: quality.field, missingCount: quality.missingCount, totalRecords: quality.totalRecords }],
 ))
 const groups = computed(() => (data.value?.groups ?? []).map((group) => group.label))
-const courseRepositories = computed(() => data.value?.courseRepositories ?? [])
-const filteredCourseRepositories = computed(() => {
-  const query = repositorySearch.value.trim().toLocaleLowerCase()
-  return courseRepositories.value.filter((repository) => {
-    const matchesRole = roleFilter.value === 'all' || repository.sampleRole === roleFilter.value
-    const matchesQuery = !query || `${repository.fullName} ${repository.language}`.toLocaleLowerCase().includes(query)
-    return matchesRole && matchesQuery
-  })
-})
 
 function setMode(value: string | number) {
-  if (value === 'formal' || value === 'exploratory' || value === 'course') requestedMode.value = value
+  if (value === 'formal' || value === 'course') requestedMode.value = value
+}
+
+function qualityFieldLabel(field: string) {
+  return ({ language: '主语言', stars: 'Star 数', forks: 'Fork 数', pushed_at: '最近推送时间', created_at: '创建时间' } as Record<string, string>)[field] ?? field
+}
+
+function qualityPercent(item: { missingCount: number; totalRecords: number }) {
+  return item.totalRecords > 0 ? (item.totalRecords - item.missingCount) / item.totalRecords * 100 : 0
 }
 
 function addToComparison(repositoryId: string) {
@@ -97,25 +105,6 @@ async function exportResearchStatistics() {
   }
 }
 
-async function importFeatured() {
-  if (importing.value || !featuredStatus.value?.available || activeFeaturedImport.value) return
-  importing.value = true
-  try {
-    const result = await source.importFeaturedDataset()
-    requestedMode.value = 'exploratory'
-    await reloadFeaturedStatus()
-    if (result.alreadyCurrent) {
-      await reload()
-      ui.toast('精选数据已是当前版本', 'warning')
-    } else {
-      ui.toast('精选数据导入任务已排队，可在任务中心查看进度', 'warning')
-    }
-  } catch (cause) {
-    ui.toast(cause instanceof Error ? cause.message : '导入精选数据失败', 'error')
-  } finally {
-    importing.value = false
-  }
-}
 </script>
 
 <template>
@@ -123,7 +112,7 @@ async function importFeatured() {
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="m-0 text-[24px] font-semibold">研究分析</h1>
-        <p class="mt-1.5 text-muted">选择精选探索或正式研究；样本范围、覆盖质量与分析限制会随结果展示。</p>
+        <p class="mt-1.5 text-muted">默认仓库为已采集的 300 个项目；仓库分析与比较直接复用本地历史数据。</p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <GdSegmented :model-value="selectedMode" :options="modeOptions" aria-label="研究分析模式" data-testid="research-mode" @update:model-value="setMode" />
@@ -135,45 +124,82 @@ async function importFeatured() {
     </div>
 
     <p v-if="error" class="rounded-md bg-warnbg px-3 py-2.5 text-[12px] text-warnfg">研究数据集加载失败：{{ error }}</p>
-    <div v-else-if="loading" class="flex flex-col gap-4">
-      <div class="h-[120px] animate-pulse rounded bg-track/60" />
-      <div class="h-[260px] animate-pulse rounded bg-track/60" />
-    </div>
+    <Transition v-else name="research-content" mode="out-in" appear>
+      <div v-if="showSkeleton" key="research-skeleton" class="flex flex-col gap-[18px]" role="status" aria-live="polite" aria-label="正在加载研究分析" aria-busy="true">
+        <div class="rounded-[14px] border border-line bg-panel p-4 sm:p-5">
+          <div class="flex items-start justify-between gap-4">
+            <div class="flex-1 space-y-2">
+              <div class="gd-skeleton-shimmer h-5 w-44 rounded" />
+              <div class="gd-skeleton-shimmer h-3.5 w-72 max-w-full rounded" />
+            </div>
+            <div class="gd-skeleton-shimmer h-7 w-28 rounded-md" />
+          </div>
+          <div class="mt-5 grid grid-cols-2 gap-4 border-y border-line py-4 lg:grid-cols-4">
+            <div v-for="item in 4" :key="`summary-${item}`" class="space-y-2">
+              <div class="gd-skeleton-shimmer h-3 w-20 rounded" />
+              <div class="gd-skeleton-shimmer h-7 w-24 rounded" />
+              <div class="gd-skeleton-shimmer h-3 w-28 max-w-full rounded" />
+            </div>
+          </div>
+          <div class="mt-4 grid gap-3 sm:grid-cols-3">
+            <div v-for="item in 3" :key="`metric-${item}`" class="space-y-2 rounded-md bg-soft/50 p-3">
+              <div class="gd-skeleton-shimmer h-3 w-24 rounded" />
+              <div class="gd-skeleton-shimmer h-5 w-28 rounded" />
+              <div class="gd-skeleton-shimmer h-3 w-20 rounded" />
+            </div>
+          </div>
+        </div>
+        <div class="grid min-w-0 gap-[18px] lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <div class="min-h-[280px] rounded-[14px] border border-line bg-panel p-4 sm:p-5">
+            <div class="gd-skeleton-shimmer h-4 w-48 rounded" />
+            <div class="gd-skeleton-shimmer mt-2 h-3 w-64 max-w-full rounded" />
+            <div class="mt-7 flex h-[190px] items-end gap-3 border-b border-l border-line px-4">
+              <div v-for="item in 7" :key="`bar-${item}`" class="gd-skeleton-shimmer w-full rounded-t" :style="{ height: `${28 + (item * 23) % 58}%` }" />
+            </div>
+          </div>
+          <div class="min-h-[280px] rounded-[14px] border border-line bg-panel p-4 sm:p-5">
+            <div class="gd-skeleton-shimmer h-4 w-36 rounded" />
+            <div class="gd-skeleton-shimmer mt-2 h-3 w-52 max-w-full rounded" />
+            <div class="mt-7 space-y-6">
+              <div v-for="item in 3" :key="`coverage-${item}`" class="space-y-2">
+                <div class="flex justify-between gap-4"><div class="gd-skeleton-shimmer h-3 w-28 rounded" /><div class="gd-skeleton-shimmer h-3 w-20 rounded" /></div>
+                <div class="gd-skeleton-shimmer h-2 w-full rounded-full" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="rounded-[14px] border border-line bg-panel p-4 sm:p-5">
+          <div class="flex items-center justify-between gap-4">
+            <div class="gd-skeleton-shimmer h-4 w-24 rounded" />
+            <div class="gd-skeleton-shimmer h-8 w-52 max-w-[50%] rounded-md" />
+          </div>
+          <div class="mt-4 space-y-3">
+            <div v-for="item in 4" :key="`repo-${item}`" class="gd-skeleton-shimmer h-10 rounded-md" />
+          </div>
+        </div>
+      </div>
 
-    <template v-else-if="data">
+      <div v-else-if="data" key="research-results" class="flex flex-col gap-[18px]">
       <GdCard v-if="data.repositoryCount === 0" class="gap-3" data-testid="research-empty-state">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 v-if="data.analysisMode === 'exploratory'" class="m-0 text-[16px] font-semibold">精选数据尚未导入</h2>
+            <h2 v-if="data.analysisMode === 'course'" class="m-0 text-[16px] font-semibold">默认 300 仓库数据暂不可用</h2>
             <h2 v-else class="m-0 text-[16px] font-semibold">正式研究样本尚不可分析</h2>
-            <p v-if="data.analysisMode === 'exploratory'" class="mt-1 text-[12px] leading-relaxed text-muted">
-              {{ featuredStatus?.totalRepositories ? `可导入 ${featuredStatus.totalRepositories} 个精选仓库。` : '当前本机没有可用的精选数据包。' }} 导入只读取随应用提供的数据包，不会请求 GitHub。
-            </p>
+            <p v-if="data.analysisMode === 'course'" class="mt-1 text-[12px] leading-relaxed text-muted">本机没有可显示的 300 仓库数据，请检查课程数据包和导入状态。</p>
             <p v-else class="mt-1 text-[12px] leading-relaxed text-muted">
               {{ data.studyStatus === 'pending_confirmation' ? '研究样本清单仍待负责人确认；当前未生成正式结果。' : data.studyStatus === 'approved_not_imported' ? '样本已确认，但成员清单尚未导入。' : '成员清单已导入，尚无可分析的本地采集结果。' }}
             </p>
           </div>
-          <GdBadge variant="warn">{{ data.analysisMode === 'exploratory' ? '未导入' : data.studyStatus === 'pending_confirmation' ? '待确认' : data.studyStatus === 'approved_not_imported' ? '待导入' : '等待采集' }}</GdBadge>
-        </div>
-        <p v-if="featuredStatusError && data.analysisMode === 'exploratory'" class="m-0 text-[11px] text-danger">精选数据包状态读取失败：{{ featuredStatusError }}</p>
-        <div v-if="data.analysisMode === 'exploratory'" class="flex flex-wrap items-center gap-2">
-          <GdButton :disabled="importing || featuredImportUnavailable || activeFeaturedImport" data-testid="import-featured" @click="importFeatured">
-            <LoaderCircle v-if="importing || activeFeaturedImport" :size="14" class="animate-spin" />
-            {{ importing ? '正在提交…' : activeFeaturedImport ? '精选数据导入中' : featuredImportUnavailable ? '精选数据包不可用' : '导入精选' }}
-          </GdButton>
-          <RouterLink to="/tasks" class="gd-link text-[12px]">前往任务中心查看进度</RouterLink>
+          <GdBadge variant="warn">{{ data.analysisMode === 'course' ? '暂无样本' : data.studyStatus === 'pending_confirmation' ? '待确认' : data.studyStatus === 'approved_not_imported' ? '待导入' : '等待样本' }}</GdBadge>
         </div>
       </GdCard>
 
       <template v-else>
-      <p v-if="(requestedMode === 'course' || requestedMode === 'auto') && data.analysisMode !== 'course'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 text-[12px] text-warnfg" data-testid="course-dataset-fallback">
-        300 仓库课程研究数据不可用，当前显示 {{ data.analysisMode === 'exploratory' ? '15 仓库精选数据' : '正式研究数据' }}回退结果。
-      </p>
-      <GdCard>
+      <GdCard v-if="data.analysisMode !== 'course'">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="flex items-center gap-2">
             <span class="font-mono text-[13px] font-semibold">{{ data.name }}</span>
-            <GdBadge variant="plain">{{ data.analysisMode === 'course' ? '课程研究 · 历史快照' : data.analysisMode === 'exploratory' ? '精选探索' : '正式研究' }}</GdBadge>
+            <GdBadge variant="plain">正式研究</GdBadge>
           </div>
           <button class="gd-link text-[11.5px]" @click="ui.openDrawer('definitions', { metric: 'M14', sample: `${data.repositoryCount} 个仓库 · ${data.scatter.sampleSize} 个有效配对` })">
             <BookOpen :size="13" /> 查看采样说明与局限
@@ -189,57 +215,27 @@ async function importFeatured() {
             <div class="mt-1 text-[12.5px] font-medium">{{ data.samplingRule }}</div>
           </div>
           <div class="border-line lg:border-l lg:pl-4">
-            <div class="text-[11px] text-muted">{{ data.analysisMode === 'course' ? '版本 / 资料快照截点' : data.analysisMode === 'exploratory' ? '精选版本 / 快照' : '冻结日期' }}</div>
-            <div class="mt-1 text-[12.5px] font-medium">{{ data.analysisMode === 'course' ? `${data.datasetVersion ?? '—'} · ${data.courseSummary?.dataAsOf ?? '—'}` : data.analysisMode === 'exploratory' ? data.datasetVersion ?? '后端未记录' : data.frozenAt ?? '后端未记录' }}</div>
-            <div class="mt-0.5 text-[11px] text-muted">观察窗口 {{ data.analysisMode === 'course' ? data.courseSummary?.observationWindow.start ?? '—' : data.eventWindow.start ?? '—' }} — {{ data.analysisMode === 'course' ? data.courseSummary?.observationWindow.endExclusive ?? '—' : data.eventWindow.end ?? '—' }}</div>
+            <div class="text-[11px] text-muted">冻结日期</div>
+            <div class="mt-1 text-[12.5px] font-medium">{{ data.frozenAt ?? '后端未记录' }}</div>
+            <div class="mt-0.5 text-[11px] text-muted">观察窗口 {{ data.eventWindow.start ?? '—' }} — {{ data.eventWindow.end ?? '—' }}</div>
           </div>
           <div class="border-line lg:border-l lg:pl-4">
             <div class="text-[11px] text-muted">样本与总体范围</div>
-            <div class="mt-1 text-[12.5px] font-medium">{{ data.repositoryCount }} 个仓库{{ data.analysisMode === 'course' ? ` · ${data.courseSummary?.weeklyRecords ?? 0} 条仓库周记录` : ` · ${data.scatter.sampleSize} 个有效配对` }}</div>
+            <div class="mt-1 text-[12.5px] font-medium">{{ data.repositoryCount }} 个仓库 · {{ data.scatter.sampleSize }} 个有效配对</div>
             <div class="mt-0.5 text-[11px] text-muted">{{ data.isProbabilitySample ? '概率样本' : '非概率样本' }} · {{ data.populationScope }}</div>
-            <div class="mt-0.5 text-[11px] text-muted">{{ data.analysisMode === 'course' ? `Commit 12 周完整覆盖 ${data.courseSummary?.completeCommitRepositories ?? 0} / ${data.repositoryCount}` : `Issue 指标缺失率 ${data.missingRate === null ? '—' : `${data.missingRate}%`}` }}</div>
+            <div class="mt-0.5 text-[11px] text-muted">Issue 指标缺失率 {{ data.missingRate === null ? '—' : `${data.missingRate}%` }}</div>
           </div>
         </div>
       </GdCard>
 
-      <GdCard v-if="data.analysisMode === 'course'" data-testid="course-research-summary">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h3 class="m-0 text-[15.5px] font-semibold">课程样本与覆盖</h3>
-            <p class="mt-1 text-[12px] text-muted">固定历史快照；训练/测试角色只解释实验分组，不表示全新外部样本。</p>
-          </div>
-          <GdBadge variant="plain">截至 {{ data.courseSummary?.dataAsOf ?? '未知' }}</GdBadge>
-        </div>
-        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">训练仓库</div><div class="mt-1 text-[22px] font-semibold">{{ data.courseSummary?.splitCounts.train ?? 0 }}</div></div>
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">测试仓库</div><div class="mt-1 text-[22px] font-semibold">{{ data.courseSummary?.splitCounts.test ?? 0 }}</div></div>
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">12 周完整 Commit 仓库</div><div class="mt-1 text-[22px] font-semibold">{{ data.courseSummary?.completeCommitRepositories ?? 0 }} / 300</div><div class="mt-1 text-[10px] text-muted">{{ data.courseSummary?.coverage.commit_week_complete_or_true_zero ?? 0 }} / {{ data.courseSummary?.weeklyRecords ?? 0 }} 个周记录完整或真实为零</div></div>
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">PR 创建周覆盖</div><div class="mt-1 text-[22px] font-semibold">{{ data.courseSummary?.coverage.pr_opened_week_complete_or_true_zero ?? 0 }} / {{ data.courseSummary?.weeklyRecords ?? 0 }}</div><div class="mt-1 text-[10px] text-muted">周级创建数量</div></div>
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">PR 合并周覆盖</div><div class="mt-1 text-[22px] font-semibold">{{ data.courseSummary?.coverage.pr_merged_week_complete_or_true_zero ?? 0 }} / {{ data.courseSummary?.weeklyRecords ?? 0 }}</div><div class="mt-1 text-[10px] text-muted">{{ data.courseSummary?.coverage.pr_merged_week_partial_concurrent_change ?? 0 }} 周部分覆盖</div></div>
-          <div class="rounded-md bg-soft/50 p-3"><div class="text-[11px] text-muted">观察窗口</div><div class="mt-1 text-[12px] font-medium">{{ data.courseSummary?.observationWindow.start ?? '—' }} 至 {{ data.courseSummary?.observationWindow.endExclusive ?? '—' }}</div><div class="mt-1 text-[11px] text-muted">12 个完整 UTC 周 · {{ data.courseSummary?.weeklyRecords ?? 0 }} 条仓库周记录</div></div>
-        </div>
-        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
-          <div>
-            <h4 class="mb-2 mt-0 text-[12px] font-semibold">语言分布与周均 Commit</h4>
-            <div class="max-h-[320px] overflow-auto rounded-md border border-line">
-              <table class="w-full text-left text-[11px]"><thead class="sticky top-0 bg-soft text-muted"><tr><th class="px-2 py-2">语言</th><th class="px-2 py-2">仓库</th><th class="px-2 py-2">有效 Commit</th><th class="px-2 py-2">周均</th></tr></thead><tbody><tr v-for="group in data.courseLanguageGroups ?? []" :key="group.language" class="border-t border-line"><td class="px-2 py-2">{{ group.language }}</td><td class="px-2 py-2">{{ group.repositoryCount }}</td><td class="px-2 py-2">{{ group.commitSampleCount }}</td><td class="px-2 py-2">{{ group.weeklyCommitMean?.toFixed(2) ?? '—' }}</td></tr></tbody></table>
-            </div>
-          </div>
-          <div>
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <h4 class="m-0 text-[12px] font-semibold">研究仓库列表 · {{ filteredCourseRepositories.length }} / {{ courseRepositories.length }}</h4>
-              <div class="flex flex-wrap gap-2">
-                <input v-model="repositorySearch" aria-label="搜索课程仓库" placeholder="搜索名称或语言" class="h-8 rounded-md border border-line bg-panel px-2 text-[11px]" />
-                <select v-model="roleFilter" aria-label="按训练或测试角色筛选" class="h-8 rounded-md border border-line bg-panel px-2 text-[11px]"><option value="all">全部角色</option><option value="train">训练组</option><option value="test">测试组</option></select>
-              </div>
-            </div>
-            <div class="mt-2 max-h-[320px] overflow-auto rounded-md border border-line">
-              <table class="w-full text-left text-[11px]"><thead class="sticky top-0 bg-soft text-muted"><tr><th class="px-2 py-2">仓库</th><th class="px-2 py-2">语言</th><th class="px-2 py-2">角色</th><th class="px-2 py-2">周均 Commit</th><th class="px-2 py-2">操作</th></tr></thead><tbody><tr v-for="repository in filteredCourseRepositories" :key="repository.repositoryId" class="border-t border-line"><td class="px-2 py-2 font-mono">{{ repository.fullName }}</td><td class="px-2 py-2">{{ repository.language }}</td><td class="px-2 py-2">{{ repository.sampleRole === 'train' ? '训练' : '测试' }}</td><td class="px-2 py-2">{{ repository.weeklyCommitMean?.toFixed(2) ?? '—' }}</td><td class="whitespace-nowrap px-2 py-2"><RouterLink :to="`/repositories/${repository.repositoryId}/analysis`" class="gd-link">分析</RouterLink><button class="ml-2 gd-link" @click="addToComparison(repository.repositoryId)">{{ analysisStore.compareIds.includes(repository.repositoryId) ? '已加入' : '加入对比' }}</button></td></tr><tr v-if="!filteredCourseRepositories.length"><td colspan="5" class="px-2 py-6 text-center text-muted">没有匹配的课程研究仓库。</td></tr></tbody></table>
-            </div>
-          </div>
-        </div>
-        <p class="m-0 text-[11px] leading-relaxed text-muted">当前包包含 PR 创建/合并周级数量及覆盖标识，但不含 Issue 事件、PR 合并耗时或 Release 事件；缺失字段不补零。可选仓库可以进入单仓分析、最多 5 个仓库的比较和规则型选型报告。</p>
-      </GdCard>
+      <CourseResearchDashboard
+        v-if="data.analysisMode === 'course'"
+        v-model:repository-search="repositorySearch"
+        :data="data"
+        :compare-ids="analysisStore.compareIds"
+        @compare="addToComparison"
+        @definitions="ui.openDrawer('definitions', { metric: 'M14', sample: `${data.repositoryCount} 个仓库 · ${data.scatter.sampleSize} 个有效配对` })"
+      />
 
       <section v-if="data.analysisMode !== 'course'" data-testid="research-kpis" class="grid grid-cols-2 divide-line rounded-[10px] border border-line bg-panel px-5 py-3.5 sm:grid-cols-4 sm:divide-x">
         <div class="px-0 py-2 sm:px-5 sm:py-0 sm:first:pl-0">
@@ -294,23 +290,46 @@ async function importFeatured() {
         <p v-if="data.scatter.points.length" class="m-0 text-[10.5px] text-muted">悬浮可查看 Issue / PR 各自有效样本量；中位数分界仅用于描述样本分布，不代表目标阈值或因果关系。</p>
       </GdCard>
 
-      <GdCard>
+      <GdCard data-testid="research-data-quality">
         <div class="flex items-start justify-between gap-3">
           <div>
             <h3 class="m-0 text-[15.5px] font-semibold">数据质量</h3>
-            <p class="mt-0.5 text-[12px] text-muted">条形显示仓库资料已具备 / 缺失比例；分母是数据集成员总数。事件指标有效样本见下方</p>
+            <p class="mb-0 mt-1 text-[12px] leading-relaxed text-muted">仓库资料完整度与研究统计的有效样本分开呈现，分母均为数据集成员数。</p>
           </div>
         </div>
-        <ResearchQualityChart :items="qualityItems" :height="190" />
-        <div v-if="data.metricQuality.length" class="grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
-          <div v-for="metric in data.metricQuality" :key="metric.field" class="rounded-md bg-soft/50 px-2.5 py-2 text-[11px]">
-            <div class="font-medium">{{ metric.field }} · 有效 {{ metric.validSamples }} / {{ data.repositoryCount }}</div>
-            <div class="mt-0.5 text-muted">缺失 {{ metric.missingCount }}{{ metric.missingRate === null ? '' : `（${metric.missingRate}%）` }}<span v-if="metric.reasons.length"> · {{ metric.reasons.join('；') }}</span></div>
+        <div class="grid min-w-0 gap-5 xl:grid-cols-2">
+          <div class="min-w-0">
+            <h4 class="m-0 text-[12.5px] font-medium">仓库资料完整度</h4>
+            <ResearchQualityChart v-if="data.analysisMode !== 'course'" :items="qualityItems" :height="190" />
+            <div v-else class="mt-3 flex flex-col gap-3">
+              <div v-for="item in qualityItems" :key="item.field">
+                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[11.5px]">
+                  <span class="font-medium">{{ qualityFieldLabel(item.field) }}</span>
+                  <span class="tabular-nums text-muted">{{ item.totalRecords - item.missingCount }} / {{ item.totalRecords }} 已具备 · 缺失 {{ item.missingCount }}</span>
+                </div>
+                <div class="mt-1.5 h-2 overflow-hidden rounded-full bg-track" aria-hidden="true"><div class="h-full rounded-full bg-s1" :style="{ width: `${qualityPercent(item)}%` }" /></div>
+              </div>
+            </div>
+          </div>
+          <div v-if="data.metricQuality.length" class="min-w-0">
+            <h4 class="m-0 text-[12.5px] font-medium">研究指标可用性</h4>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div v-for="metric in data.metricQuality" :key="metric.field" class="rounded-md bg-soft/50 px-3 py-2.5 text-[11.5px] leading-relaxed">
+                <div class="font-medium">{{ metric.field }}</div>
+                <div class="mt-1 text-muted">有效 {{ metric.validSamples }} / {{ data.repositoryCount }} · 未形成结果 {{ metric.missingCount }}{{ metric.missingRate === null ? '' : `（${metric.missingRate}%）` }}</div>
+                <div v-if="metric.partialCount" class="mt-1 text-muted">其中 {{ metric.partialCount }} 个结果为部分覆盖</div>
+                <div v-if="metric.reasons.length" class="mt-1 text-muted">{{ metric.reasons.join('；') }}</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="text-[11px] leading-relaxed text-muted">{{ data.limitations.join(' ') }}</div>
+        <div class="border-t border-line pt-3 text-[11.5px] leading-relaxed text-muted">
+          <p v-if="data.analysisMode === 'course'" class="mb-2 mt-0">本页使用周级提交汇总和本地事件快照；没有有效耗时记录时不计算中位数。</p>
+          <ul class="m-0 list-disc space-y-1 pl-4"><li v-for="limitation in data.limitations" :key="limitation">{{ limitation }}</li></ul>
+        </div>
       </GdCard>
       </template>
-    </template>
+      </div>
+    </Transition>
   </div>
 </template>

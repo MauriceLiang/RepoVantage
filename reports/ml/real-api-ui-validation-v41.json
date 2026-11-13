@@ -1,0 +1,53 @@
+{
+  "date": "2026-11-10",
+  "data_mode": "http",
+  "browser": "Google Chrome headless via Puppeteer",
+  "viewport": {
+    "width": 1440,
+    "height": 1050
+  },
+  "page_errors": [],
+  "routes": [
+    {
+      "route": "/repositories/2183193/overview",
+      "repository": "Theano/Theano",
+      "result": "真实 90 天分析显示有效；维护卡片显示 24 周观察背景，M1 使用最近 12 周，趋势因低活动降级为事实。",
+      "maintenance_window_weeks": 24,
+      "screenshot": "reports/ml/screenshots/real-api-low-activity-theano-24w-v41.png"
+    },
+    {
+      "route": "/repositories/596892/overview",
+      "repository": "pallets/flask",
+      "result": "显示 M1 集中活动型 ml03-12w-v1、M2 基本稳定 ml01-trend-12w-v1、MAD 规则提示及真实 90 天活动。",
+      "screenshot": "reports/ml/screenshots/real-api-model-detail-flask-v41.png"
+    },
+    {
+      "route": "/compare",
+      "repositories": [
+        "pallets/flask",
+        "django/django"
+      ],
+      "result": "通过页面勾选仓库并提交场景比较；UI 显示 12 周共同 ML 维护证据和规则排名。",
+      "api_selection_status": "available",
+      "api_insights_status": "comparable",
+      "api_common_complete_utc_weeks": 12,
+      "ranking": [
+        {
+          "full_name": "django/django",
+          "score": 1.0
+        },
+        {
+          "full_name": "pallets/flask",
+          "score": 0.0
+        }
+      ],
+      "report_markdown": "reports/ml/real-api-comparison-report-v41.md",
+      "screenshot": "reports/ml/screenshots/real-api-comparison-report-flask-django-v41.png"
+    }
+  ],
+  "notes": [
+    "低活跃 24 周扩展由详情页按钮触发并已完成；默认模型仍只看最近 12 周。",
+    "截图均来自真实 GitHub API 数据与临时数据库，未使用 Mock。",
+    "比较分数是用户选择的每周 Commit 事实权重下的规则结果，不是模型预测或成功概率。"
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "version": "ml03-release-protocol-v3",
+  "frozen_at": "2026-11-10T00:05:11.676138+00:00",
+  "seed": 20261109,
+  "source_manifest_sha256": "a9c2e9d10aad9beb7f1659d5c1192b3b6c32ce1c9670430966615b9b60fa11ba",
+  "pool_sha256": "d254c1e245fef2e3949f9c42855f917da3eaafc895dfbdf0658b086dff47206d",
+  "train_manifest_sha256": "5645ec0a04522e269ebb00290921f55c32a045a01a4edc6638f8da1b9d7d5efd",
+  "external_sampling": {
+    "target_repositories": 75,
+    "rule": "选取初始候选池中排除首轮外部 60 后的全部 75 个，每个语言/Star 层 5 个；不按外部模型结果筛选。",
+    "activity_proxy": "仅供分层描述，不参与模型特征或筛选。"
+  },
+  "time_window": {
+    "start": "2025-11-03T00:00:00Z",
+    "end_exclusive": "2026-11-02T00:00:00Z",
+    "weeks": 52,
+    "timezone": "UTC"
+  },
+  "events": {
+    "commits": "committer timestamp, fallback author timestamp, on default branch SHA visible at collection",
+    "pull_requests": "all states, created_at; creation-order pages until before window or terminal page"
+  },
+  "feature_sets": {
+    "A": "原先冻结的活动规模基线",
+    "D": "规模无关的 Commit/PR 周时间分布份额、集中度、熵、活跃周波动及活动周重叠",
+    "B2": "规模基线 A 与形态 D 的组合"
+  },
+  "training": {
+    "fit": "historical train IDs only; fit scaling and KMeans together",
+    "selection": "十组预定义时序特征 × K=2..4；仅训练仓库计算 bootstrap、规模混杂、簇占比、训练轮廓和规模层混合；在达到原门槛的组合中按训练轮廓最高选择，之后仅对冻结候选检查历史验证仓库，不用验证结果再选。",
+    "candidate_k": [
+      2,
+      3,
+      4
+    ],
+    "baseline": "A size-only KMeans, and descriptive activity tertiles",
+    "comparison": "Ward on train as diagnostic only; never used for online inference",
+    "bootstrap_repetitions": 50,
+    "bootstrap_unit": "repository",
+    "oob_ari_p05_min": 0.7,
+    "min_train_cluster_fraction": 0.08,
+    "max_size_tertile_nmi": 0.55,
+    "validation_silhouette_min": 0.2,
+    "within_size_bins": "at least two of three train-derived size tertiles have at least two clusters each with at least three members",
+    "train_silhouette_min": 0.2
+  },
+  "external": {
+    "min_frozen_repositories": 75,
+    "min_complete_and_in_domain": 40,
+    "max_rejection_fraction": 0.35,
+    "ood_rule": "training-derived per-cluster 99th percentile standardized distance and feature ranges; reject rather than force assignment",
+    "nontrivial_gain": "在冻结的候选形态特征空间中，外部候选轮廓系数比规模基线高至少 0.05；至少两个训练规模三分位内有两个各至少三个样本的簇；拒判与最少样本门槛保持不变。",
+    "evaluation_reuse": "only one formal evaluation per frozen model and holdout; failed results remain frozen",
+    "human_review": "two actual independent humans review at least 40 eligible repositories, neutral descriptions and disagreements; project owner approval required",
+    "automatic_approval": false
+  },
+  "prohibitions": [
+    "未通过人工审查、独立评估与负责人批准不得生产加载",
+    "维护行为簇不是质量分数，不进入选型总分",
+    "不把当前分支快照伪称过去时点的默认分支成员关系",
+    "不以无覆盖数据补零"
+  ],
+  "previous_result_lock_sha256": "9c1c267b317cc3f60ef693e51bef72e6b90b36fe19fa3c4b22fb67efd8d92f11",
+  "external_holdout_sha256": "8c9a468391e16e6174deef8e8c27808787374e9860617188050084c93294f992",
+  "applicability": {
+    "min_52_week_commits": 20,
+    "min_52_week_prs_created": 10,
+    "reason": "避免把少量离散事件的随机形态当作稳定行为。",
+    "outside_scope": "仅输出事实统计，不强制归类"
+  },
+  "supersedes_before_training_sha256": "af7191cf239ceccec51a417126e8d2bf061b805c5afdf99e17b297d38c913de1",
+  "correction": "将继承的旧 60 仓库抽样描述更正为 75 个全体剩余候选；在训练或外部数据采集前更正，准入数值门槛未降低。",
+  "supersedes_after_development_failure_sha256": "3a939b8a8c94bfba41a2a18412980ed069f706859dede3f41eb486cd17f4d49c",
+  "previous_development_failure_sha256": "ba292c17bca7d01a48080322a0f0491416e6d7b53df32c6b9e832228cf2d56d6",
+  "feature_subsets": {
+    "recency": [
+      "commit_recent_share",
+      "pr_recent_share"
+    ],
+    "concentration": [
+      "commit_top4_share",
+      "pr_top4_share"
+    ],
+    "entropy": [
+      "commit_entropy",
+      "pr_entropy"
+    ],
+    "active_variation": [
+      "commit_active_cv",
+      "pr_active_cv"
+    ],
+    "recency_overlap": [
+      "commit_recent_share",
+      "pr_recent_share",
+      "commit_pr_week_overlap"
+    ],
+    "recency_entropy": [
+      "commit_recent_share",
+      "pr_recent_share",
+      "commit_entropy",
+      "pr_entropy"
+    ],
+    "variation_concentration": [
+      "commit_active_cv",
+      "pr_active_cv",
+      "commit_top4_share",
+      "pr_top4_share"
+    ],
+    "recency_entropy_overlap": [
+      "commit_recent_share",
+      "pr_recent_share",
+      "commit_entropy",
+      "pr_entropy",
+      "commit_pr_week_overlap"
+    ],
+    "concentration_entropy": [
+      "commit_top4_share",
+      "pr_top4_share",
+      "commit_entropy",
+      "pr_entropy"
+    ],
+    "recency_concentration": [
+      "commit_recent_share",
+      "pr_recent_share",
+      "commit_top4_share",
+      "pr_top4_share"
+    ]
+  }
+}

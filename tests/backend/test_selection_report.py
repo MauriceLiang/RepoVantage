@@ -1,3 +1,5 @@
+import pytest
+
 from backend.app.persistence.models import MaintenanceRun, Repository
 from backend.app.pipeline.raw_archive import archive_json
 from backend.app.services.maintenance import persist_maintenance
@@ -30,21 +32,89 @@ def test_rule_ranking_uses_comparable_evidence_and_explicit_weights(backend_clie
     assert response.status_code == 200, response.text
     data = response.json()["data"]
     assert data["status"] == "available" and data["method"] == "rule_based"
+    assert data["scoring_version"] == "weighted-relative-v4"
     assert data["weights"] == {"commits_weekly_mean": 0.75, "issue_median_hours": 0.25}
     assert len(data["ranking"]) == 2 and len(data["sensitivity"]) == 2
-    assert all(row["score"] == 0.5 for row in data["ranking"])
+    assert all(row["score"] == 50 for row in data["ranking"])
+    assert all(sum(item["contribution"] for item in row["evidence"].values()) == 50 for row in data["ranking"])
     assert all(row["evidence"]["issue_median_hours"]["valid_samples"] >= 10 for row in data["ranking"])
     assert all(row["evidence"]["commits_weekly_mean"]["source_run_id"] for row in data["ranking"])
     assert "fixture/321" in data["report_markdown"] and "不是机器学习预测" in data["report_markdown"]
+    assert "50.0/100" in data["report_markdown"] and "weighted-relative-v4" in data["report_markdown"]
     exported = client.post("/api/v1/reports/selection.md", json=body(), headers=HEADERS)
-    assert exported.status_code == 200 and "规则得分" in exported.text and "来源运行" in exported.text
+    assert exported.status_code == 200 and "综合分" in exported.text and "来源运行" in exported.text
     assert "不是机器学习预测" in exported.text and "fixture/321" in exported.text
     assert client.post("/api/v1/comparisons/selection", json=body()).status_code == 401
 
 
-def test_failed_hard_constraint_and_missing_coverage_do_not_become_zero(backend_client):
+def test_weight_score_works_without_scenario_category_or_confirmation(backend_client):
     client, factory, _ = backend_client
-    seed(factory, partial=True)
+    seed(factory)
+    selection = {"repository_ids": [321, 322], "window_days": 90, "allowed_languages": [],
+                 "allowed_licenses": [], "weights": {"commits_weekly_mean": 5}}
+    response = client.post("/api/v1/comparisons/selection", json=selection, headers=HEADERS)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "available"
+    assert data["scenario"] == "自定义权重对比"
+    assert data["candidate_group"] == "当前所选仓库"
+    assert len(data["ranking"]) == 2
+    compatible = {**selection, "scenario": "自定义权重对比", "candidate_group": "当前所选仓库",
+                  "candidates_confirmed": True, "weights": {"commits_weekly_mean": 5.37}}
+    compatible_response = client.post("/api/v1/comparisons/selection", json=compatible, headers=HEADERS)
+    assert compatible_response.status_code == 200, compatible_response.text
+    assert compatible_response.json()["data"]["weights"] == {"commits_weekly_mean": 1.0}
+    assert client.post("/api/v1/comparisons/selection", json={**selection, "weights": {"commits_weekly_mean": 10.1}}, headers=HEADERS).status_code == 422
+
+
+def test_missing_metric_keeps_candidate_and_uses_neutral_score(backend_client):
+    client, factory, _ = backend_client
+    seed(factory, missing_first_issues=True)
+    selection = body(weights={"issue_median_hours": 1})
+    response = client.post("/api/v1/comparisons/selection", json=selection, headers=HEADERS)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "available"
+    assert {row["repository_id"] for row in data["ranking"]} == {321, 322}
+    rows = {row["repository_id"]: row for row in data["ranking"]}
+    missing = rows[321]["evidence"]["issue_median_hours"]
+    assert missing["value"] is None and missing["missing_policy"] == "neutral_50"
+    assert missing["normalized"] == 0.5 and missing["contribution"] == 50
+    assert rows[322]["evidence"]["issue_median_hours"]["missing_policy"] == "observed"
+    assert "当前候选综合分并列" in data["report_markdown"]
+    assert "无有效样本（中性 50 分）" in data["report_markdown"]
+    assert any("中性 50 分" in note for note in data["notes"])
+
+
+def test_small_observed_issue_samples_are_used_in_score(backend_client):
+    client, factory, _ = backend_client
+    seed(factory, issue_repeats=1)
+    response = client.post("/api/v1/comparisons/selection", json=body(weights={"issue_median_hours": 1}), headers=HEADERS)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "available" and len(data["ranking"]) == 2
+    for row in data["ranking"]:
+        evidence = row["evidence"]["issue_median_hours"]
+        assert evidence["valid_samples"] == 2
+        assert evidence["value"] == 48 and evidence["missing_policy"] == "observed"
+
+
+def test_partial_online_metric_uses_its_observed_samples(backend_client):
+    client, factory, _ = backend_client
+    seed(factory, partial_issues=True)
+    response = client.post("/api/v1/comparisons/selection", json=body(weights={"issue_median_hours": 1}), headers=HEADERS)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "available" and len(data["ranking"]) == 2
+    partial_row = next(row for row in data["ranking"] if row["repository_id"] == 321)
+    evidence = partial_row["evidence"]["issue_median_hours"]
+    assert evidence["valid_samples"] >= 1 and evidence["value"] is not None
+    assert evidence["quality"] == "partial" and evidence["missing_policy"] == "observed"
+
+
+def test_hard_constraints_still_exclude_candidates(backend_client):
+    client, factory, _ = backend_client
+    seed(factory)
     with factory() as session:
         session.get(Repository, 322).license_spdx = "GPL-3.0"
         session.commit()
@@ -53,26 +123,64 @@ def test_failed_hard_constraint_and_missing_coverage_do_not_become_zero(backend_
     data = response.json()["data"]
     assert data["status"] == "insufficient_data" and data["ranking"] == []
     reasons = {row["repository_id"]: " ".join(row["reasons"]) for row in data["excluded"]}
-    assert "覆盖不足" in reasons[321] and "许可证" in reasons[322]
+    assert "许可证" in reasons[322]
 
 
-def test_short_samples_and_noncomparable_windows_are_not_ranked(backend_client):
+@pytest.mark.parametrize("offset", [20, 100])
+def test_noncomparable_windows_fall_back_to_individual_windows(backend_client, offset):
     client, factory, _ = backend_client
-    seed(factory, second_offset=20, empty_issues=True)
+    seed(factory, second_offset=offset, empty_issues=True)
     response = client.post("/api/v1/comparisons/selection", json=body(), headers=HEADERS)
     assert response.status_code == 200, response.text
     data = response.json()["data"]
-    assert data["status"] == "insufficient_data" and data["ranking"] == []
-    assert data["comparison_basis"]["reason_code"] == "SHARED_WINDOW_BELOW_THRESHOLD"
+    assert data["status"] == "available" and len(data["ranking"]) == 2
+    assert data["comparison_basis"]["scope"] == "repository_windows"
+    assert data["comparison_basis"]["shared_window"] is None
+    assert any("不代表同期表现" in note for note in data["notes"])
+    assert all(row["evidence"]["issue_median_hours"]["missing_policy"] == "neutral_50" for row in data["ranking"])
+    assert all(row["evidence"]["commits_weekly_mean"]["missing_policy"] == "observed" for row in data["ranking"])
+
+
+def test_repositories_without_analysis_still_have_all_weighted_scores(backend_client):
+    client, factory, _ = backend_client
+    with factory() as session:
+        session.add_all([Repository(repository_id=id, full_name=f"fixture/{id}", html_url=f"https://github.com/fixture/{id}") for id in (321, 322)])
+        session.commit()
+    response = client.post("/api/v1/comparisons/selection", json=body(
+        allowed_languages=[], allowed_licenses=[],
+        weights={"commits_weekly_mean": 1, "issue_median_hours": 1, "pr_median_hours": 1, "release_interval_days": 1},
+    ), headers=HEADERS)
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["status"] == "available" and len(data["ranking"]) == 2 and not data["excluded"]
+    for row in data["ranking"]:
+        assert row["score"] == 50
+        assert len(row["evidence"]) == 4
+        assert all(item["value"] is None and item["missing_policy"] == "neutral_50" for item in row["evidence"].values())
 
 
 def test_invalid_selection_configuration_is_rejected(backend_client):
     client, _, _ = backend_client
     assert client.post("/api/v1/comparisons/selection", json=body(weights={}), headers=HEADERS).status_code == 422
     assert client.post("/api/v1/comparisons/selection", json=body(repository_ids=[321, 321]), headers=HEADERS).status_code == 422
-    assert client.post("/api/v1/comparisons/selection", json=body(scenario="   "), headers=HEADERS).status_code == 422
-    assert client.post("/api/v1/comparisons/selection", json=body(candidates_confirmed=False), headers=HEADERS).status_code == 422
+    assert client.post("/api/v1/comparisons/selection", json=body(weights={"commits_weekly_mean": 10.1}), headers=HEADERS).status_code == 422
     assert client.post("/api/v1/comparisons/selection", json=body(weights={"commits_weekly_mean": 1e308, "pr_median_hours": 1e308}), headers=HEADERS).status_code == 422
+
+
+def test_commit_score_uses_logarithmic_diminishing_returns_and_cost_metrics_reverse():
+    import math
+    from backend.app.services.selection import _relative_score, _score_input
+
+    commit_low = _score_input("commits_weekly_mean", 1)
+    commit_high = _score_input("commits_weekly_mean", 99)
+    middle_commit_score = _relative_score("commits_weekly_mean", 9, commit_low, commit_high)
+    raw_linear_score = (9 - 1) / (99 - 1)
+    expected = (math.log(10) - math.log(2)) / (math.log(100) - math.log(2))
+    assert middle_commit_score == pytest.approx(expected)
+    assert middle_commit_score > raw_linear_score
+    assert _relative_score("issue_median_hours", 1, 1, 3) == 1
+    assert _relative_score("issue_median_hours", 3, 1, 3) == 0
+    assert _relative_score("issue_median_hours", 2, 2, 2) == 0.5
 
 
 def test_feedback_requires_consent_and_current_comparable_selection_and_can_be_deleted(backend_client):
@@ -150,7 +258,7 @@ def test_maintenance_evidence_matches_report_without_changing_rule_ranking(backe
     assert "不参与规则得分" in exported.text
     assert "## 数据口径与适用性说明" in exported.text
     assert "## 技术选型辅助结论（规则与证据分别说明）" in exported.text
-    assert "规则排序优先列出" in exported.text
+    assert "当前候选综合分并列" in exported.text
     assert "M1、M2 与 M3 只作为近期维护行为证据，不参与规则排名" in exported.text
     with factory() as session:
         session.delete(session.get(MaintenanceRun, 'maintenance-322'))

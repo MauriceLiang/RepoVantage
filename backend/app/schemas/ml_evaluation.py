@@ -90,10 +90,10 @@ class ModelDecisions(DTO):
 
 
 class SelectionWeights(DTO):
-    commits_weekly_mean: float = Field(default=0, ge=0, allow_inf_nan=False)
-    issue_median_hours: float = Field(default=0, ge=0, allow_inf_nan=False)
-    pr_median_hours: float = Field(default=0, ge=0, allow_inf_nan=False)
-    release_interval_days: float = Field(default=0, ge=0, allow_inf_nan=False)
+    commits_weekly_mean: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
+    issue_median_hours: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
+    pr_median_hours: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
+    release_interval_days: float = Field(default=0, ge=0, le=10, allow_inf_nan=False)
 
     @model_validator(mode="after")
     def require_weight(self):
@@ -105,9 +105,9 @@ class SelectionWeights(DTO):
 
 class SelectionRequest(DTO):
     repository_ids: list[int] = Field(min_length=2, max_length=5)
-    scenario: str = Field(min_length=1, max_length=500)
-    candidate_group: str = Field(min_length=1, max_length=200)
-    candidates_confirmed: StrictBool
+    scenario: str | None = Field(default=None, max_length=500)
+    candidate_group: str | None = Field(default=None, max_length=200)
+    candidates_confirmed: StrictBool | None = None
     window_days: Literal[30, 90, 180] = 90
     allowed_languages: list[str] = Field(default_factory=list, max_length=20)
     allowed_licenses: list[str] = Field(default_factory=list, max_length=20)
@@ -123,16 +123,9 @@ class SelectionRequest(DTO):
     @field_validator("scenario", "candidate_group")
     @classmethod
     def nonblank_text(cls, value):
-        if not value.strip():
-            raise ValueError("内容不能为空")
-        return value.strip()
-
-    @field_validator("candidates_confirmed")
-    @classmethod
-    def comparable_candidates_confirmed(cls, value):
-        if not value:
-            raise ValueError("请先确认候选适用于同一类需求")
-        return value
+        if value is None:
+            return None
+        return value.strip() or None
 
     @field_validator("allowed_languages", "allowed_licenses")
     @classmethod
@@ -145,6 +138,7 @@ class SelectionRequest(DTO):
 class SelectionResult(DTO):
     status: Literal["available", "insufficient_data"]
     method: Literal["rule_based"]
+    scoring_version: Literal["weighted-relative-v4"]
     scenario: str
     candidate_group: str
     comparison_basis: dict[str, Any]

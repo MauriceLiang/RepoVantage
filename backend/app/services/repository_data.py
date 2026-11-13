@@ -44,8 +44,8 @@ def clear_repository_data(
     但此时已经提交的数据库删除无法回滚。
     """
     ids = sorted(set(repository_ids))
-    if not ids or any(repository_id <= 0 for repository_id in ids) or len(ids) > 100:
-        raise AppError(422, "VALIDATION_ERROR", "请选择 1–100 个不同的有效仓库")
+    if not ids or any(repository_id <= 0 for repository_id in ids) or len(ids) > 200:
+        raise AppError(422, "VALIDATION_ERROR", "请选择 1–200 个不同的有效仓库")
 
     raw_root = get_settings().raw_data_path.resolve()
     page_root = collection_archive.COLLECTED_ROOT.resolve()

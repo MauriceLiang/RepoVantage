@@ -33,7 +33,7 @@ async def lifespan(_app: FastAPI):
             logger.info("Course research snapshot ready: %s", imported)
         except (CourseBundleError, OSError, ValueError, SQLAlchemyError) as exc:
             session.rollback()
-            logger.warning("Course research snapshot unavailable; research page will use its fallback: %s", exc)
+            logger.warning("Course standard test dataset unavailable; research page will report it unavailable: %s", exc)
     except SQLAlchemyError:
         session.rollback()
         logger.exception("Database schema is missing; run `alembic upgrade head` before starting the API")

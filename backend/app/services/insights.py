@@ -179,6 +179,12 @@ def repository_insights(session, repository_id, window_days=90):
         default=0,
     )
     run = _select_insight_run(runs, window_days)
+    if window_days is not None:
+        from backend.app.services.course_test_events import historical_insights, prefer_historical
+        if prefer_historical(session, repository_id, window_days, run):
+            historical = historical_insights(session, repository_id, window_days)
+            if historical is not None:
+                return historical
     if run is None:
         reason = (
             f"当前尚无可用的事件级分析数据。请选择快速或完整窗口采集 {window_days or 90} 天范围后重试。"
@@ -244,6 +250,12 @@ def repository_insights_for_window(session, repository_id, start, end, source_re
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     if start >= end:
         raise AppError(422, "VALIDATION_ERROR", "分析窗口必须晚于开始时间")
+    if source_result.get("origin") == "course-test-events-v1":
+        from backend.app.services.course_test_events import historical_insights
+        historical = historical_insights(session, repository_id, source_result["requested_window_days"], start=start, end=end)
+        if historical is None:
+            raise AppError(503, "COURSE_TEST_EVENTS_UNAVAILABLE", "历史事件无法覆盖所选比较窗口")
+        return historical
     try:
         sources = json.loads(json.dumps(source_result["sources"]))
         limitations = list(source_result.get("limitations", LIMITATIONS))
@@ -315,9 +327,7 @@ def repository_release_detail(session, repository_id, release_id):
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     run = _latest_insight_run(session, repository_id)
-    if run is None:
-        raise AppError(404, "RESOURCE_NOT_FOUND", "尚无可读取 Release 说明的采集归档")
-    for archive_path in json.loads(run.source_archive_paths_json):
+    for archive_path in json.loads(run.source_archive_paths_json) if run else []:
         if not isinstance(archive_path, str):
             continue
         try:
@@ -334,6 +344,12 @@ def repository_release_detail(session, repository_id, release_id):
                     }
         except (OSError, ValueError, TypeError):
             continue
+    from backend.app.services.course_test_events import historical_release_detail
+    historical = historical_release_detail(session, repository_id, release_id)
+    if historical is not None:
+        return historical
+    if run is None:
+        raise AppError(404, "RESOURCE_NOT_FOUND", "尚无可读取 Release 说明的采集归档")
     raise AppError(404, "RESOURCE_NOT_FOUND", "当前采集归档中没有该 Release 说明，请重新采集仓库数据")
 
 
@@ -349,6 +365,12 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
         RepositoryInsightRun.metric_version == METRIC_VERSION,
     ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id))).all()
     run = _select_insight_run(runs, window_days)
+    from backend.app.services.course_test_events import historical_commit_activity, prefer_historical
+    if prefer_historical(session, repository_id, window_days or 90, run):
+        historical = historical_commit_activity(session, repository_id, page=page, per_page=per_page,
+                                                search=search, week_start=week_start, window_days=window_days)
+        if historical is not None:
+            return historical
     if run is None:
         reason = f"当前没有覆盖所选 {window_days} 天的 Commit 采集归档。" if runs and window_days else "尚无可读取的 Commit 采集归档。"
         return {
@@ -499,12 +521,22 @@ def repository_commit_activity(session, repository_id, *, page=1, per_page=20, s
     }
 
 
-def repository_closed_issues(session, repository_id, search=None, *, include_body=False):
+def repository_closed_issues(session, repository_id, search=None, *, include_body=False, window_days=None):
     """从最新分析归档中安全地返回已关闭 Issue 的逐条记录。"""
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = _latest_insight_run(session, repository_id)
+    if window_days is not None and window_days not in {30, 90, 180}:
+        raise AppError(422, "VALIDATION_ERROR", "分析范围只支持 30、90 或 180 天")
+    runs = session.scalars(select(RepositoryInsightRun).where(
+        RepositoryInsightRun.repository_id == repository_id, RepositoryInsightRun.metric_version == METRIC_VERSION,
+    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id))).all()
+    run = _select_insight_run(runs, window_days)
+    from backend.app.services.course_test_events import historical_records, prefer_historical
+    if prefer_historical(session, repository_id, window_days or 90, run):
+        historical = historical_records(session, repository_id, "issues", window_days=window_days, search=search, include_body=include_body)
+        if historical is not None:
+            return historical
     if run is None:
         return {
             "available": False, "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": "请先采集深度活动数据"},
@@ -513,13 +545,15 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
 
     task_ids, archive_paths, module_coverage = _archive_sources(run, "issues", "ISSUE_ARCHIVE_UNAVAILABLE", "Issue")
 
+    scope_end = run.window_end
+    scope_start = scope_end - timedelta(days=window_days) if window_days is not None else run.window_start
     events = session.scalars(select(RepositoryActivityEvent).where(
         RepositoryActivityEvent.repository_id == repository_id,
         RepositoryActivityEvent.event_type == "issue",
         RepositoryActivityEvent.source_task_id.in_(task_ids) if task_ids else RepositoryActivityEvent.source_task_id == "",
         RepositoryActivityEvent.closed_at.is_not(None),
-        RepositoryActivityEvent.closed_at >= run.window_start,
-        RepositoryActivityEvent.closed_at < run.window_end,
+        RepositoryActivityEvent.closed_at >= scope_start,
+        RepositoryActivityEvent.closed_at < scope_end,
     )).all()
     event_by_id = {event.source_item_id: event for event in events}
 
@@ -601,13 +635,13 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
         "available": available,
         "coverage": {"state": coverage_state, "label": coverage_labels[coverage_state], "detail": coverage_details[coverage_state]},
         "note": note,
-        "window_start": iso_z(run.window_start),
-        "window_end": iso_z(run.window_end),
+        "window_start": iso_z(scope_start),
+        "window_end": iso_z(scope_end),
         "items": rows,
     }
 
 
-def repository_pull_requests(session, repository_id, search=None, *, include_body=False, merged_from=None, merged_to=None):
+def repository_pull_requests(session, repository_id, search=None, *, include_body=False, merged_from=None, merged_to=None, window_days=None):
     """返回最新分析归档中保存的已关闭 Pull Request。"""
     # 图表点选传入 UTC 左闭右开区间；兼容未带时区的查询值并统一成 UTC。
     merged_from = merged_from.replace(tzinfo=timezone.utc) if merged_from and merged_from.tzinfo is None else merged_from
@@ -616,11 +650,22 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
     merged_to = merged_to.astimezone(timezone.utc) if merged_to else None
     if merged_from and merged_to and merged_from >= merged_to:
         raise AppError(422, "VALIDATION_ERROR", "PR 合并时间筛选的结束时间必须晚于开始时间")
+    if window_days is not None and window_days not in {30, 90, 180}:
+        raise AppError(422, "VALIDATION_ERROR", "分析范围只支持 30、90 或 180 天")
 
     repository = session.get(Repository, repository_id)
     if repository is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
-    run = _latest_insight_run(session, repository_id)
+    runs = session.scalars(select(RepositoryInsightRun).where(
+        RepositoryInsightRun.repository_id == repository_id, RepositoryInsightRun.metric_version == METRIC_VERSION,
+    ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id))).all()
+    run = _select_insight_run(runs, window_days)
+    from backend.app.services.course_test_events import historical_records, prefer_historical
+    if prefer_historical(session, repository_id, window_days or 90, run):
+        historical = historical_records(session, repository_id, "pulls", window_days=window_days, search=search,
+                                        include_body=include_body, merged_from=merged_from, merged_to=merged_to)
+        if historical is not None:
+            return historical
     if run is None:
         return {
             "available": False, "coverage": {"state": "missing", "label": "尚无逐条数据", "detail": "请先采集深度活动数据"},
@@ -629,13 +674,15 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
 
     task_ids, archive_paths, module_coverage = _archive_sources(run, "pulls", "PULL_REQUEST_ARCHIVE_UNAVAILABLE", "Pull Request")
 
+    scope_end = run.window_end
+    scope_start = scope_end - timedelta(days=window_days) if window_days is not None else run.window_start
     events = session.scalars(select(RepositoryActivityEvent).where(
         RepositoryActivityEvent.repository_id == repository_id,
         RepositoryActivityEvent.event_type == "pull_request",
         RepositoryActivityEvent.source_task_id.in_(task_ids) if task_ids else RepositoryActivityEvent.source_task_id == "",
         RepositoryActivityEvent.closed_at.is_not(None),
-        RepositoryActivityEvent.closed_at >= run.window_start,
-        RepositoryActivityEvent.closed_at < run.window_end,
+        RepositoryActivityEvent.closed_at >= scope_start,
+        RepositoryActivityEvent.closed_at < scope_end,
     )).all()
     event_by_id = {event.source_item_id: event for event in events}
 
@@ -709,8 +756,8 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
             row for row in rows
             if row["merged_at"] is not None and row["duration_days"] is not None
             and (merged_at := parse_github_datetime(row["merged_at"])) is not None
-            and (merged_from is None or merged_at >= merged_from)
-            and (merged_to is None or merged_at < merged_to)
+            and (merged_from is None or merged_at >= merged_from.replace(tzinfo=None))
+            and (merged_to is None or merged_at < merged_to.replace(tzinfo=None))
         ]
     normalized_search = (search or "").strip().casefold()
     if normalized_search:
@@ -727,19 +774,25 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
         "available": available,
         "coverage": {"state": coverage_state, "label": coverage_labels[coverage_state], "detail": coverage_details[coverage_state]},
         "note": note,
-        "window_start": iso_z(run.window_start),
-        "window_end": iso_z(run.window_end),
+        "window_start": iso_z(scope_start),
+        "window_end": iso_z(scope_end),
         "items": rows,
     }
 
 
 def repository_pull_request_detail(session, repository_id, pull_number):
     result = repository_pull_requests(session, repository_id, include_body=True)
-    if not result["available"]:
-        raise AppError(409, "PULL_REQUEST_ARCHIVE_UNAVAILABLE", result["note"])
     for item in result["items"]:
         if item["number"] == pull_number:
             return {key: item[key] for key in ("number", "title", "created_at", "closed_at", "merged_at", "duration_days", "state", "draft", "comments_count", "url", "body")}
+    from backend.app.services.course_test_events import historical_records
+    historical = historical_records(session, repository_id, "pulls", window_days=180, include_body=True)
+    if historical:
+        for item in historical["items"]:
+            if item["number"] == pull_number:
+                return item
+    if not result["available"]:
+        raise AppError(409, "PULL_REQUEST_ARCHIVE_UNAVAILABLE", result["note"])
     raise AppError(404, "RESOURCE_NOT_FOUND", "本次采集归档中没有该 Pull Request")
 
 
@@ -800,11 +853,17 @@ def repository_pull_request_online_detail(session, repository_id, pull_number, g
 
 def repository_closed_issue_detail(session, repository_id, issue_number):
     result = repository_closed_issues(session, repository_id, include_body=True)
-    if not result["available"]:
-        raise AppError(409, "ISSUE_ARCHIVE_UNAVAILABLE", result["note"])
     for item in result["items"]:
         if item["number"] == issue_number:
             return {key: item[key] for key in ("number", "title", "created_at", "closed_at", "duration_days", "state", "url", "body", "comments_count")}
+    from backend.app.services.course_test_events import historical_records
+    historical = historical_records(session, repository_id, "issues", window_days=180, include_body=True)
+    if historical:
+        for item in historical["items"]:
+            if item["number"] == issue_number:
+                return item
+    if not result["available"]:
+        raise AppError(409, "ISSUE_ARCHIVE_UNAVAILABLE", result["note"])
     raise AppError(404, "RESOURCE_NOT_FOUND", "本次采集归档中没有该已关闭 Issue")
 
 

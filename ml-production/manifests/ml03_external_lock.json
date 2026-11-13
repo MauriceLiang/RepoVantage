@@ -1,0 +1,14 @@
+{
+  "locked_at": "2026-11-09T14:32:28.830336+00:00",
+  "hashes": {
+    "ml-production/protocols/ml03_release_protocol_v1.json": "d13227019554dddfc376d74c9cb4b0222d9a7695d3303541473a5f834d69e7ac",
+    "ml-production/manifests/ml03_external_holdout.json": "67ed1f9530a274c5a7a8aa514427e130c77088fb8cb9b36f5ad047f0fd3882cd",
+    "dataprepare/MachineLearn/run/ml03-v3-development/model.joblib": "f4128bcdc055339b0aec0baaa09c8b46434275182d563e7cc627b6fdfa5493f4",
+    "dataprepare/MachineLearn/run/ml03-v3-development/numeric_model.json": "160969beab563bfaf580a2856e4dcbaf43dec7c9ab5967a5443f07735a49f210",
+    "dataprepare/MachineLearn/run/ml03-v3-development/size_baseline.joblib": "dcfd18dd43af7cfa047a047e36976b9c97d4244cf18d02d4ea6914042796e85a",
+    "dataprepare/MachineLearn/run/ml03-v3-development/training_manifest.json": "e639943df83c36168f432e870bf0c845be9edecd18b79c150596426120d471b4",
+    "backend/app/services/maintenance_collection.py": "ab848e030b7c03daeb301def0feef758277d69616e94aa9133b5d2a6638581bc",
+    "backend/app/analytics/maintenance_features.py": "3c2a1c3b504aee0ffa16aa4d893961d3f2c4466afeb481f766994ec4dbd86338"
+  },
+  "note": "模型与外部名单固定后才采集外部周事件或计算外部模型输出。"
+}

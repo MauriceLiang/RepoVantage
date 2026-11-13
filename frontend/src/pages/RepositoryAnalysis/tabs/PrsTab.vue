@@ -53,15 +53,16 @@ const selectedPeriodText = computed(() => {
 })
 const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<PullRequestActivityPage>(
   () => props.analysis.repository.id,
-  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search, selectedRange.value?.start, selectedRange.value?.end),
+  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search, selectedRange.value?.start, selectedRange.value?.end, props.analysis.windowAvailability.requestedDays),
   'Pull Request 记录加载失败',
-  () => selectedPeriodKey.value,
+  () => `${props.analysis.windowAvailability.requestedDays}:${selectedPeriodKey.value}`,
 )
 const exporting = ref(false)
 let detailRequest = 0
 
 watch(durationGrain, () => { selectedPeriod.value = null })
 watch(() => props.analysis.repository.id, () => { selectedPeriod.value = null; page.value = 1 })
+watch(() => props.analysis.windowAvailability.requestedDays, () => { selectedPeriod.value = null; page.value = 1 }, { flush: 'sync' })
 watch(durationPeriods, (periods) => {
   if (selectedPeriod.value && !periods.some((period) => period.start === selectedPeriod.value?.start && period.end === selectedPeriod.value?.end)) selectedPeriod.value = null
 })
@@ -81,9 +82,10 @@ async function openPullRequest(item: PullRequestActivityRecord) {
     closedAt: item.closedAt ?? '',
     mergedAt: item.mergedAt ?? '',
     durationDays: formatDuration(item.durationDays),
-    commentsCount: String(item.commentsCount),
+    commentsCount: item.commentsCount === null ? '未知' : String(item.commentsCount),
     state: item.state,
     draft: String(item.draft),
+    historicalSnapshot: props.analysis.provenance?.origin === 'course-test-events-v1' ? 'true' : 'false',
     url: item.url ?? '',
     onlineStatus: 'idle',
     bodyStatus: 'loading',
@@ -93,7 +95,7 @@ async function openPullRequest(item: PullRequestActivityRecord) {
     const detail = await source.getPullRequestDetail(props.analysis.repository.id, item.number)
     if (requestId !== detailRequest || ui.drawerKind !== 'pr' || ui.drawerPayload?.number !== String(item.number)) return
     if (ui.drawerPayload?.onlineStatus === 'loading' || ui.drawerPayload?.onlineStatus === 'ready') return
-    ui.openDrawer('pr', { ...payload, bodyStatus: 'ready', body: detail.body ?? '', commentsCount: String(detail.commentsCount) })
+    ui.openDrawer('pr', { ...payload, bodyStatus: 'ready', body: detail.body ?? '', commentsCount: detail.commentsCount === null ? '未知' : String(detail.commentsCount) })
   } catch (cause) {
     if (requestId !== detailRequest || ui.drawerKind !== 'pr' || ui.drawerPayload?.number !== String(item.number)) return
     ui.openDrawer('pr', { ...payload, bodyStatus: 'error', bodyError: cause instanceof Error ? cause.message : '无法读取该 Pull Request 的详细内容' })
@@ -103,7 +105,7 @@ async function openPullRequest(item: PullRequestActivityRecord) {
 async function exportCsv() {
   exporting.value = true
   try {
-    downloadBlob(await source.exportPullRequestRecords(props.analysis.repository.id, appliedSearch.value, selectedRange.value?.start, selectedRange.value?.end), `${props.analysis.repository.id}-pull-requests.csv`)
+    downloadBlob(await source.exportPullRequestRecords(props.analysis.repository.id, appliedSearch.value, selectedRange.value?.start, selectedRange.value?.end, props.analysis.windowAvailability.requestedDays), `${props.analysis.repository.id}-pull-requests.csv`)
   } catch (cause) {
     ui.toast(cause instanceof Error ? cause.message : '导出 Pull Request 记录失败', 'error')
   } finally {
@@ -199,7 +201,7 @@ async function exportCsv() {
               <td class="whitespace-nowrap px-1.5 py-2.5"><GdBadge :variant="item.state === 'merged' ? 'default' : 'warn'">{{ item.state === 'merged' ? '已合并' : '关闭未合并' }}</GdBadge></td>
               <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.createdAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.createdAt) }}</span></td>
               <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.mergedAt ?? item.closedAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.mergedAt ?? item.closedAt) }}</span></td>
-              <td class="whitespace-nowrap px-1.5 py-2.5 text-right text-[11px] text-ink">{{ item.commentsCount }}</td>
+              <td class="whitespace-nowrap px-1.5 py-2.5 text-right text-[11px] text-ink">{{ item.commentsCount ?? '—' }}</td>
             </tr>
           </tbody>
         </table>

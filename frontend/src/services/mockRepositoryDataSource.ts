@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
   IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositorySummary,
-  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
+  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
@@ -744,7 +744,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       updatedAt: record.closedAt,
       url: record.url,
       source: 'mock',
-      commentsCount: record.commentsCount,
+      commentsCount: record.commentsCount ?? 0,
       comments: record.commentsCount ? [{ author: 'demo-reviewer', body: '演示评论：该改动已完成检查。', createdAt: record.closedAt }] : [],
       commentsComplete: true,
       commentsError: null,
@@ -768,7 +768,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
   }
 
   async getSelection(_input: SelectionRequest): Promise<SelectionResult> {
-    return { status: 'insufficient_data', sharedWindow: null, ranking: [], excluded: [], sensitivity: [], maintenance: { commonWindow: null, dataAsOf: null, repositories: [] }, notes: ['演示模式不生成真实选型结果。'], reportMarkdown: '', resultSignature: '' }
+    return { status: 'insufficient_data', scoringVersion: 'weighted-relative-v4', weights: {}, sharedWindow: null, ranking: [], excluded: [], sensitivity: [], maintenance: { commonWindow: null, dataAsOf: null, repositories: [] }, notes: ['演示模式不生成真实选型结果。'], reportMarkdown: '', resultSignature: '' }
   }
 
   async listSelectionFeedback(): Promise<SelectionFeedback[]> { return [] }
@@ -791,6 +791,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
       const gaps = formal.slice(1).map((release, index) => (Date.parse(release.publishedAt) - Date.parse(formal[index].publishedAt)) / DAY).sort((a, b) => a - b)
       const releaseMedian = gaps.length ? (gaps[Math.floor((gaps.length - 1) / 2)] + gaps[Math.floor(gaps.length / 2)]) / 2 : null
+      const releaseQuality = !available ? 'missing' : releaseMedian !== null ? 'ready' : formal.length > 0 ? 'insufficient_samples' : 'missing'
       return {
         id,
         label: seed.fullName,
@@ -813,6 +814,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         prQuality,
         prReasonCode: prQuality === 'ready' ? null : 'METRIC_QUALITY_NOT_READY',
         releaseMedianDays: available && seed.coverage.state === 'complete' ? releaseMedian : null,
+        releaseQuality,
       }
     })
     const availableWindows = entries.filter((entry) => entry.windowAvailable && entry.windowStart && entry.windowEnd)
@@ -870,7 +872,38 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getResearchDataset(id = 'featured-default', mode: ResearchAnalysisMode | 'auto' = 'auto'): Promise<ResearchDataset> {
+  async getResearchDataset(id = 'course-research-300-v1', mode: ResearchAnalysisMode | 'auto' = 'auto'): Promise<ResearchDataset> {
+    if (mode === 'auto' || mode === 'course') {
+      return {
+        id: 'course-research-300-v1',
+        name: '默认仓库数据集（300 个仓库）',
+        analysisMode: 'course',
+        populationScope: 'course_research_historical_snapshot',
+        isProbabilitySample: false,
+        datasetVersion: 'course-research-300-v1',
+        studyStatus: 'awaiting_collection',
+        exploratory: false,
+        samplingSource: 'dataprepare 中已采集的 300 仓库数据',
+        samplingRule: '完整使用本地仓库快照；缺失覆盖按实际状态标示',
+        frozenAt: null,
+        eventWindow: { start: null, end: null },
+        repositoryCount: 0,
+        eventCount: null,
+        missingRate: null,
+        issueMedianDays: null,
+        issueSample: 0,
+        prMedianDays: null,
+        prSample: 0,
+        groups: [],
+        scatter: { points: [], spearman: null, sampleSize: 0, pValue: null, note: '演示模式未加载真实的 300 仓库数据' },
+        quality: [],
+        metricQuality: [],
+        courseSummary: null,
+        courseLanguageGroups: [],
+        courseRepositories: [],
+        limitations: ['演示模式未加载真实的 300 仓库数据；没有回退到旧精选仓库。'],
+      }
+    }
     const analysisMode: ResearchAnalysisMode = mode === 'formal' ? 'formal' : 'exploratory'
     if (analysisMode === 'formal' || this.featuredImportSummary()?.status !== 'succeeded') {
       return {
@@ -971,6 +1004,17 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getOverviewDashboard(): Promise<RepositoryDashboardData> {
+    return {
+      id: 'course-research-300-v1',
+      name: '默认仓库数据集（300 个仓库）',
+      repositoryCount: 0,
+      courseSummary: { dataAsOf: null, weeklyRecords: 0, completeCommitRepositories: 0 },
+      courseLanguageGroups: [],
+      courseRepositories: [],
+    }
+  }
+
   async listTasks(): Promise<TaskItem[]> {
     const demoImport = this.featuredTaskItem()
     return [
@@ -982,7 +1026,6 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       { id: 't6', repository: 'demo-labs/tiny-lab', module: 'issues', status: 'analyzing', stage: '统计分位数 · 3 / 7 条', processed: 3, total: 7, updatedAt: '刚刚' },
       ...(this.requestedScopeTask ? [this.requestedScopeTask] : []),
       ...this.retryTasks,
-      { id: 'mock-featured-failed', taskType: 'dataset_import', targetType: 'dataset', targetId: 'featured-default', repository: '精选仓库数据集', module: 'dataset_import', version: 'featured-v1.0.0-demo', status: 'failed', stage: '演示失败样例：暂存校验未通过', updatedAt: '昨天', error: '演示失败状态，可点击重试', isDemo: true },
       ...(demoImport ? [demoImport] : []),
     ]
   }

@@ -1,0 +1,1123 @@
+{
+  "version": "ml03-external-holdout-v1",
+  "frozen_at": "2026-11-09T14:32:18Z",
+  "protocol_sha256": "d13227019554dddfc376d74c9cb4b0222d9a7695d3303541473a5f834d69e7ac",
+  "pool_sha256": "d254c1e245fef2e3949f9c42855f917da3eaafc895dfbdf0658b086dff47206d",
+  "candidate_profile_hashes": {
+    "143580": "9c9b8102755cd175290c18916c40b8bd332a65ed2a158db4910839f319bc8edf",
+    "691146": "459c918e013ddc70af4ccb8fbdd4891b37575179899dca3f83cd73ac027d94bf",
+    "715605": "c60109c27522ec0361f2d3f36e044c9af4a85f7044eeb0920f757a8cc712454a",
+    "873328": "65e4076f252a7a826bdb1990fc1ad25665f7a5d9763903eb8eca1bfeb7662247",
+    "1287669": "1d2b4b9a24cd58b6a3345e3273a32943abf436d99cb1530939a0f0f983e84ce8",
+    "1451800": "d4184cd4b758cb56c5e741f5b1b19b357a8120d247b295e8901396368222539b",
+    "1569980": "57ffa70f4f95bb621c18cc8e513df95a2206fb2c567a020d4b60acbe9fdff057",
+    "3698588": "066666055e194b217ca94c0fe01411a259ee26aa02104ceafa101ff180b53f4c",
+    "6210553": "2b46bd9fb3b3c4ff578161646023368ea6825bf9f21ed7734b5a246794faf8c4",
+    "6358188": "b0e2730297282628f217fcd38e60b8f498e988190e423a610c1560dea9ad8afa",
+    "6390826": "63a266e093ef4c5925016f418004092185cd3cfb6d45839108f490fe7e8fb86a",
+    "6766558": "c939abe2ca27bdcff8a1ecced7a477951d90c8e896e1e03f6a2f73991ffa6260",
+    "7270538": "c6c687a3ba48185dff661c56f05c0eb0f24644ebf5f3a11503fd06934ffa21ea",
+    "7508411": "05aac030596dd5b4aae8f9b991e26ae32bbdc8fd693486e93e7d65c7f4c4bf00",
+    "8205602": "20f82514124a068801e48de2d72c43cd85dd0fbea088b14c5943ffee5924fb84",
+    "10068798": "856a36417dc8c0031c9889a22a778369443affcc6ad7046d38667a5a90da7098",
+    "11772159": "5eda3cfd96ee2990e8f4f87edae79a34ee99be520ebd57a27fd285eaebab6a15",
+    "12136863": "183453be5d81bce315d21aca5cd92c3999416f7015ab2022177eb32019ef2890",
+    "13536393": "a484b9456709a1ce920a78a173dcf99f1d3aeaf04451e44b4b11d507872eacc9",
+    "13807606": "29ab5383e81ca9317bd2c516239807a517d706411ae93eb9991b2253ec8845b7",
+    "16964283": "acf7aa1a130b63a7b957942a6c52c2ae6bee7fdd5d9756a3ef4940881c0007ec",
+    "18993814": "9120a7eb99910207f12f7b6e72f37ba3414845a884b024d91504dd96273a275b",
+    "20882897": "ede9a0fc806a26ce9c9a73367a808baaaf1a13e74b76378933dbf6c35f977de6",
+    "27729926": "63a84b1386c0e331d56746113a7501a7967de378996127bb5a41051af14985ab",
+    "28717741": "a22a97d646ad6e05aab9c1bd47ae56630065b4618001840b97a3365075f7ee01",
+    "31028375": "5d7c745d49029f7b27a08f4122e81b987bcb5985b82dbca8034f250be018c32f",
+    "35448780": "510d4e33c1efb2c24ee5f8319461b45091ba40c8eff2a82336fb8c8c4be1f560",
+    "35866694": "fa49f378ab05052f921a1367f7ab8455d94c19acd6c33fdc0684adbe3f63ac78",
+    "39935452": "9a5d003854c6aca4f07741ef44a4b5f25e7794573009b2243cf8f996fb91dc6f",
+    "50565430": "964d4ff7fac8c31bc184c52b94edc6705fd1917db5c602648246d99bf883a48f",
+    "50629145": "4c299a2d2fe215cc511c002d3094ab8548bc21740ed413e644d6dcca4dd2901a",
+    "52397656": "9fdb23cd3826ed46ff7bb150aa9a688ae36cb794d776b80e610eae11f8c9834c",
+    "53251585": "37ce71458c904b2a74e804790d62aea4ccf7d5e7ac9e8e82ef3a0bd049a36c94",
+    "54584318": "07aa0725db7738cca4c1d1e1fa735da6f408d220c9c8a1bf7c3a25feec25981b",
+    "59824305": "0b47edd21b8a1d2f83da5fca9d0f79f65ab5043d55ee85085fd1bf49ac196408",
+    "62486091": "a9116c95c32a3206f1251041179fa373e35e885f3c27b5ed9f7be2cac460ea1c",
+    "65750241": "db603faffb8cf81d01135acd9ac52a893b764006e89e79550f6da3b9716f4d24",
+    "75277003": "f7e2397ba192495211a3d46e097ccc347081a7dbcce75b2e9121e3d9675bb579",
+    "81226206": "eb24a74aa6b9bc48cb6425bc274742c35041691e1b8af7d3aa150a1c349f0b39",
+    "81565159": "95c1e7af3012ddc73cd497b4e8234d8a204fd136d96664c00263dcc6e8b2ee87",
+    "83952232": "7c10fa4e2af6b4f4849f4a2a0f29eeafe0a6846b86742c9b2111801b1c089aa5",
+    "84448164": "f2ca388bbf627943f58dbcd625635f2d67fa30d15b0fde2ca26710f3feb68a99",
+    "88777477": "ec5c3d3ed4e661877891e6614bdb51c7b52b6b591736b71b14fd6476ad5ef6fb",
+    "100764624": "2b10dfff8d1cc285129aee06b7c4ffae5d7b7a9d616a189e707445a28c7dd4ea",
+    "109451092": "e201243e6b3e258b1816dbed181ee3206572a52a32d3fe778f2a09108df2ae03",
+    "117403675": "3d1127aded3c956ff92a9f2f1d372d92a883832df0a934d6a7e72505a5d41463",
+    "125275487": "624d5adf0a8cf51519eac4d98910e689e910092b8a7f63041f0ac2b5e3cc9511",
+    "136505169": "cb5ec1b9c258245569f9c7bf06afb49d87779eaddc80e01022258ebceb0de21f",
+    "138361150": "665837605428eff941890e60ee5c114614d9a78b0556a6c021b25a09949b4748",
+    "140887618": "40bcc4e7d908d9f6d5048d32010d69fda8741a91aa6d6fb33f544af0392e5cca",
+    "143822069": "825e935cb988991462e3d2d7ea0bf3823ec3a2d9fcd8bbf2826c13a144d36db2",
+    "150988662": "5290210b6f21963ccb35ae7606a9b73278c106771660c6ee62dc68bb0d0bbf84",
+    "151871286": "7bdf94c8ce873baa9edcaa2ecea5578873ff3b1782349a06e47f532eef864a5e",
+    "161951219": "36dfc8c71dda612b467714bfc08a61820b0685728d5aee68ca63602427e11453",
+    "163319421": "b9bbb317d50faf541d5cf460f8d38a587332bd07f84705e86e4913e0031a253b",
+    "163387337": "ed53c1a9f56bfdc7c169f04077e5ad73c7d921d2097948e711f00ba1c220f76b",
+    "164374373": "2f8b181e406076b85092d63813f7196ae6f245f98cd73404604c52318057d38c",
+    "166304026": "16702acfb1cd1a37c4031bfa70956093429cc314f4677477b97e45e4339af513",
+    "167204613": "03f29f45a0e7e852f91b05ead11634c481401e345aac18da9b2d7be03a1e2efd",
+    "185532731": "201462bb42eab78b04bc2f2ac2df877a4030c05409e297b70d09a0dafd1ad598",
+    "187368032": "5a7db7752c182ed377ea4e51e96ffa4faa09c51fc37177bd4ddac3733bbc507e",
+    "193526915": "fb39692cfcbe70bd42affa731c6083423a5629e5a807d63597229c690a275cdf",
+    "196414933": "c8fd271d1580dcabb9952195e0a2b952a52c6efd1df830f1f45db93a922210a8",
+    "203188450": "295e5f5c840fb0af8643c52928e2fc5763c0d25fdd8f639df464363409da10b9",
+    "207588519": "d1fa136820e6fff874db6d732610577df2d76d5c4005c453714369be24361d3b",
+    "212613049": "9beb0521f711673c85ed46b7444bbd5971d338597f824df2e3b61b58c2bdc08e",
+    "216841474": "d041378e593f86a7855e808c847b592bfec5492cba94d784c7d3ac2b0bba8b05",
+    "220588935": "293a5891fc392db72afa85f03fb988ed03c5f814ef79e421de3f4f58fa0bb64d",
+    "264020206": "2e2d8bddd567d3c0224f514c62fa18a4fbb17e6878f56a402bc8ff958685dcb9",
+    "266417772": "0aae87ca3f74b414711ec73938283a685b480efe86f2492d84a4f0ea8921fb01",
+    "267355027": "00eedb92cdd52ba4b362afe69bf8b586a099556c95a2f0a05ed6e38b015354e9",
+    "268424739": "52c486e9096ffe7b09a7f6908cbb39761acab848bd4abd9b3bd46e91b8d8cb78",
+    "270167613": "de1eadb53404231bc8140b321dceb518bf4d87c4195885b5e24fe366a48dc8d9",
+    "274430747": "40f81a3a9a88d06b950f9e5dbabfea0136b26441b1e3ca3cd54825649a776f89",
+    "286295150": "0470268dfe219f496800bcc7b2bff1f0bbd2f0d49ce6bab97f1fbcda2663413d",
+    "290091948": "010138f5dee561487014dbc054f14948bfc3e5f9d717514ddd28ad6507a938bf",
+    "315315266": "a2449b368638e0152a023da4a5f0d9b6fecc09cde1db172a631843c4f8b2cb45",
+    "326453917": "26e57921404a7c4ad08b0bd513e6bb7fac8af5437735936c020ab1b9dbf5032e",
+    "331254594": "6da0a22d45e33e850723345cd5d759a009ca6da55f8af421bc68ff4a18874195",
+    "333850832": "31eb86e1a26e616794257f3e8c60a6d78ccf8f7900093bd79fe72d871546dc1d",
+    "394437978": "a376b1d8f920ab96713a16fa2de8bc27b88165a93482da4d443a340180281007",
+    "419028280": "434bebebf23ab1eb64b3f9ee534d45c93e38e778b9a2687a01572d9e0ada1013",
+    "439355916": "341fcdefc777ff75e754bf8828cef63dff7d230da8081b466c83b900b80331f6",
+    "469920647": "1dd5db38223252c966ab92199fa8d728742ef1711d8d4bd3eb503281fba892a5",
+    "479289739": "67697eeb378dfdb09f4eb18f743ca4c4993ea768d0acaf16fc31845327e39ba5",
+    "488959298": "2caa58cc94d79fa2ada3196486575d4b5196bfc9e93f1ccb8542e302547b83e7",
+    "498011141": "e11043af15e33a8c5cb17ef88d5124b1cbc4cad6ad0d1e3c7344c8a8550c2db9",
+    "509091576": "e68d522eb6f1b1df8d432ef859f67c1a8f9c83e742b79c798c721991cf35fb6d",
+    "519895363": "27b7491d8f07cf2f458b315517a42fb5686a596936336be3b0470bba9e9bb0e8",
+    "558188628": "86b8420945635169783f9c39ad5d299a88623b81d67d527419523b96beb986f1",
+    "564031511": "0db962260db28de631075c8eb611aaf8b63cb9a371d942d5f3072401159261db",
+    "584189373": "cd641266b55d47f045f7250b1c5be47516d10d3e746c0dc9970bb8fe80e9c1a0",
+    "587768462": "6e1059c6a6250511df4766de8a31ee54190d205cc23c08e9fa58b292b0633212",
+    "591767721": "200f0efdac12f452391ab19fcd3c58fe0243f3b2ae50409467feba9c53f08c03",
+    "594155488": "26442f0df7bb5339481f2ae066b6e33bf5117ff77aa10d35465ad3bdf3cb4f77",
+    "603535454": "d23dc364e1dbaced02f6670f513a77d3797a5a4de2bc4ad5642fb906e13fec14",
+    "610292163": "0b5dd0f5a7d4975eb6d05035248093d3625e901476487942eb67989cded6151e",
+    "626163714": "8502281fb56a23d514cb1c06a14651e286eaf6f72c099bd8ee8170897296ee05",
+    "627727693": "ad15c3505f4afb6db74247036fa915326ddae31aad793a40ed656bd4f716ff1e",
+    "632242782": "788190fe931a871af247770357df6509b96ccf0939a0a325187e3957a8f00783",
+    "633933895": "971e5dd8aacf10163c9a57719460924f12d40336d8af2a97314c3f175c6c0240",
+    "642497346": "e148b2a938ae9ec39556971b05d6c41c7b0ad569691a629079a4f31f0ff3667a",
+    "658389713": "8db51312bf7bbd3072f68cbf95c378e5cb4299bc2dfdeb42484b005f70b67d1c",
+    "671269505": "b37a8478124e26ef8a91127d34bc16e522c47ee84d148a7f4657b0a8b13b1f4f",
+    "675184132": "5a672f2ee3885772593d8e8823ae21d50216e15bd69171284cdef7318b6077f6",
+    "692344201": "a53d43f08ab5c0e537bb99ba49f0a31cd393914590d8ebe784bd71479452236c",
+    "715493447": "d9ab1f8a2ec7766b0424207e20680eb2d5c61bee991d501bac73e91e11af2bee",
+    "720989931": "87cdd817fff1eaf63977fccf915a9f4eeb8af26e21a083c366a2a5373b23bf65",
+    "722915479": "6de48e8bd7f66b51d3cc651ee756ff752762ef240e857bd1ca72a1ba204d624a",
+    "728665815": "c3e74d151428a1aa5b3355820f4a0fdfacc642f27fc50a7f0e95ade858f20d75",
+    "744111131": "7eb50a8962aa1bc19eadbb8538e225a02027f7ba5bd44562f20ac88f94d72290",
+    "752251073": "33a8249cdfa636a307e01332234a0fc30a28c6cf6a0f7d77faeb06ebb24c32a6",
+    "754169590": "72f862f375d26755f44ca732e032f55cd715f7a5c417325aac5923671800180d",
+    "764318739": "9bb5ba3cbc4e49cf756fa48dedf783a939811a6344015d88a892ca3d5739f3ef",
+    "768641029": "532eddbef13b7c3052f9b580c447b91d629c2ff0abc421df0545f6f38aed10b3",
+    "773851464": "76b0defc4131198f6c24c1a54f26a7c494a11c7e07ec427bb29040d203594ce2",
+    "782634112": "17a0700d9c1a4e65ef7305b11d5144625ad84737f56e04474507ff3efb54101b",
+    "806285077": "ce1caecbc1614a666d60cc3360aac80cc386f58862e65470ad2ff50931058913",
+    "809767236": "39b69c0da8cae876f8983881d75409abdf3e5384f969961b939196fa4465523d",
+    "823467100": "960436e1e70137710b4aa68d0d88301dfc71d0389c7933a9435da02e7f2b75b7",
+    "826280820": "1bcde74d4d53ce3cb39ee60c35012ae8a64159ceef4b446b3bab0758f166c96f",
+    "842101547": "ac1778c9f2a539a69a00ee2afd45e657a7844ac6719745229d018f1b4dd07e3d",
+    "846698999": "fd77e7081a29d34ee34ef66e02b615a1692dfa5d4b92c269625634fc48600f67",
+    "854337508": "870da14db51fa56bdaa43f5c483af7bf784bf1a3108b9d887345c4f883015a7e",
+    "858645266": "c87faa0e26675c5f0089a51da70644b99a5c669541db7075226ca48312d4dc55",
+    "861970515": "73f1cc483cff4d9cbf7a944ecbad7dc6e19094a330da468f26ed28520fc895fc",
+    "929121414": "571df5b4340c9afb8a3791055860a6fadb337fb118004d40960f250f685efdb7",
+    "943950290": "71e843e100f5c88798c1d4697f95c63e6daa3eb7b6743d7cfe31ce67080087a6",
+    "955481400": "1b91bf879d299cd96e38f38a3720597e8c5288d5c5a984eacdccd147ed50b81f",
+    "968398831": "eb301f8c5a3e6902e496e9f3236ca24ac1bc1f2046eecda12d7c58ef31afc71c",
+    "969914842": "997032b54cea2d6ec3b3202dccf9bcaf36ed489886d4e57f9ed1211b9cd2127d",
+    "974927167": "1a6311932893f461f6d9ce435cfc2d90a4a00c46ae9f8a0a9676bc36160875b1",
+    "982295854": "2de5704420fabb5656724ab50aab8f23cc4f1aea1336002f2eaae3486d921f48",
+    "1008373485": "ba4abe94ca00fca9c2a38c9ec080f720de8fe9f90fb9bfb4da2081eeff234ff5",
+    "1067109086": "b944b2fa87bd0e137e633381f1da5df9d8f28f322e2e2471c8bfcc467b53f61e"
+  },
+  "selection": "冻结协议确定的语言/Star 分层、最近推送代理和固定哈希，未使用模型特征或结果。",
+  "repositories": [
+    {
+      "repository_id": 728665815,
+      "full_name": "Macmod/godap",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 989,
+      "activity_proxy": "recent",
+      "created_at": "2023-12-07T12:36:16Z",
+      "pushed_at": "2026-08-21T18:29:09Z",
+      "full_name_at_capture": "Macmod/godap"
+    },
+    {
+      "repository_id": 331254594,
+      "full_name": "yliu7949/KouShare-dl",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 986,
+      "activity_proxy": "recent",
+      "created_at": "2021-01-20T09:23:15Z",
+      "pushed_at": "2026-10-03T17:30:59Z",
+      "full_name_at_capture": "yliu7949/KouShare-dl"
+    },
+    {
+      "repository_id": 39935452,
+      "full_name": "yeasy/docker-compose-files",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 977,
+      "activity_proxy": "not_recent",
+      "created_at": "2015-07-30T06:42:57Z",
+      "pushed_at": "2026-03-29T01:05:33Z",
+      "full_name_at_capture": "yeasy/docker-compose-files"
+    },
+    {
+      "repository_id": 315315266,
+      "full_name": "gotomicro/ego",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 994,
+      "activity_proxy": "not_recent",
+      "created_at": "2020-11-23T12:56:00Z",
+      "pushed_at": "2026-06-02T02:47:38Z",
+      "full_name_at_capture": "gotomicro/ego"
+    },
+    {
+      "repository_id": 196414933,
+      "full_name": "open-telemetry/opentelemetry-collector-contrib",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 5012,
+      "activity_proxy": "recent",
+      "created_at": "2019-07-11T14:54:32Z",
+      "pushed_at": "2026-11-09T13:59:59Z",
+      "full_name_at_capture": "open-telemetry/opentelemetry-collector-contrib"
+    },
+    {
+      "repository_id": 603535454,
+      "full_name": "tmc/langchaingo",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9738,
+      "activity_proxy": "recent",
+      "created_at": "2023-02-18T20:04:54Z",
+      "pushed_at": "2026-10-30T18:55:25Z",
+      "full_name_at_capture": "tmc/langchaingo"
+    },
+    {
+      "repository_id": 267355027,
+      "full_name": "UnnoTed/wireguird",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 1037,
+      "activity_proxy": "not_recent",
+      "created_at": "2020-05-27T15:21:39Z",
+      "pushed_at": "2026-05-02T18:33:56Z",
+      "full_name_at_capture": "UnnoTed/wireguird"
+    },
+    {
+      "repository_id": 558188628,
+      "full_name": "higress-group/higress",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9620,
+      "activity_proxy": "recent",
+      "created_at": "2022-10-27T03:53:00Z",
+      "pushed_at": "2026-11-09T03:08:34Z",
+      "full_name_at_capture": "higress-group/higress"
+    },
+    {
+      "repository_id": 161951219,
+      "full_name": "wailsapp/wails",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 36642,
+      "activity_proxy": "recent",
+      "created_at": "2018-12-15T23:14:06Z",
+      "pushed_at": "2026-11-09T00:18:58Z",
+      "full_name_at_capture": "wailsapp/wails"
+    },
+    {
+      "repository_id": 109451092,
+      "full_name": "siderolabs/talos",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 11388,
+      "activity_proxy": "recent",
+      "created_at": "2017-11-03T23:19:12Z",
+      "pushed_at": "2026-11-09T14:07:06Z",
+      "full_name_at_capture": "siderolabs/talos"
+    },
+    {
+      "repository_id": 13807606,
+      "full_name": "junegunn/fzf",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 83715,
+      "activity_proxy": "recent",
+      "created_at": "2013-10-23T16:04:23Z",
+      "pushed_at": "2026-11-07T12:06:19Z",
+      "full_name_at_capture": "junegunn/fzf"
+    },
+    {
+      "repository_id": 509091576,
+      "full_name": "SagerNet/sing-box",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 39119,
+      "activity_proxy": "recent",
+      "created_at": "2022-06-30T13:27:22Z",
+      "pushed_at": "2026-11-09T13:24:28Z",
+      "full_name_at_capture": "SagerNet/sing-box"
+    },
+    {
+      "repository_id": 11772159,
+      "full_name": "spring-guides/gs-spring-boot",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 993,
+      "activity_proxy": "recent",
+      "created_at": "2013-07-30T18:25:34Z",
+      "pushed_at": "2026-11-01T12:54:35Z",
+      "full_name_at_capture": "spring-guides/gs-spring-boot"
+    },
+    {
+      "repository_id": 969914842,
+      "full_name": "saidone75/alfresco-node-vault",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 9,
+      "activity_proxy": "recent",
+      "created_at": "2025-04-21T06:24:58Z",
+      "pushed_at": "2026-11-05T12:14:59Z",
+      "full_name_at_capture": "saidone75/alfresco-node-vault"
+    },
+    {
+      "repository_id": 83952232,
+      "full_name": "binarywang/weixin-java-pay-demo",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 974,
+      "activity_proxy": "not_recent",
+      "created_at": "2017-03-05T07:14:36Z",
+      "pushed_at": "2026-03-06T04:24:15Z",
+      "full_name_at_capture": "binarywang/weixin-java-pay-demo"
+    },
+    {
+      "repository_id": 187368032,
+      "full_name": "goweii/WanAndroid",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 984,
+      "activity_proxy": "not_recent",
+      "created_at": "2019-05-18T14:31:46Z",
+      "pushed_at": "2026-06-28T08:56:05Z",
+      "full_name_at_capture": "goweii/WanAndroid"
+    },
+    {
+      "repository_id": 35448780,
+      "full_name": "google/google-java-format",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 6211,
+      "activity_proxy": "recent",
+      "created_at": "2015-05-11T20:38:28Z",
+      "pushed_at": "2026-11-06T12:36:18Z",
+      "full_name_at_capture": "google/google-java-format"
+    },
+    {
+      "repository_id": 81226206,
+      "full_name": "karatelabs/karate",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8992,
+      "activity_proxy": "recent",
+      "created_at": "2017-02-07T15:59:17Z",
+      "pushed_at": "2026-11-09T13:31:43Z",
+      "full_name_at_capture": "karatelabs/karate"
+    },
+    {
+      "repository_id": 1287669,
+      "full_name": "json-path/JsonPath",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 9452,
+      "activity_proxy": "not_recent",
+      "created_at": "2011-01-24T13:19:19Z",
+      "pushed_at": "2026-02-22T18:39:33Z",
+      "full_name_at_capture": "json-path/JsonPath"
+    },
+    {
+      "repository_id": 439355916,
+      "full_name": "krahets/LeetCode-Book",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8557,
+      "activity_proxy": "not_recent",
+      "created_at": "2021-12-17T14:16:02Z",
+      "pushed_at": "2025-12-30T12:39:35Z",
+      "full_name_at_capture": "krahets/LeetCode-Book"
+    },
+    {
+      "repository_id": 75277003,
+      "full_name": "thingsboard/thingsboard",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 22592,
+      "activity_proxy": "recent",
+      "created_at": "2016-12-01T09:33:30Z",
+      "pushed_at": "2026-11-09T13:50:01Z",
+      "full_name_at_capture": "thingsboard/thingsboard"
+    },
+    {
+      "repository_id": 8205602,
+      "full_name": "mybatis/mybatis-3",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 20439,
+      "activity_proxy": "recent",
+      "created_at": "2013-02-14T19:03:32Z",
+      "pushed_at": "2026-11-08T18:18:34Z",
+      "full_name_at_capture": "mybatis/mybatis-3"
+    },
+    {
+      "repository_id": 6766558,
+      "full_name": "Netflix/Hystrix",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 24480,
+      "activity_proxy": "not_recent",
+      "created_at": "2012-11-19T20:14:46Z",
+      "pushed_at": "2025-12-17T03:21:02Z",
+      "full_name_at_capture": "Netflix/Hystrix"
+    },
+    {
+      "repository_id": 7508411,
+      "full_name": "ReactiveX/RxJava",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 48174,
+      "activity_proxy": "recent",
+      "created_at": "2013-01-08T20:11:48Z",
+      "pushed_at": "2026-11-09T08:43:12Z",
+      "full_name_at_capture": "ReactiveX/RxJava"
+    },
+    {
+      "repository_id": 955481400,
+      "full_name": "ecarrenolozano/omnipath-secondary-adapter-plain",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 1,
+      "activity_proxy": "recent",
+      "created_at": "2025-03-26T17:51:28Z",
+      "pushed_at": "2026-10-29T09:26:30Z",
+      "full_name_at_capture": "ecarrenolozano/omnipath-secondary-adapter-plain"
+    },
+    {
+      "repository_id": 59824305,
+      "full_name": "mottosso/Qt.py",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 997,
+      "activity_proxy": "recent",
+      "created_at": "2016-05-27T09:52:11Z",
+      "pushed_at": "2026-09-22T05:07:22Z",
+      "full_name_at_capture": "mottosso/Qt.py"
+    },
+    {
+      "repository_id": 1451800,
+      "full_name": "sehmaschine/django-filebrowser",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 998,
+      "activity_proxy": "not_recent",
+      "created_at": "2011-03-07T20:38:23Z",
+      "pushed_at": "2026-08-10T08:14:31Z",
+      "full_name_at_capture": "sehmaschine/django-filebrowser"
+    },
+    {
+      "repository_id": 764318739,
+      "full_name": "Doron-Shpigel/Pole-Zero-Map-to-Bode-Plot",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 0,
+      "activity_proxy": "not_recent",
+      "created_at": "2024-02-27T21:32:57Z",
+      "pushed_at": "2026-07-27T13:47:03Z",
+      "full_name_at_capture": "Doron-Shpigel/Pole-Zero-Map-to-Bode-Plot"
+    },
+    {
+      "repository_id": 16964283,
+      "full_name": "olofk/fusesoc",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1477,
+      "activity_proxy": "recent",
+      "created_at": "2014-02-18T21:27:06Z",
+      "pushed_at": "2026-11-06T15:13:53Z",
+      "full_name_at_capture": "olofk/fusesoc"
+    },
+    {
+      "repository_id": 782634112,
+      "full_name": "NVIDIA/earth2studio",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1210,
+      "activity_proxy": "recent",
+      "created_at": "2024-04-05T17:39:51Z",
+      "pushed_at": "2026-11-07T04:21:45Z",
+      "full_name_at_capture": "NVIDIA/earth2studio"
+    },
+    {
+      "repository_id": 6390826,
+      "full_name": "Doist/bitmapist",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1010,
+      "activity_proxy": "not_recent",
+      "created_at": "2012-10-25T16:50:33Z",
+      "pushed_at": "2026-07-17T19:57:23Z",
+      "full_name_at_capture": "Doist/bitmapist"
+    },
+    {
+      "repository_id": 140887618,
+      "full_name": "KhronosGroup/glTF-Blender-IO",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1666,
+      "activity_proxy": "recent",
+      "created_at": "2018-07-13T19:53:39Z",
+      "pushed_at": "2026-11-05T17:03:35Z",
+      "full_name_at_capture": "KhronosGroup/glTF-Blender-IO"
+    },
+    {
+      "repository_id": 266417772,
+      "full_name": "SimplifyJobs/Summer2027-Internships",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 48092,
+      "activity_proxy": "recent",
+      "created_at": "2020-05-23T20:53:18Z",
+      "pushed_at": "2026-11-09T14:02:04Z",
+      "full_name_at_capture": "SimplifyJobs/Summer2027-Internships"
+    },
+    {
+      "repository_id": 290091948,
+      "full_name": "labmlai/annotated_deep_learning_paper_implementations",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 67583,
+      "activity_proxy": "recent",
+      "created_at": "2020-08-25T02:29:34Z",
+      "pushed_at": "2026-11-02T05:57:43Z",
+      "full_name_at_capture": "labmlai/annotated_deep_learning_paper_implementations"
+    },
+    {
+      "repository_id": 143580,
+      "full_name": "django-cms/django-cms",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 10676,
+      "activity_proxy": "recent",
+      "created_at": "2009-03-05T10:14:18Z",
+      "pushed_at": "2026-11-09T12:04:15Z",
+      "full_name_at_capture": "django-cms/django-cms"
+    },
+    {
+      "repository_id": 498011141,
+      "full_name": "huggingface/diffusers",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 34773,
+      "activity_proxy": "recent",
+      "created_at": "2022-05-30T16:04:02Z",
+      "pushed_at": "2026-11-09T14:27:47Z",
+      "full_name_at_capture": "huggingface/diffusers"
+    },
+    {
+      "repository_id": 270167613,
+      "full_name": "ehsanmok/create-your-own-lang-with-rust",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 957,
+      "activity_proxy": "recent",
+      "created_at": "2020-06-07T02:27:00Z",
+      "pushed_at": "2026-10-03T17:32:44Z",
+      "full_name_at_capture": "ehsanmok/create-your-own-lang-with-rust"
+    },
+    {
+      "repository_id": 861970515,
+      "full_name": "talwat/lowfi",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 950,
+      "activity_proxy": "recent",
+      "created_at": "2024-09-23T19:58:50Z",
+      "pushed_at": "2026-10-30T06:40:53Z",
+      "full_name_at_capture": "talwat/lowfi"
+    },
+    {
+      "repository_id": 823467100,
+      "full_name": "TransformerOptimus/SuperCoder",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 999,
+      "activity_proxy": "not_recent",
+      "created_at": "2024-07-03T05:12:33Z",
+      "pushed_at": "2026-07-07T06:57:23Z",
+      "full_name_at_capture": "TransformerOptimus/SuperCoder"
+    },
+    {
+      "repository_id": 720989931,
+      "full_name": "ibraheemdev/papaya",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 955,
+      "activity_proxy": "recent",
+      "created_at": "2023-11-20T05:59:21Z",
+      "pushed_at": "2026-08-21T22:06:43Z",
+      "full_name_at_capture": "ibraheemdev/papaya"
+    },
+    {
+      "repository_id": 84448164,
+      "full_name": "mitnk/cicada",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1008,
+      "activity_proxy": "recent",
+      "created_at": "2017-03-09T13:59:51Z",
+      "pushed_at": "2026-08-22T14:40:37Z",
+      "full_name_at_capture": "mitnk/cicada"
+    },
+    {
+      "repository_id": 419028280,
+      "full_name": "verus-lang/verus",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 3378,
+      "activity_proxy": "recent",
+      "created_at": "2021-10-19T17:34:14Z",
+      "pushed_at": "2026-11-09T04:30:30Z",
+      "full_name_at_capture": "verus-lang/verus"
+    },
+    {
+      "repository_id": 943950290,
+      "full_name": "datahaven-xyz/datahaven",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 7878,
+      "activity_proxy": "not_recent",
+      "created_at": "2025-03-06T14:35:59Z",
+      "pushed_at": "2026-04-17T12:27:11Z",
+      "full_name_at_capture": "datahaven-xyz/datahaven"
+    },
+    {
+      "repository_id": 826280820,
+      "full_name": "Losses/rune",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1012,
+      "activity_proxy": "recent",
+      "created_at": "2024-07-09T12:01:46Z",
+      "pushed_at": "2026-11-09T05:22:17Z",
+      "full_name_at_capture": "Losses/rune"
+    },
+    {
+      "repository_id": 268424739,
+      "full_name": "helix-editor/helix",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 46671,
+      "activity_proxy": "recent",
+      "created_at": "2020-06-01T04:26:56Z",
+      "pushed_at": "2026-09-29T02:36:33Z",
+      "full_name_at_capture": "helix-editor/helix"
+    },
+    {
+      "repository_id": 143822069,
+      "full_name": "sunface/rust-course",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 31050,
+      "activity_proxy": "recent",
+      "created_at": "2018-08-07T05:01:21Z",
+      "pushed_at": "2026-10-30T02:48:12Z",
+      "full_name_at_capture": "sunface/rust-course"
+    },
+    {
+      "repository_id": 610292163,
+      "full_name": "stalwartlabs/stalwart",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 15220,
+      "activity_proxy": "recent",
+      "created_at": "2023-03-06T13:37:23Z",
+      "pushed_at": "2026-11-09T10:41:08Z",
+      "full_name_at_capture": "stalwartlabs/stalwart"
+    },
+    {
+      "repository_id": 479289739,
+      "full_name": "rerun-io/rerun",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 11623,
+      "activity_proxy": "recent",
+      "created_at": "2022-04-08T07:30:05Z",
+      "pushed_at": "2026-11-09T14:18:01Z",
+      "full_name_at_capture": "rerun-io/rerun"
+    },
+    {
+      "repository_id": 264020206,
+      "full_name": "remorses/genql",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 980,
+      "activity_proxy": "recent",
+      "created_at": "2020-05-14T20:39:29Z",
+      "pushed_at": "2026-10-06T07:12:15Z",
+      "full_name_at_capture": "remorses/genql"
+    },
+    {
+      "repository_id": 164374373,
+      "full_name": "julianpoy/RecipeSage",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 977,
+      "activity_proxy": "recent",
+      "created_at": "2019-01-07T03:40:49Z",
+      "pushed_at": "2026-11-09T05:30:20Z",
+      "full_name_at_capture": "julianpoy/RecipeSage"
+    },
+    {
+      "repository_id": 100764624,
+      "full_name": "fabiospampinato/vscode-todo-plus",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 998,
+      "activity_proxy": "not_recent",
+      "created_at": "2017-08-19T02:33:14Z",
+      "pushed_at": "2026-07-17T22:15:28Z",
+      "full_name_at_capture": "fabiospampinato/vscode-todo-plus"
+    },
+    {
+      "repository_id": 675184132,
+      "full_name": "kebijuelun/Awesome-LLM-Learning",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 982,
+      "activity_proxy": "not_recent",
+      "created_at": "2023-08-06T04:16:10Z",
+      "pushed_at": "2026-01-05T14:19:48Z",
+      "full_name_at_capture": "kebijuelun/Awesome-LLM-Learning"
+    },
+    {
+      "repository_id": 858645266,
+      "full_name": "modstart-lib/linkandroid",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 2695,
+      "activity_proxy": "recent",
+      "created_at": "2024-09-17T09:27:19Z",
+      "pushed_at": "2026-11-09T08:12:42Z",
+      "full_name_at_capture": "modstart-lib/linkandroid"
+    },
+    {
+      "repository_id": 286295150,
+      "full_name": "antfu-collective/vitesse",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 9440,
+      "activity_proxy": "recent",
+      "created_at": "2020-08-09T18:34:19Z",
+      "pushed_at": "2026-10-06T08:41:36Z",
+      "full_name_at_capture": "antfu-collective/vitesse"
+    },
+    {
+      "repository_id": 54584318,
+      "full_name": "davidedc/Algebrite",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1003,
+      "activity_proxy": "not_recent",
+      "created_at": "2016-03-23T18:39:26Z",
+      "pushed_at": "2026-05-12T19:46:24Z",
+      "full_name_at_capture": "davidedc/Algebrite"
+    },
+    {
+      "repository_id": 207588519,
+      "full_name": "Redocly/redocly-cli",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1538,
+      "activity_proxy": "recent",
+      "created_at": "2019-09-10T14:56:25Z",
+      "pushed_at": "2026-11-09T13:51:45Z",
+      "full_name_at_capture": "Redocly/redocly-cli"
+    },
+    {
+      "repository_id": 642497346,
+      "full_name": "langfuse/langfuse",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 36165,
+      "activity_proxy": "recent",
+      "created_at": "2023-05-18T17:47:09Z",
+      "pushed_at": "2026-11-09T14:26:42Z",
+      "full_name_at_capture": "langfuse/langfuse"
+    },
+    {
+      "repository_id": 658389713,
+      "full_name": "wxt-dev/wxt",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 10639,
+      "activity_proxy": "recent",
+      "created_at": "2023-06-25T15:48:11Z",
+      "pushed_at": "2026-11-06T21:17:25Z",
+      "full_name_at_capture": "wxt-dev/wxt"
+    },
+    {
+      "repository_id": 1008373485,
+      "full_name": "siteboon/claudecodeui",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 14230,
+      "activity_proxy": "recent",
+      "created_at": "2025-06-25T12:51:12Z",
+      "pushed_at": "2026-11-09T12:24:38Z",
+      "full_name_at_capture": "siteboon/claudecodeui"
+    },
+    {
+      "repository_id": 65750241,
+      "full_name": "expo/expo",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 52977,
+      "activity_proxy": "recent",
+      "created_at": "2016-08-15T17:14:25Z",
+      "pushed_at": "2026-11-09T14:24:23Z",
+      "full_name_at_capture": "expo/expo"
+    }
+  ],
+  "excluded_or_not_selected": [
+    {
+      "repository_id": 842101547,
+      "stratum": "Go:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 974927167,
+      "stratum": "Go:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 216841474,
+      "stratum": "Go:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 626163714,
+      "stratum": "Go:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 150988662,
+      "stratum": "Go:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 1067109086,
+      "stratum": "Go:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 50629145,
+      "stratum": "Go:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 3698588,
+      "stratum": "Go:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 12136863,
+      "stratum": "Go:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 125275487,
+      "stratum": "Go:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 212613049,
+      "stratum": "Go:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 220588935,
+      "stratum": "Go:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 166304026,
+      "stratum": "Go:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 806285077,
+      "stratum": "Go:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 136505169,
+      "stratum": "Go:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 28717741,
+      "stratum": "Java:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 968398831,
+      "stratum": "Java:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 20882897,
+      "stratum": "Java:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 88777477,
+      "stratum": "Java:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 53251585,
+      "stratum": "Java:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 18993814,
+      "stratum": "Java:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 754169590,
+      "stratum": "Java:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 167204613,
+      "stratum": "Java:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 62486091,
+      "stratum": "Java:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 13536393,
+      "stratum": "Java:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 715605,
+      "stratum": "Java:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 854337508,
+      "stratum": "Java:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 6358188,
+      "stratum": "Java:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 27729926,
+      "stratum": "Java:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 163387337,
+      "stratum": "Java:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 809767236,
+      "stratum": "Python:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 982295854,
+      "stratum": "Python:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 591767721,
+      "stratum": "Python:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 81565159,
+      "stratum": "Python:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 10068798,
+      "stratum": "Python:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 768641029,
+      "stratum": "Python:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 31028375,
+      "stratum": "Python:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 564031511,
+      "stratum": "Python:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 6210553,
+      "stratum": "Python:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 333850832,
+      "stratum": "Python:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 203188450,
+      "stratum": "Python:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 151871286,
+      "stratum": "Python:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 627727693,
+      "stratum": "Python:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 671269505,
+      "stratum": "Python:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 873328,
+      "stratum": "Python:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 773851464,
+      "stratum": "Rust:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 587768462,
+      "stratum": "Rust:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 326453917,
+      "stratum": "Rust:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 185532731,
+      "stratum": "Rust:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 469920647,
+      "stratum": "Rust:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 52397656,
+      "stratum": "Rust:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 722915479,
+      "stratum": "Rust:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 715493447,
+      "stratum": "Rust:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 692344201,
+      "stratum": "Rust:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 163319421,
+      "stratum": "Rust:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 519895363,
+      "stratum": "Rust:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 7270538,
+      "stratum": "Rust:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 50565430,
+      "stratum": "Rust:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 846698999,
+      "stratum": "Rust:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 193526915,
+      "stratum": "Rust:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 633933895,
+      "stratum": "TypeScript:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 632242782,
+      "stratum": "TypeScript:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 117403675,
+      "stratum": "TypeScript:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 394437978,
+      "stratum": "TypeScript:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 274430747,
+      "stratum": "TypeScript:0-999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 744111131,
+      "stratum": "TypeScript:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 584189373,
+      "stratum": "TypeScript:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 1569980,
+      "stratum": "TypeScript:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 752251073,
+      "stratum": "TypeScript:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 488959298,
+      "stratum": "TypeScript:1000-9999",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 138361150,
+      "stratum": "TypeScript:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 691146,
+      "stratum": "TypeScript:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 594155488,
+      "stratum": "TypeScript:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 929121414,
+      "stratum": "TypeScript:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    },
+    {
+      "repository_id": 35866694,
+      "stratum": "TypeScript:10000+",
+      "reason": "not_selected_by_frozen_stratified_hash"
+    }
+  ]
+}

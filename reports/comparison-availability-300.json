@@ -1,0 +1,91 @@
+{
+  "scoring_version": "weighted-relative-v4",
+  "dataset_id": "course-research-300-v1",
+  "method": "真实本地数据逐仓库读取；两两组合复用已读取的相同原始快照与维护观察，执行真实比较及评分服务，无 HTTP/浏览器逐组合遍历",
+  "windows": [
+    {
+      "days": 30,
+      "single_repositories": 300,
+      "pairs": 44850,
+      "scoring_cases": 224250,
+      "weight_vectors": [
+        {
+          "commits_weekly_mean": 1,
+          "issue_median_hours": 1,
+          "pr_median_hours": 1,
+          "release_interval_days": 1
+        },
+        {
+          "commits_weekly_mean": 1
+        },
+        {
+          "issue_median_hours": 1
+        },
+        {
+          "pr_median_hours": 1
+        },
+        {
+          "release_interval_days": 1
+        }
+      ]
+    },
+    {
+      "days": 90,
+      "single_repositories": 300,
+      "pairs": 44850,
+      "scoring_cases": 224250,
+      "weight_vectors": [
+        {
+          "commits_weekly_mean": 1,
+          "issue_median_hours": 1,
+          "pr_median_hours": 1,
+          "release_interval_days": 1
+        },
+        {
+          "commits_weekly_mean": 1
+        },
+        {
+          "issue_median_hours": 1
+        },
+        {
+          "pr_median_hours": 1
+        },
+        {
+          "release_interval_days": 1
+        }
+      ]
+    },
+    {
+      "days": 180,
+      "single_repositories": 300,
+      "pairs": 44850,
+      "scoring_cases": 224250,
+      "weight_vectors": [
+        {
+          "commits_weekly_mean": 1,
+          "issue_median_hours": 1,
+          "pr_median_hours": 1,
+          "release_interval_days": 1
+        },
+        {
+          "commits_weekly_mean": 1
+        },
+        {
+          "issue_median_hours": 1
+        },
+        {
+          "pr_median_hours": 1
+        },
+        {
+          "release_interval_days": 1
+        }
+      ]
+    }
+  ],
+  "failures": [],
+  "collection_tasks_before": 27,
+  "collection_tasks_after": 27,
+  "duration_seconds": 130.78,
+  "verified_at": "2026-11-13T00:08:53.831223+00:00",
+  "status": "passed"
+}

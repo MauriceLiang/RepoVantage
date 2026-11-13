@@ -37,6 +37,12 @@ def get_data_quality(request: Request, dataset_id: str, analysis_mode: Literal["
     return envelope(request, data_quality(session, dataset_id, expected_type))
 
 
+@router.get("/research/dashboard")
+def get_research_dashboard(request: Request, dataset_id: str = "course-research-300-v1", session: Session = Depends(get_session)):
+    from backend.app.services.course_research_dataset import course_research_dashboard
+    return envelope(request, course_research_dashboard(session, dataset_id))
+
+
 @router.post("/comparisons", response_model=SuccessEnvelope[ComparisonResponse])
 def compare(request: Request, body: ComparisonRequest, session: Session = Depends(get_session)):
     return envelope(request, compare_repositories(session, body.repository_ids, body.depth))

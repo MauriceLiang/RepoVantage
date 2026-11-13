@@ -6,6 +6,7 @@ import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import GdInput from '@/components/ui/GdInput.vue'
+import RepositoryDashboard from './RepositoryDashboard.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import type { RepositorySummary, TaskItem } from '@/services/types'
@@ -21,14 +22,17 @@ const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const { data: repositories, loading, error, reload: reloadRepositories } = useAsyncData(() => source.listRepositories())
 const { data: tasks, loading: tasksLoading, error: tasksError, reload: reloadTasks } = useAsyncData(() => source.listTasks())
+const { data: overviewResearch, loading: researchLoading, error: researchError, reload: reloadResearch } = useAsyncData(() => source.getOverviewDashboard())
 
 const hasRepositories = computed(() => Boolean(repositories.value?.length))
 const showGettingStarted = computed(() => repositories.value !== null && repositories.value.length === 0 && !error.value)
-const overviewTitle = computed(() => error.value ? '仓库列表暂不可用' : hasRepositories.value ? '继续查看仓库动态' : '从一个仓库开始')
+const overviewTitle = computed(() => overviewResearch.value?.repositoryCount ? '仓库数据看板' : error.value ? '仓库列表暂不可用' : hasRepositories.value ? '仓库数据看板' : '从一个仓库开始')
 const overviewDescription = computed(() => {
+  if (overviewResearch.value?.repositoryCount) return '查看默认 300 个仓库的技术栈、关注度和近期开发活动；也可以添加新的 GitHub 仓库。'
+  if (researchLoading.value) return '正在读取默认仓库数据看板；看板使用本地已采集数据，不会重新抓取 GitHub。'
   if (error.value) return '可以在下方重试读取仓库列表，或直接输入公开仓库地址开始分析。'
   return hasRepositories.value
-    ? '查看近期活动变化和正在执行的采集任务，也可以添加新的 GitHub 仓库。'
+    ? '汇总默认 300 个仓库的技术栈、关注度和近期开发活动；也可以添加新的 GitHub 仓库。'
     : '输入 GitHub 仓库地址，查看它的开发活动、协作效率和版本节奏。'
 })
 
@@ -40,10 +44,11 @@ const changeCandidateCount = ref(0)
 let changesRequestId = 0
 let pollTimer: number | undefined
 
-watch(repositories, async (items) => {
+watch([repositories, researchLoading], async ([items, dashboardLoading]) => {
   const requestId = ++changesRequestId
   activityChanges.value = []
   changesError.value = null
+  if (dashboardLoading) return
   if (!items) {
     changesLoading.value = false
     return
@@ -155,6 +160,25 @@ async function submit() {
         </div>
       </div>
     </GdCard>
+
+    <RepositoryDashboard
+      v-if="overviewResearch?.repositoryCount"
+      :repositories="repositories ?? []"
+      :dashboard="overviewResearch"
+    />
+    <section v-else-if="researchLoading" class="flex flex-col gap-3.5" aria-label="正在加载仓库数据看板" aria-busy="true">
+      <div class="h-9 w-56 animate-pulse rounded bg-track/60" />
+      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div v-for="i in 4" :key="i" class="h-[76px] animate-pulse rounded-xl border border-line bg-panel" />
+      </div>
+      <div class="grid gap-3.5 md:grid-cols-2 2xl:grid-cols-3">
+        <div v-for="i in 6" :key="i" class="h-[310px] animate-pulse rounded-xl border border-line bg-panel" />
+      </div>
+    </section>
+    <div v-else-if="researchError" role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-4 py-3 text-[12px] text-muted">
+      <span>看板数据暂时无法读取：{{ researchError }}</span>
+      <GdButton variant="outline" size="sm" @click="reloadResearch">重试</GdButton>
+    </div>
 
     <section v-if="showGettingStarted" aria-labelledby="how-to-use-title" class="flex flex-col gap-3">
       <div class="flex flex-wrap items-end justify-between gap-2">

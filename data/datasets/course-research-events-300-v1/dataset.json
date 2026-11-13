@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "dataset_id": "course-test-events-v1",
+  "source_dataset_id": "repo-evaluation-2026-v1",
+  "sample_dataset_id": "course-research-300-v1",
+  "repository_count": 300,
+  "window_start": "2025-10-04T00:00:00Z",
+  "window_end": "2026-11-05T10:31:37Z",
+  "source_as_of": "2026-11-05T10:31:37Z",
+  "issue_created_since": "2025-11-03T00:00:00Z",
+  "record_counts": {
+    "commits": 445175,
+    "issues": 167248,
+    "pulls": 331723,
+    "releases": 42458
+  },
+  "archive_sha256": "94651c54b8ded3f928564ff4a665e0e2d4807c7cd934ae16fa694898a326a64c",
+  "sqlite_sha256": "95b7a864c83a4bc09a534aa8232a90e13ad6e67ed7c40a66900cd65b1c8cb9c7",
+  "sqlite_size": 105099264
+}

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import Dataset, DatasetRepository, Repository
 from backend.app.analytics.course_ml_features import recent_commit_change
+from backend.app.services.repositories import STANDARD_TEST_ID
 
 
 def model_decisions():
@@ -32,9 +33,13 @@ def repository_evaluation(session: Session, repository_id: int):
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     from backend.app.services.maintenance import maintenance_observation
     observation = maintenance_observation(session, repository_id)
-    membership = session.get(DatasetRepository, ("course-research-300-v1", repository_id))
+    membership = session.get(DatasetRepository, (STANDARD_TEST_ID, repository_id))
+    dataset_id = STANDARD_TEST_ID
+    if membership is None:
+        membership = session.get(DatasetRepository, ("course-research-300-v1", repository_id))
+        dataset_id = "course-research-300-v1"
     research_sample = None
-    dataset = session.get(Dataset, "course-research-300-v1")
+    dataset = session.get(Dataset, dataset_id)
     if membership and membership.selection_tier in {"train", "test"} and dataset:
         try:
             metadata = json.loads(dataset.source_metadata_json or "{}")
@@ -42,8 +47,8 @@ def repository_evaluation(session: Session, repository_id: int):
             metadata = {}
         window = metadata.get("observation_window") if isinstance(metadata.get("observation_window"), dict) else {}
         research_sample = {
-            "dataset_id": "course-research-300-v1",
-            "dataset_version": str(metadata.get("version") or dataset.rules_version or "course-research-300-v1"),
+            "dataset_id": dataset_id,
+            "dataset_version": str(metadata.get("version") or dataset.rules_version or dataset_id),
             "sample_role": membership.selection_tier,
             "data_as_of": metadata.get("data_as_of"),
             "observation_start": window.get("start"),

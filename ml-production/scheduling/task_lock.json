@@ -1,0 +1,17 @@
+{
+  "frozen_at": "2026-11-10T00:11:22.452097+00:00",
+  "python_version": "3.12.14",
+  "hashes": {
+    "scripts/ml01_shadow_outcome.py": "7ef54b44f43f78008c600022086011f5ba824fb907ebcb84196f6ee62d03d41d",
+    "scripts/collect_ml_holdout.py": "260d0f226b7c28c20b72494f2472c0f22a284d464a43f7973c0bff27416ea843",
+    "scripts/repair_issue_comments.py": "35fa6c7898800eb9e3c434efe79a2afacea3cdd3a160d5881cd474e0273f3096",
+    "backend/app/integrations/github/client.py": "07110fd596a358ea8e117a852abc522ae0f6a3031d228a4a80f5401813453923",
+    "backend/app/core/clock.py": "1255426def8a084429cfa218229889fb9d5210836a7100ea08e1298e97c56a24",
+    "backend/app/core/config.py": "dcef0e9cce4614a70269c3666b9830638a8f1e7534484ce6557859fea1d8d731",
+    "backend/app/core/exceptions.py": "0fa0b459b1d7fd818ff769d09a309ee97c30bbb93177cd5c2fa560e9b3628d22",
+    "pyproject.toml": "d2b5080863011c3bbc0f44fad38f39e6ba10a5fa8f35439c53c6013064b4d479",
+    "uv.lock": "3c5d22eb7cdb48ab2722ec1cb84fc52229c25b970ae3bc08cb0853a7c16b0fa5",
+    "ml-production/scheduling/com.repovantage.ml01-shadow-20261207.plist": "4012e4a80e2192dee04da10980769357b243187ab85ae561f9aa74de85660a55"
+  },
+  "note": "若更新采集代码或依赖，须先核对影子协议、保留旧锁及审核结果，再有意识地更新任务锁；不能静默改变未来采集口径。"
+}

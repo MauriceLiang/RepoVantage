@@ -34,6 +34,7 @@ class RepositorySummary(DTO):
     last_successful_collection_at: str | None
     latest_task_id: str | None
     datasets: list[str]
+    has_historical_data: bool = False
 
 
 class RepositoryDetail(DTO):
@@ -77,7 +78,7 @@ class RefreshResponse(DTO):
 
 
 class ClearRepositoryDataRequest(DTO):
-    repository_ids: list[PositiveInt] = Field(min_length=1, max_length=100)
+    repository_ids: list[PositiveInt] = Field(min_length=1, max_length=200)
     remove_from_library: bool = False
 
     @field_validator("repository_ids")

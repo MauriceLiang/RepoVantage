@@ -1,0 +1,361 @@
+{
+  "comparison_http_status": 200,
+  "comparison_basis": {
+    "scope": "shared_observation",
+    "requested_window_days": 90,
+    "shared_window": {
+      "start": "2026-08-12T08:07:03Z",
+      "end": "2026-11-10T08:07:03Z"
+    },
+    "effective_days": 90.0,
+    "minimum_coverage_ratio": 0.8,
+    "minimum_effective_days": 72.0,
+    "status": "comparable",
+    "reason_code": null,
+    "reason": null
+  },
+  "common_complete_weeks": 12,
+  "comparison_rows": [
+    {
+      "full_name": "pallets/flask",
+      "run_id": "4ce7d10c-4af9-448e-91d6-6aa2170a9655",
+      "metrics": {
+        "commits_weekly_mean": {
+          "value": 0.8333333333333334,
+          "unit": "commits/week",
+          "comparable": true,
+          "valid_samples": 10,
+          "quality": "ready",
+          "reason_code": null,
+          "reason": null,
+          "window_start": "2026-08-17T00:00:00Z",
+          "window_end": "2026-11-09T00:00:00Z"
+        },
+        "issue_median_hours": {
+          "value": 1.1455555555555557,
+          "unit": "hours",
+          "comparable": true,
+          "valid_samples": 19,
+          "quality": "ready",
+          "reason_code": null,
+          "reason": null,
+          "window_start": "2026-08-12T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        },
+        "pr_median_hours": {
+          "value": 0.075,
+          "unit": "hours",
+          "comparable": true,
+          "valid_samples": 2,
+          "quality": "ready",
+          "reason_code": null,
+          "reason": null,
+          "window_start": "2026-08-12T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        },
+        "release_interval_days": {
+          "value": null,
+          "unit": "days",
+          "comparable": false,
+          "valid_samples": 1,
+          "quality": "insufficient_samples",
+          "reason_code": "METRIC_QUALITY_NOT_READY",
+          "reason": "样本不足",
+          "window_start": "2025-11-10T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        }
+      }
+    },
+    {
+      "full_name": "django/django",
+      "run_id": "3f9cfa70-0d99-4705-a6fc-22ccd2fa0c54",
+      "metrics": {
+        "commits_weekly_mean": {
+          "value": 19.25,
+          "unit": "commits/week",
+          "comparable": true,
+          "valid_samples": 231,
+          "quality": "ready",
+          "reason_code": null,
+          "reason": null,
+          "window_start": "2026-08-17T00:00:00Z",
+          "window_end": "2026-11-09T00:00:00Z"
+        },
+        "issue_median_hours": {
+          "value": null,
+          "unit": "hours",
+          "comparable": false,
+          "valid_samples": 0,
+          "quality": "insufficient_samples",
+          "reason_code": "METRIC_QUALITY_NOT_READY",
+          "reason": "样本不足",
+          "window_start": "2026-08-12T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        },
+        "pr_median_hours": {
+          "value": 98.76194444444444,
+          "unit": "hours",
+          "comparable": true,
+          "valid_samples": 185,
+          "quality": "ready",
+          "reason_code": null,
+          "reason": null,
+          "window_start": "2026-08-12T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        },
+        "release_interval_days": {
+          "value": null,
+          "unit": "days",
+          "comparable": false,
+          "valid_samples": 0,
+          "quality": "insufficient_samples",
+          "reason_code": "METRIC_QUALITY_NOT_READY",
+          "reason": "样本不足",
+          "window_start": "2025-11-10T08:07:03Z",
+          "window_end": "2026-11-10T08:07:03Z"
+        }
+      }
+    }
+  ],
+  "warnings": [
+    "项目类型未分类；活动规模与处理耗时不能直接判定项目优劣。"
+  ],
+  "selection_http_status": 200,
+  "selection_status": "available",
+  "selection_method": "rule_based",
+  "ranking": [
+    {
+      "repository_id": 4164482,
+      "full_name": "django/django",
+      "language": "Python",
+      "license_spdx": "BSD-3-Clause",
+      "score": 1.0,
+      "evidence": {
+        "commits_weekly_mean": {
+          "value": 19.25,
+          "unit": "commits/week",
+          "normalized": 1.0,
+          "weight": 1.0,
+          "contribution": 1.0,
+          "valid_samples": 231,
+          "window_start": "2026-08-17T00:00:00Z",
+          "window_end": "2026-11-09T00:00:00Z",
+          "source_run_id": "3f9cfa70-0d99-4705-a6fc-22ccd2fa0c54"
+        }
+      }
+    },
+    {
+      "repository_id": 596892,
+      "full_name": "pallets/flask",
+      "language": "Python",
+      "license_spdx": "BSD-3-Clause",
+      "score": 0.0,
+      "evidence": {
+        "commits_weekly_mean": {
+          "value": 0.8333333333333334,
+          "unit": "commits/week",
+          "normalized": 0.0,
+          "weight": 1.0,
+          "contribution": 0.0,
+          "valid_samples": 10,
+          "window_start": "2026-08-17T00:00:00Z",
+          "window_end": "2026-11-09T00:00:00Z",
+          "source_run_id": "4ce7d10c-4af9-448e-91d6-6aa2170a9655"
+        }
+      }
+    }
+  ],
+  "excluded": [],
+  "maintenance": {
+    "common_window": {
+      "start": "2026-08-17T00:00:00Z",
+      "end": "2026-11-09T00:00:00Z"
+    },
+    "repositories": [
+      {
+        "repository_id": 596892,
+        "full_name": "pallets/flask",
+        "pattern": {
+          "status": "available",
+          "method": "machine_learning",
+          "reason_code": null,
+          "model_id": "M1-maintenance-pattern",
+          "model_version": "ml03-12w-v1",
+          "feature_schema_version": "course-maintenance-12w-v1",
+          "pattern_id": "0",
+          "pattern_name": "集中活动型",
+          "as_of_utc": "2026-11-09T00:00:00Z",
+          "history_start": "2026-08-17T00:00:00Z",
+          "source_run_id": "7c912929-bdff-4d64-9266-449ae0d96bc9",
+          "source_sha256": "32d15641105e95f283c651c6117fb1ff1dc8544ac7dec54e22c582d6fd35142d",
+          "collected_at": "2026-11-10T08:02:46Z",
+          "coverage": {
+            "commits": "complete",
+            "pull_requests_created": "partial_or_unavailable"
+          },
+          "window_weeks": 12,
+          "evidence": {
+            "window_weeks": 12,
+            "commit_observed_weeks": 12,
+            "commit_total_window": 10,
+            "commit_total_12w": 10,
+            "commit_active_weeks_12w": 3,
+            "commit_active_fraction_12w": 0.25,
+            "commit_longest_zero_weeks_12w": 3
+          },
+          "limitations": [
+            "维护模式只描述行为，不代表仓库质量、健康度或技术采用价值。",
+            "模型固定使用最近 12 个完整 UTC 周；24 周扩展只提供额外背景。"
+          ]
+        },
+        "activity_trend": {
+          "status": "available",
+          "method": "machine_learning",
+          "trend": "基本稳定",
+          "model_id": "M2-activity-trend",
+          "model_version": "ml01-trend-12w-v1",
+          "horizon_weeks": 4,
+          "probabilities": null,
+          "evidence": {
+            "recent_4w_commits": 4,
+            "previous_4w_commits": 5,
+            "active_weeks_12w": 3
+          },
+          "reason_code": null,
+          "notes": [
+            "类别预测不提供未经校准的概率，也不预测精确 Commit 数量。",
+            "依据既有仓库的历史留仓回测；迁移到不同仓库或活动分布时仍需谨慎解释。"
+          ],
+          "feature_schema_version": "course-maintenance-12w-v1"
+        },
+        "activity_anomaly": {
+          "status": "baseline_only",
+          "method": "statistical_baseline",
+          "suspected": false,
+          "weeks": [
+            {
+              "week_start_utc": "2026-11-02T00:00:00Z",
+              "commit_count": 0,
+              "commit_robust_z": 0.0,
+              "direction": null
+            }
+          ],
+          "model_id": null,
+          "model_version": null,
+          "reason_code": null,
+          "notes": [
+            "异常提示是待核查信号，不等同于维护失败或项目放弃。"
+          ],
+          "feature_schema_version": "course-maintenance-12w-v1"
+        }
+      },
+      {
+        "repository_id": 4164482,
+        "full_name": "django/django",
+        "pattern": {
+          "status": "available",
+          "method": "machine_learning",
+          "reason_code": null,
+          "model_id": "M1-maintenance-pattern",
+          "model_version": "ml03-12w-v1",
+          "feature_schema_version": "course-maintenance-12w-v1",
+          "pattern_id": "3",
+          "pattern_name": "持续活动型",
+          "as_of_utc": "2026-11-09T00:00:00Z",
+          "history_start": "2026-08-17T00:00:00Z",
+          "source_run_id": "df783627-0892-49c5-913b-315b704b774c",
+          "source_sha256": "5a30fa78b2f68e524377a215ba10a04b29736d4d9ba63b9146ce64c942133cbb",
+          "collected_at": "2026-11-10T08:08:02Z",
+          "coverage": {
+            "commits": "complete",
+            "pull_requests_created": "complete"
+          },
+          "window_weeks": 12,
+          "evidence": {
+            "window_weeks": 12,
+            "commit_observed_weeks": 12,
+            "commit_total_window": 231,
+            "commit_total_12w": 231,
+            "commit_active_weeks_12w": 12,
+            "commit_active_fraction_12w": 1.0,
+            "commit_longest_zero_weeks_12w": 0,
+            "pr_created_total_12w": 467,
+            "pr_active_weeks_12w": 12
+          },
+          "limitations": [
+            "维护模式只描述行为，不代表仓库质量、健康度或技术采用价值。",
+            "模型固定使用最近 12 个完整 UTC 周；24 周扩展只提供额外背景。"
+          ]
+        },
+        "activity_trend": {
+          "status": "available",
+          "method": "machine_learning",
+          "trend": "下降",
+          "model_id": "M2-activity-trend",
+          "model_version": "ml01-trend-12w-v1",
+          "horizon_weeks": 4,
+          "probabilities": null,
+          "evidence": {
+            "recent_4w_commits": 99,
+            "previous_4w_commits": 81,
+            "active_weeks_12w": 12
+          },
+          "reason_code": null,
+          "notes": [
+            "类别预测不提供未经校准的概率，也不预测精确 Commit 数量。",
+            "依据既有仓库的历史留仓回测；迁移到不同仓库或活动分布时仍需谨慎解释。"
+          ],
+          "feature_schema_version": "course-maintenance-12w-v1"
+        },
+        "activity_anomaly": {
+          "status": "baseline_only",
+          "method": "statistical_baseline",
+          "suspected": false,
+          "weeks": [
+            {
+              "week_start_utc": "2026-11-02T00:00:00Z",
+              "commit_count": 27,
+              "commit_robust_z": 0.713552194845346,
+              "direction": null
+            }
+          ],
+          "model_id": null,
+          "model_version": null,
+          "reason_code": null,
+          "notes": [
+            "异常提示是待核查信号，不等同于维护失败或项目放弃。"
+          ],
+          "feature_schema_version": "course-maintenance-12w-v1"
+        }
+      }
+    ]
+  },
+  "notes": [
+    "只比较使用者确认用途相近的候选；规则排序不是采用成功概率。",
+    "缺失、不满足硬约束或覆盖不足的候选不参与评分。",
+    "归一化分数随候选集合与权重变化；Release 使用单独的 365 天窗口。",
+    "历史指标口径：insights-v1；ML 结果只作维护行为证据，不参与排序。"
+  ],
+  "report_markdown": "# 技术候选比较报告\n\n- 场景：课程设计真实数据演示：比较两个 Python Web 框架的近期维护证据\n- 同类候选：Python Web 框架\n- 方法：可解释规则，不是机器学习预测\n- 共同观察窗口：2026-08-12T08:07:03Z 至 2026-11-10T08:07:03Z\n- 结果状态：available\n\n## 指标权重\n\n- commits_weekly_mean：1.000\n\n## 最近维护活动与课程版 ML\n\n维护行为只作为证据，不参与规则得分；各仓库只在共同窗口一致时作同期比较。\n- pallets/flask：集中活动型；Commit 10，活跃周 3/12；PR 创建覆盖 partial_or_unavailable；未来四周趋势 ML 预测：基本稳定（ml01-trend-12w-v1）；趋势说明 类别预测不提供未经校准的概率，也不预测精确 Commit 数量。；依据既有仓库的历史留仓回测；迁移到不同仓库或活动分布时仍需谨慎解释。；异常提示 MAD 统计规则：当前规则未标记；窗口 2026-08-17T00:00:00Z — 2026-11-09T00:00:00Z；来源 7c912929-bdff-4d64-9266-449ae0d96bc9。\n- django/django：持续活动型；Commit 231，活跃周 12/12；PR 创建覆盖 complete；未来四周趋势 ML 预测：下降（ml01-trend-12w-v1）；趋势说明 类别预测不提供未经校准的概率，也不预测精确 Commit 数量。；依据既有仓库的历史留仓回测；迁移到不同仓库或活动分布时仍需谨慎解释。；异常提示 MAD 统计规则：当前规则未标记；窗口 2026-08-17T00:00:00Z — 2026-11-09T00:00:00Z；来源 df783627-0892-49c5-913b-315b704b774c。\n\n## 比较结果\n\n### 1. django/django\n\n规则得分：1.000；语言：Python；许可证：BSD-3-Clause。\n\n| 指标 | 观察值 | 贡献 | 有效样本 | 窗口 | 来源运行 |\n|---|---:|---:|---:|---|---|\n| commits_weekly_mean | 19.250 commits/week | 1.000 | 231 | 2026-08-17T00:00:00Z — 2026-11-09T00:00:00Z | 3f9cfa70-0d99-4705-a6fc-22ccd2fa0c54 |\n\n### 2. pallets/flask\n\n规则得分：0.000；语言：Python；许可证：BSD-3-Clause。\n\n| 指标 | 观察值 | 贡献 | 有效样本 | 窗口 | 来源运行 |\n|---|---:|---:|---:|---|---|\n| commits_weekly_mean | 0.833 commits/week | 0.000 | 10 | 2026-08-17T00:00:00Z — 2026-11-09T00:00:00Z | 4ce7d10c-4af9-448e-91d6-6aa2170a9655 |\n\n## 权重敏感性\n\n- commits_weekly_mean 权重增加 25%：django/django → pallets/flask\n\n## 限制\n\n- 只比较使用者确认用途相近的候选；规则排序不是采用成功概率。\n- 缺失、不满足硬约束或覆盖不足的候选不参与评分。\n- 归一化分数随候选集合与权重变化；Release 使用单独的 365 天窗口。\n- 历史指标口径：insights-v1；ML 结果只作维护行为证据，不参与排序。\n",
+  "result_signature": "6fde82698937cd89fd70c6591a4fffc2e7378e0cd5aa7c0728f360d93fbace4c",
+  "selection_request": {
+    "repository_ids": [
+      596892,
+      4164482
+    ],
+    "scenario": "课程设计真实数据演示：比较两个 Python Web 框架的近期维护证据",
+    "candidate_group": "Python Web 框架",
+    "candidates_confirmed": true,
+    "window_days": 90,
+    "allowed_languages": [
+      "Python"
+    ],
+    "allowed_licenses": [],
+    "weights": {
+      "commits_weekly_mean": 1,
+      "issue_median_hours": 0,
+      "pr_median_hours": 0,
+      "release_interval_days": 0
+    }
+  }
+}

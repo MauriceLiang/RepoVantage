@@ -8,13 +8,17 @@ from backend.app.core.clock import iso_z, parse_github_datetime
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import Dataset, DatasetRepository, MaintenanceRun, Repository
 from backend.app.services.insights import repository_insights, repository_insights_for_window
+from backend.app.services.repositories import STANDARD_TEST_ID
 
 INSIGHT_FIELDS = {'commits_weekly_mean': ('commit_activity', 'commits/week'), 'issue_median_hours': ('issue_resolution', 'hours'), 'pr_median_hours': ('pr_merges', 'hours'), 'release_interval_days': ('release_cadence', 'days')}
 
 
-def metric_value(result, key):
+def metric_value(result, key, *, include_observed=False):
     metric = result['insights'].get(INSIGHT_FIELDS[key][0])
-    if not metric or metric['quality']['status'] != 'ready':
+    if not metric:
+        return None
+    status = metric['quality']['status']
+    if status != 'ready' and not (include_observed and status == 'partial'):
         return None
     if key == 'commits_weekly_mean':
         points = [p['value'] for p in metric['weekly'] if p['quality'] == 'ready']
@@ -22,8 +26,10 @@ def metric_value(result, key):
     return metric.get('median_interval_days' if key == 'release_interval_days' else 'median_hours')
 
 
-def _maintenance_commit_fallback(session, result, window_days):
+def _maintenance_commit_fallback(session, result, window_days, *, prefer_recent=False):
     """Use an integrity-checked weekly maintenance snapshot when it is newer than event analysis."""
+    if result.get('origin') == 'course-test-events-v1' and not prefer_recent:
+        return None
     from backend.app.services.maintenance import maintenance_observation
 
     observation = maintenance_observation(session, result['repository_id'])
@@ -88,9 +94,13 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
         raise AppError(422, 'VALIDATION_ERROR', '不支持的对比方式')
     if window_days not in {30, 90, 180}:
         raise AppError(422, 'VALIDATION_ERROR', '分析范围只支持 30、90 或 180 天')
-    results = [repository_insights(session, id, window_days=window_days) for id in ids]
+    from backend.app.services.course_test_events import historical_insights
+    results = [
+        historical_insights(session, id, window_days) or repository_insights(session, id, window_days=window_days)
+        for id in ids
+    ]
     for result in results:
-        _maintenance_commit_fallback(session, result, window_days)
+        _maintenance_commit_fallback(session, result, window_days, prefer_recent=mode == 'individual_periods')
     repos = [session.get(Repository, id) for id in ids]
     candidate_windows = [(result['window_start'], result['window_end']) for result in results]
     comparison_basis = {
@@ -150,7 +160,10 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             course_metadata = json.loads(course_dataset.source_metadata_json)
         except (TypeError, ValueError):
             course_metadata = {}
-    course_snapshot_as_of = course_metadata.get('data_as_of') if any(result.get('comparison_source_kind') == 'course_research_historical_snapshot' for result in results) else None
+    course_snapshot_as_of = course_metadata.get('data_as_of') if any(
+        result.get('comparison_source_kind') == 'course_research_historical_snapshot'
+        or result.get('origin') == 'course-test-events-v1' for result in results
+    ) else None
     if course_snapshot_as_of:
         warnings.append(f'课程研究资料来自固定历史快照，仓库资料采集截至 {course_snapshot_as_of}；不代表实时状态。')
     for repo, result in zip(repos, results):
@@ -170,7 +183,7 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
         course_membership = session.get(DatasetRepository, ('course-research-300-v1', repo.repository_id))
         for key, (name, unit) in INSIGHT_FIELDS.items():
             metric = result['insights'].get(name)
-            value = metric_value(result, key)
+            value = metric_value(result, key, include_observed=True)
             comparable = (mode == 'individual_periods' or comparison_basis['status'] == 'comparable') and value is not None
             start, end = (metric['window_start'], metric['window_end']) if metric else (None, None)
             if key == 'commits_weekly_mean':
@@ -185,7 +198,7 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             elif key == 'commits_weekly_mean' and value is None and metric and metric['quality']['status'] == 'ready':
                 reason_code = 'NO_COMMON_COMPLETE_UTC_WEEK' if mode == 'same_period' else 'NO_COMPLETE_UTC_WEEK'
             elif metric and metric['quality']['status'] != 'ready':
-                reason_code = 'METRIC_QUALITY_NOT_READY'
+                reason_code = 'PARTIAL_OBSERVATION' if comparable and metric['quality']['status'] == 'partial' else 'METRIC_QUALITY_NOT_READY'
             elif value is None:
                 reason_code = 'NO_VALID_SAMPLES'
             else:
@@ -211,7 +224,7 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
             'created_at': iso_z(repo.created_at),
             'analyzed_at': result['analyzed_at'],
             'run_id': result['run_id'],
-            'source_kind': result.get('comparison_source_kind'),
+            'source_kind': result.get('comparison_source_kind') or ('course_research_historical_snapshot' if result.get('origin') == 'course-test-events-v1' else None),
             'maintenance_source_run_id': result.get('maintenance_source_run_id'),
             'sample_role': course_membership.selection_tier if course_membership else None,
             'window_start': result['window_start'],
@@ -232,8 +245,8 @@ def research_insights(session, dataset_id, analysis_mode='formal'):
     if expected_type is None:
         raise AppError(422, 'VALIDATION_ERROR', '不支持的研究分析模式')
     if analysis_mode == 'course':
-        if dataset_id != 'course-research-300-v1' or dataset is None or dataset.type != 'research':
-            raise AppError(422, 'VALIDATION_ERROR', '课程研究模式必须选择 300 仓库课程研究数据集')
+        if dataset_id not in {'course-research-300-v1', STANDARD_TEST_ID} or dataset is None or dataset.type != 'research':
+            raise AppError(422, 'VALIDATION_ERROR', '课程研究模式必须选择课程研究或标准测试数据集')
         from backend.app.services.course_research_dataset import course_research_insights
         return course_research_insights(session, dataset_id)
     if dataset is None or dataset.type != expected_type:

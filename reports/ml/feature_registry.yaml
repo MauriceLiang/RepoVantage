@@ -1,0 +1,38 @@
+version: 1
+evaluation_policy:
+  existing_research_split: historical_evaluation
+  independent_release_test: pending
+  reason: All 300 repositories and existing future windows have already been used in prior experiments.
+features:
+  commit_recent_4_complete_weeks:
+    source: repository_activity_events.commit.event_at
+    as_of: latest_collection_window_end
+    lookback: four_complete_utc_weeks_before_as_of
+    coverage: complete_or_verified_true_zero
+    missing_reason: missing_partial_failed_stale_or_uncovered
+    version: commit-weekly-baseline-v1
+    limitations: Current default-branch snapshot is not a historical branch-membership snapshot.
+  pr_created_recent_weeks:
+    source: repo-evaluation-capture-v1.pull_requests_created
+    as_of: prediction_time
+    lookback: before_prediction_time
+    coverage: complete_or_true_zero
+    missing_reason: not_collected_or_partial
+    version: pr-created-weekly-research-v1
+    limitations: Product collection currently captures closed PRs only; it cannot supply total PR creation counts.
+  issue_non_author_reply_14d:
+    source: issue_comment_event_and_issue_snapshot
+    as_of: issue_creation_time
+    lookback: matured_prior_issue_labels_only
+    coverage: independently_verified_comment_events
+    missing_reason: uncertain_comments_deleted_identity_unknown_or_immature
+    version: issue-reply-research-v2
+    limitations: A non-author reply is not necessarily a maintainer reply; historical missing comments cannot be reconstructed with certainty.
+  release_published:
+    source: github_visible_release_events
+    as_of: prediction_time
+    lookback: only_release_events_published_before_prediction_time
+    coverage: complete_or_true_zero
+    missing_reason: failed_partial_or_not_applicable
+    version: release-cadence-research-v1
+    limitations: Deleted and inaccessible draft releases cannot be reconstructed from a later snapshot.

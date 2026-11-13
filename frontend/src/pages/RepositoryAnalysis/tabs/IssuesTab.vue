@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import IssueTrendChart from '@/components/charts/IssueTrendChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
@@ -20,11 +20,13 @@ const ui = useUiStore()
 const source = useDataSource()
 const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<IssueRecordPage>(
   () => props.analysis.repository.id,
-  (id, page, perPage, search) => source.getIssueRecords(id, page, perPage, search),
+  (id, page, perPage, search) => source.getIssueRecords(id, page, perPage, search, props.analysis.windowAvailability.requestedDays),
   'Issue 记录加载失败',
+  () => props.analysis.windowAvailability.requestedDays,
 )
 const exporting = ref(false)
 let issueDetailRequest = 0
+watch(() => props.analysis.windowAvailability.requestedDays, () => { page.value = 1 }, { flush: 'sync' })
 
 async function openIssue(item: IssueRecord) {
   const requestId = ++issueDetailRequest
@@ -37,6 +39,7 @@ async function openIssue(item: IssueRecord) {
     durationDays: item.durationDays === null ? '—' : formatDuration(item.durationDays),
     url: item.url ?? '',
     state: 'closed',
+    historicalSnapshot: props.analysis.provenance?.origin === 'course-test-events-v1' ? 'true' : 'false',
     onlineStatus: 'idle',
     bodyStatus: 'loading',
   }
@@ -55,7 +58,7 @@ async function openIssue(item: IssueRecord) {
 async function exportCsv() {
   exporting.value = true
   try {
-    downloadBlob(await source.exportIssueRecords(props.analysis.repository.id, appliedSearch.value), `${props.analysis.repository.id}-issues.csv`)
+    downloadBlob(await source.exportIssueRecords(props.analysis.repository.id, appliedSearch.value, props.analysis.windowAvailability.requestedDays), `${props.analysis.repository.id}-issues.csv`)
   } catch (cause) {
     ui.toast(cause instanceof Error ? cause.message : '导出 Issue 记录失败', 'error')
   } finally {

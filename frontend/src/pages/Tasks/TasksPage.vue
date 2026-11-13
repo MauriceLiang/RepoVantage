@@ -117,7 +117,7 @@ function taskDetail(task: TaskItem): string {
   <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
     <div>
       <h1 class="m-0 text-[24px] font-semibold">任务</h1>
-      <p class="mt-1.5 text-muted">仓库采集与精选数据导入均由后端 Worker 执行；进度只反映实际任务阶段，不代表历史覆盖率。</p>
+      <p class="mt-1.5 text-muted">仓库采集由后端 Worker 执行；进度只反映实际任务阶段，不代表历史覆盖率。</p>
     </div>
 
     <section class="grid grid-cols-2 divide-line rounded-[10px] border border-line bg-panel px-5 py-3.5 sm:grid-cols-4 sm:divide-x">
@@ -140,7 +140,7 @@ function taskDetail(task: TaskItem): string {
       <div v-else-if="loading && !tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div v-for="i in 4" :key="i" class="h-16 animate-pulse rounded bg-track/60" />
       </div>
-      <div v-else-if="!tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-10 text-center text-[12px] text-muted">当前没有任务。可以从仓库页添加仓库或导入精选数据。</div>
+      <div v-else-if="!tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-10 text-center text-[12px] text-muted">当前没有任务。可以从仓库页添加仓库。</div>
 
       <template v-else>
         <p v-if="error" class="mb-2 text-[11px] text-danger">刷新失败，仍显示上次获取的任务状态：{{ error }}</p>

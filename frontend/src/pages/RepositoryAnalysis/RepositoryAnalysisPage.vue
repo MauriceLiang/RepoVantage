@@ -29,6 +29,13 @@ const clearing = ref(false)
 const repoId = computed(() => String(route.params.id ?? ''))
 const tab = computed(() => String(route.params.tab || 'overview'))
 const showingAnalysis = computed(() => tab.value === 'analysis')
+const isCourseTestRepository = computed(() => data.value?.repository.datasetIds?.includes('course-research-300-v1') === true)
+const showingHistoricalCourseOverview = computed(() => tab.value === 'overview'
+  && isCourseTestRepository.value
+  && data.value?.repository.hasHistoricalData === true
+  && data.value?.windowAvailability.available === false)
+const showingCourseMaintenance = computed(() => isCourseTestRepository.value
+  && (showingAnalysis.value || showingHistoricalCourseOverview.value))
 const tabComponent = computed(() => ({ overview: OverviewTab, activity: ActivityTab, issues: IssuesTab, prs: PrsTab, releases: ReleasesTab }[tab.value] ?? OverviewTab))
 
 const { data, loading, error, reload } = useAsyncData<RepositoryAnalysis>(
@@ -36,8 +43,8 @@ const { data, loading, error, reload } = useAsyncData<RepositoryAnalysis>(
   () => [repoId.value, analysisStore.timeWindow],
 )
 
-const notAnalyzed = computed(() => data.value?.repository.status === 'idle')
-const failed = computed(() => data.value?.repository.status === 'failed' || Boolean(error.value))
+const notAnalyzed = computed(() => data.value?.repository.status === 'idle' && data.value?.windowAvailability.available !== true)
+const failed = computed(() => Boolean(error.value) || (data.value?.repository.status === 'failed' && data.value?.windowAvailability.available !== true))
 
 async function refresh(scopeKind: 'quick' | 'window' = 'quick') {
   refreshing.value = true
@@ -55,7 +62,7 @@ async function refresh(scopeKind: 'quick' | 'window' = 'quick') {
 
 async function clearCurrentRepositoryData() {
   const fullName = data.value?.repository.fullName ?? `仓库 #${repoId.value}`
-  if (!window.confirm(`清除 ${fullName} 在本机保存的所有采集与分析数据，包括快照、活动记录、分析结果和原始归档？仓库资料、我的仓库归属与任务历史会保留；若它属于内置精选数据集，会标记为待重新导入。此操作不可撤销。`)) return
+  if (!window.confirm(`清除 ${fullName} 在本机保存的采集与分析记录，包括快照、活动记录、分析结果和单仓归档？仓库资料、预装原始数据包、我的仓库归属、其他数据集关系与任务历史会保留。此操作不可撤销。`)) return
   clearing.value = true
   try {
     await source.clearRepositoryData([repoId.value])
@@ -83,7 +90,7 @@ function openWeek(payload: { date: string; count: number }) {
   <ModuleTabs v-if="repoId" :repo-id="repoId" :active="tab" />
   <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]" data-testid="repository-analysis" :data-window-days="data?.windowAvailability.requestedDays" :data-window-available="data?.windowAvailability.available">
     <RepoHeader
-      v-if="data"
+      v-if="data && !showingCourseMaintenance"
       :repository="data.repository"
       :coverage="data.coverage"
       :collected-at="data.collectedAt"
@@ -95,6 +102,10 @@ function openWeek(payload: { date: string; count: number }) {
       @clear="clearCurrentRepositoryData"
     />
 
+    <p v-if="data?.provenance?.origin === 'course-test-events-v1'" class="m-0 rounded-md border border-line bg-panel px-3 py-2 text-[12px] leading-relaxed text-muted" data-testid="course-history-events">
+      当前展示 300 仓库数据集的本地历史快照，观察窗口截至 {{ data.metrics.window.end ?? '—' }}；Issue 仅包含采集范围内创建的记录，提交说明和 Issue / PR 标题、正文未保存在快照中。
+    </p>
+
     <div v-if="loading" class="flex flex-col gap-4">
       <div class="h-[92px] animate-pulse rounded-[10px] bg-track/70" />
       <div class="h-[360px] animate-pulse rounded-[10px] bg-track/70" />
@@ -103,7 +114,10 @@ function openWeek(payload: { date: string; count: number }) {
       </div>
     </div>
 
-    <div v-else-if="showingAnalysis" class="analysis-tab-stage" data-testid="repository-ml-analysis">
+    <div v-else-if="showingAnalysis || showingHistoricalCourseOverview" class="analysis-tab-stage" data-testid="repository-ml-analysis">
+      <p v-if="showingHistoricalCourseOverview" class="mb-0 rounded-md border border-line bg-panel px-3 py-2 text-[12px] leading-relaxed text-muted" data-testid="course-history-overview">
+        300 仓库的历史维护数据已在本地，下面直接展示已有事实与分析，不会为此重新抓取。
+      </p>
       <AnalysisTab :repository-id="repoId" :repository="data?.repository ?? null" />
     </div>
 
@@ -135,7 +149,7 @@ function openWeek(payload: { date: string; count: number }) {
 
     <div v-else-if="data && data.windowAvailability.available" data-testid="analysis-content" class="analysis-tab-stage">
       <Transition name="analysis-tab">
-        <div :key="`${repoId}:${tab}`" class="analysis-tab-page min-w-0" :class="tab === 'overview' ? 'flex flex-col gap-[18px]' : ''">
+        <div :key="`${repoId}:${tab}`" class="analysis-tab-page min-w-0 flex flex-col gap-[18px]">
           <component :is="tabComponent" :analysis="data" @select-week="openWeek" />
         </div>
       </Transition>

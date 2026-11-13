@@ -1,0 +1,14 @@
+{
+  "status": "research_only",
+  "note": "描述文件从冻结训练产物提取；原模型字节未更改，人工复核和批准尚未完成。",
+  "hashes": {
+    "dataprepare/MachineLearn/run/ml03-v5-development/model.joblib": "c9455a338ef951a2a1f1cc0bbbb7e338309c631c00f0f3b7e84b89dc003d805a",
+    "dataprepare/MachineLearn/run/ml03-v5-development/numeric_model.json": "13f9db7cedfef15ba477a60f838dfd1f39051501a522503d93eb64c3a84254c7",
+    "dataprepare/MachineLearn/run/ml03-v5-development/size_baseline.joblib": "f4a2edb91ad1cd97754cd04876811510171b7f9b448ac2024705990bb254c9bb",
+    "dataprepare/MachineLearn/run/ml03-v5-development/training_manifest.json": "66dba09b15f8d1bb8fb7be8f9a07f93bd46075ba908b3e81dffe26508491b31b",
+    "dataprepare/MachineLearn/run/ml03-v5-development/metrics_development.json": "e70de7636f7f0bd93ace8ece05855fafdd3efba2248d89a95af0c78b6191c4c8",
+    "dataprepare/MachineLearn/run/ml03-v5-development/feature_schema.json": "cd4e38030595ee18405023f860334d18344fd63db00373ca13eeb5503d4b8f85",
+    "dataprepare/MachineLearn/run/ml03-v5-development/preprocessing_manifest.json": "952ac72ac1688b3e0145337942945b4c4cc76f44119d9a668c402e73abd8e0d2",
+    "dataprepare/MachineLearn/run/ml03-v5-development/cluster_profiles.json": "ea31ed5c0ea107a2f21d0b1f57721e426e9e7666f44717cff7f6d56a0ab37f92"
+  }
+}

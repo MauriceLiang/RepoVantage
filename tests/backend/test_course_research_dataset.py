@@ -1,15 +1,18 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
-from sqlalchemy import create_engine, func, select
+from sqlalchemy import create_engine, delete, func, select
 from sqlalchemy.orm import sessionmaker
 
 from backend.app.core.clock import iso_z
 from backend.app.persistence.db import Base
 from backend.app.persistence.models import (
+    ApplicationSetting,
     DatasetRepository,
     MaintenanceRun,
     MaintenanceWeek,
@@ -18,17 +21,19 @@ from backend.app.persistence.models import (
 )
 from backend.app.pipeline.raw_archive import archive_json
 from backend.app.schemas.ml_evaluation import SelectionRequest, SelectionWeights
-from backend.app.services import maintenance
+from backend.app.services import course_test_events, maintenance
+from backend.app.services.analytics import export_repositories
 from backend.app.services.course_research_dataset import (
     BUNDLE_ROOT,
+    COURSE_LIBRARY_INITIALIZED_KEY,
     COURSE_RESEARCH_ID,
     course_research_insights,
     import_course_research_bundle,
     verify_course_research_bundle,
 )
-from backend.app.services.insight_comparison import compare_insights
+from backend.app.services.insight_comparison import compare_insights, research_insights
 from backend.app.services.ml_evaluation import repository_evaluation
-from backend.app.services.repositories import ensure_default_datasets
+from backend.app.services.repositories import STANDARD_TEST_ID, ensure_default_datasets
 from backend.app.services.selection import selection_markdown, selection_report
 
 
@@ -46,8 +51,11 @@ def test_course_bundle_import_is_additive_and_supports_analysis_comparison_and_r
 
     archive_root = tmp_path / "raw"
     monkeypatch.setattr(maintenance, "get_settings", lambda: SimpleNamespace(raw_data_path=archive_root, base_refresh_hours=24))
+    monkeypatch.setattr(course_test_events, "get_settings", lambda: SimpleNamespace(raw_data_path=archive_root))
     engine, factory = _isolated_factory(tmp_path)
     repository_ids = [row["repository_id"] for row in bundle["repositories"]]
+    test_ids = {repository_id for repository_id, role in bundle["role_by_id"].items() if role == "test"}
+    train_ids = {repository_id for repository_id, role in bundle["role_by_id"].items() if role == "train"}
     older_name = bundle["repositories"][0]["full_name"]
     newer_id = repository_ids[0]
     try:
@@ -72,38 +80,100 @@ def test_course_bundle_import_is_additive_and_supports_analysis_comparison_and_r
             assert result["library_memberships_added"] == 300
             assert result["maintenance_runs_added"] == 300
             assert result["maintenance_weeks_added"] == 3600
+            assert result["standard_test_repositories_added"] == 150
             assert result["snapshots_skipped_newer"] == 1
             assert result["snapshots_added"] == 299
             assert session.get(Repository, newer_id).description == "preserve existing description"
             assert session.get(Repository, newer_id).language == "LocalLanguage"
             assert session.get(RepositorySnapshot, 1).stars == 999
             assert session.scalar(select(func.count()).select_from(DatasetRepository).where(DatasetRepository.dataset_id == COURSE_RESEARCH_ID)) == 300
-            assert session.scalar(select(func.count()).select_from(DatasetRepository).where(DatasetRepository.dataset_id == "library-default")) == 300
+            assert session.scalar(select(func.count()).select_from(DatasetRepository).where(DatasetRepository.dataset_id == STANDARD_TEST_ID)) == 150
+            library_ids = set(session.scalars(select(DatasetRepository.repository_id).where(DatasetRepository.dataset_id == "library-default")).all())
+            assert library_ids == set(repository_ids)
             assert session.scalar(select(func.count()).select_from(MaintenanceRun)) == 300
             assert session.scalar(select(func.count()).select_from(MaintenanceWeek)) == 3600
 
+            # Upgrade an older default library while retaining unrelated manual imports.
+            session.execute(delete(DatasetRepository).where(
+                DatasetRepository.dataset_id == "library-default", DatasetRepository.repository_id.in_(train_ids),
+            ))
+            session.delete(session.get(ApplicationSetting, COURSE_LIBRARY_INITIALIZED_KEY))
+            old_featured_id, manual_id = 9000000000000001, 9000000000000002
+            for repository_id, name in ((old_featured_id, "old/featured"), (manual_id, "manual/import")):
+                session.add(Repository(repository_id=repository_id, full_name=name, html_url=f"https://github.com/{name}"))
+            session.flush()
+            session.add_all([
+                DatasetRepository(dataset_id="library-default", repository_id=old_featured_id, selection_source="featured bundle import"),
+                DatasetRepository(dataset_id="library-default", repository_id=manual_id, selection_source=None),
+            ])
+            session.commit()
+            upgraded = import_course_research_bundle(session, archive_root=archive_root)
+            assert upgraded["already_imported"] is True
+            assert upgraded["standard_test_repositories_added"] == 0
+            assert upgraded["library_memberships_added"] == 150
+            assert upgraded["library_memberships_removed"] == 1
             duplicate = import_course_research_bundle(session, archive_root=archive_root)
             assert duplicate["already_imported"] is True
+            assert duplicate["standard_test_repositories_added"] == 0
+            library_ids = set(session.scalars(select(DatasetRepository.repository_id).where(DatasetRepository.dataset_id == "library-default")).all())
+            assert library_ids == set(repository_ids) | {manual_id}
+
+            # Individual removals also survive subsequent startup imports.
+            removed_id = min(test_ids)
+            session.delete(session.get(DatasetRepository, ("library-default", removed_id)))
+            session.commit()
+            assert import_course_research_bundle(session, archive_root=archive_root)["library_memberships_added"] == 0
+            assert session.get(DatasetRepository, ("library-default", removed_id)) is None
+
+            # A user's full library removal must survive the next startup import.
+            session.execute(delete(DatasetRepository).where(DatasetRepository.dataset_id == "library-default"))
+            session.commit()
+            after_user_clear = import_course_research_bundle(session, archive_root=archive_root)
+            assert after_user_clear["library_memberships_added"] == 0
+            assert session.scalar(select(func.count()).select_from(DatasetRepository).where(DatasetRepository.dataset_id == "library-default")) == 0
 
             insights = course_research_insights(session, COURSE_RESEARCH_ID)
             assert insights["sample_size"] == 300
+            assert insights["course_summary"]["event_window_end"] == "2026-11-05T10:31:37Z"
             assert insights["course_summary"]["split_counts"] == {"train": 150, "test": 150}
             assert sum(row["sample_role"] == "train" for row in insights["rows"]) == 150
             assert sum(row["sample_role"] == "test" for row in insights["rows"]) == 150
-            assert insights["summary"]["issue_median_hours"]["count"] == 0
+            assert all(insights["summary"][key]["count"] > 0 for key in ("issue_median_hours", "pr_median_hours", "release_interval_days"))
+            assert insights["metric_quality"]["issue_median_hours"]["partial_count"] > 0
+
+            standard = course_research_insights(session, STANDARD_TEST_ID)
+            assert standard["sample_size"] == 150
+            assert standard["metric_version"] == STANDARD_TEST_ID
+            assert all(row["sample_role"] == "test" for row in standard["rows"])
+            assert standard["course_summary"]["weekly_records"] == 1800
+            assert standard["course_summary"]["selected_sample_role"] == "test"
+            assert standard["course_summary"]["coverage"]["commit_week_complete_or_true_zero"] <= 1800
+
+            standard_api_result = research_insights(session, STANDARD_TEST_ID, "course")
+            assert standard_api_result["sample_size"] == 150
+            assert all(row["sample_role"] == "test" for row in standard_api_result["rows"])
+            member_csv, _ = export_repositories(session, "research", STANDARD_TEST_ID, None, "course")
+            exported_members = list(csv.DictReader(io.StringIO(member_csv)))
+            assert len(exported_members) == 150
+            assert {int(row["repository_id"]) for row in exported_members} == test_ids
+            assert {row["dataset_id"] for row in exported_members} == {STANDARD_TEST_ID}
+            assert {row["sample_role"] for row in exported_members} == {"test"}
 
             train_id = next(value for value in repository_ids if bundle["role_by_id"][value] == "train")
             test_id = next(value for value in repository_ids if bundle["role_by_id"][value] == "test")
             evaluation = repository_evaluation(session, train_id)
             assert evaluation["research_sample"]["sample_role"] == "train"
             assert evaluation["research_sample"]["dataset_id"] == COURSE_RESEARCH_ID
+            test_evaluation = repository_evaluation(session, test_id)
+            assert test_evaluation["research_sample"]["sample_role"] == "test"
+            assert test_evaluation["research_sample"]["dataset_id"] == STANDARD_TEST_ID
 
             comparison = compare_insights(session, [train_id, test_id], mode="same_period", window_days=90)
             assert comparison["comparison_basis"]["status"] == "comparable"
             assert all(row["source_kind"] == "course_research_historical_snapshot" for row in comparison["repositories"])
             assert all(row["sample_role"] in {"train", "test"} for row in comparison["repositories"])
             assert all(row["metrics"]["commits_weekly_mean"]["quality"] == "ready" for row in comparison["repositories"])
-            assert all(row["metrics"]["issue_median_hours"]["value"] is None for row in comparison["repositories"])
+            assert all(row["metrics"]["issue_median_hours"]["quality"] in {"partial", "missing", "insufficient_samples"} for row in comparison["repositories"])
 
             body = SelectionRequest(
                 repository_ids=[train_id, test_id], scenario="同类开源库比较", candidate_group="课程样例",
@@ -125,6 +195,7 @@ def test_newer_online_maintenance_observation_wins_over_course_snapshot(tmp_path
     bundle = verify_course_research_bundle(BUNDLE_ROOT)
     archive_root = tmp_path / "raw"
     monkeypatch.setattr(maintenance, "get_settings", lambda: SimpleNamespace(raw_data_path=archive_root, base_refresh_hours=24))
+    monkeypatch.setattr(course_test_events, "get_settings", lambda: SimpleNamespace(raw_data_path=archive_root))
     engine, factory = _isolated_factory(tmp_path)
     repository = bundle["repositories"][0]
     repository_id = repository["repository_id"]

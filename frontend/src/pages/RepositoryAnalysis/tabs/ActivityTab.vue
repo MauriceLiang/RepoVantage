@@ -137,7 +137,7 @@ function filterAuthor(author: string) {
       <div v-else-if="loading" class="flex min-h-0 flex-1 items-center justify-center text-[12px] text-muted" role="status">正在计算作者贡献…</div>
       <div v-else-if="loadError" class="flex min-h-0 flex-1 items-center justify-center text-center text-[12px] text-danger" role="alert">{{ loadError }}</div>
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前没有可识别的作者记录。</div>
-      <p v-if="activity?.available && activity.authors.length" class="m-0 text-[10.5px] leading-relaxed text-muted">含 Bot；未关联账号按 Git 名称归并。{{ activity.unidentifiedCommitCount === null ? '身份缺失数未知。' : `身份无法识别的 ${activity.unidentifiedCommitCount} 条提交未计入集中度。` }}点击排行可搜索明细。</p>
+      <p v-if="activity?.available && activity.authors.length" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ analysis.provenance?.origin === 'course-test-events-v1' ? '历史快照中的账号已匿名化，Bot 类型未知。' : '含 Bot；未关联账号按 Git 名称归并。' }}{{ activity.unidentifiedCommitCount === null ? '身份缺失数未知。' : `身份无法识别的 ${activity.unidentifiedCommitCount} 条提交未计入集中度。` }}点击排行可搜索明细。</p>
     </GdCard>
   </div>
 

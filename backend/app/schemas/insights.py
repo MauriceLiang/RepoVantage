@@ -129,7 +129,7 @@ class PullRequestRecord(BaseModel):
     duration_days: float | None
     state: Literal["closed", "merged"]
     draft: bool
-    comments_count: int = Field(ge=0)
+    comments_count: int | None = Field(ge=0)
     url: str
 
 
@@ -193,7 +193,7 @@ class CommitDailyCount(BaseModel):
 class CommitAuthorContribution(BaseModel):
     author: str
     commits: int = Field(ge=0)
-    is_bot: bool
+    is_bot: bool | None
     anonymous: bool
 
 
@@ -206,7 +206,7 @@ class CommitRecord(BaseModel):
     sha: str
     title: str
     author: str
-    is_bot: bool
+    is_bot: bool | None
     anonymous: bool
     date: str
     url: str
@@ -241,13 +241,13 @@ class ReleaseMetric(InsightMetric):
 
 class RepositoryInsights(BaseModel):
     repository_id: int
-    run_id: str | None = Field(description="所选覆盖证明运行的 ID；不是本次 GET 新建的计算快照。")
+    run_id: str | None = Field(description="所选覆盖证明运行的 ID；历史事件快照没有对应运行时为空。")
     metric_version: str
     status: InsightStatus
     window_start: str | None
     window_end: str | None
     timezone: Literal["UTC"]
-    analyzed_at: str | None = Field(description="所选覆盖证明运行的分析时间；本次重算时间见 calculated_at。")
+    analyzed_at: str | None = Field(description="所选覆盖证明运行或历史快照的时间；本次重算时间见 calculated_at。")
     source_task_ids: list[str] = Field(description="覆盖证明运行关联的来源任务。")
     source_archive_paths: list[str] = Field(description="覆盖证明运行关联的归档，并非当前事件的完整归档清单。")
     origin: str | None
@@ -259,9 +259,9 @@ class RepositoryInsights(BaseModel):
     window_available: bool = True
     available_window_days: int | None = None
     window_reason: str | None = None
-    calculation_basis: Literal["current_local_event_store"] = "current_local_event_store"
-    calculated_at: str | None = Field(default=None, description="本次从当前本地事件库重算的时间；范围不可用时为空。")
-    event_source_task_ids: list[str] = Field(default_factory=list, description="本次读取的去重事件记录的来源任务；不表示不可变历史快照。")
+    calculation_basis: Literal["current_local_event_store", "course-test-events-v1"] = "current_local_event_store"
+    calculated_at: str | None = Field(default=None, description="本次从本地事件库或历史快照重算的时间；范围不可用时为空。")
+    event_source_task_ids: list[str] = Field(default_factory=list, description="本次读取的本地事件记录的来源任务；历史快照没有对应任务时为空。")
     observed_counts: dict[str, int] = Field(default_factory=dict, description="本次所选窗口的事件计数，Release 仍采用结束时间前 365 天。")
 
 

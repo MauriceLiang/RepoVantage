@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import * as echarts from 'echarts/core'
-import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts'
-import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
+import { BarChart, CustomChart, HeatmapChart, LineChart, PieChart, ScatterChart } from 'echarts/charts'
+import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, MarkPointComponent, TitleComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-echarts.use([BarChart, CustomChart, LineChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, MarkPointComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
+echarts.use([BarChart, CustomChart, LineChart, PieChart, ScatterChart, HeatmapChart, GridComponent, TitleComponent, TooltipComponent, LegendComponent, MarkLineComponent, MarkPointComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
 
 const props = withDefaults(defineProps<{ option: EChartsOption; height?: number; hideTooltipOnSelect?: boolean }>(), { height: 240, hideTooltipOnSelect: false })
 const emit = defineEmits<{

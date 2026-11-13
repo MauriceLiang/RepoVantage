@@ -1,6 +1,6 @@
 import type {
   ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
 } from './types'
 
 /**
@@ -35,14 +35,14 @@ export interface RepositoryDataSource {
   getEvaluation(id: string): Promise<RepositoryEvaluation>
   collectMaintenance(id: string, lookbackWeeks?: 12 | 24): Promise<MaintenanceCollectionResult>
   getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
-  getIssueRecords(id: string, page: number, perPage: number, search: string): Promise<IssueRecordPage>
+  getIssueRecords(id: string, page: number, perPage: number, search: string, windowDays?: TimeWindow): Promise<IssueRecordPage>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
   getIssueOnlineDetail(id: string, issueNumber: number): Promise<IssueOnlineDetail>
-  exportIssueRecords(id: string, search: string): Promise<Blob>
-  getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string): Promise<PullRequestActivityPage>
+  exportIssueRecords(id: string, search: string, windowDays?: TimeWindow): Promise<Blob>
+  getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string, windowDays?: TimeWindow): Promise<PullRequestActivityPage>
   getPullRequestDetail(id: string, pullNumber: number): Promise<PullRequestActivityDetail>
   getPullRequestOnlineDetail(id: string, pullNumber: number): Promise<PullRequestOnlineDetail>
-  exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string): Promise<Blob>
+  exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string, windowDays?: TimeWindow): Promise<Blob>
   getReleaseDetails(repositoryId: string, releaseId: string): Promise<ReleaseDetails>
 
   /** 对比 2 至 5 个仓库，可选共同时间区间或各仓库自己的完整区间。 */
@@ -53,6 +53,7 @@ export interface RepositoryDataSource {
   deleteSelectionFeedback(id: string): Promise<void>
 
   getResearchDataset(id?: string, mode?: ResearchAnalysisMode | 'auto'): Promise<ResearchDataset>
+  getOverviewDashboard(): Promise<RepositoryDashboardData>
 
   listTasks(): Promise<TaskItem[]>
   retryTask(id: string): Promise<string>

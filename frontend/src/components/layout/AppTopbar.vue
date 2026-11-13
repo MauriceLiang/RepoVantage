@@ -16,7 +16,7 @@ const current = computed(() => (route.meta.title as string) ?? '')
   <header class="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between border-b border-line bg-bg px-4 sm:px-7">
     <div class="flex min-w-0 items-center gap-1.5 text-[12.5px] text-muted">
       <MobileNavMenu />
-      <RouterLink to="/" class="hover:text-ink">{{ crumb }}</RouterLink>
+      <RouterLink :to="route.name === 'repository' ? '/repositories' : '/'" class="hover:text-ink">{{ crumb }}</RouterLink>
       <ChevronRight :size="13" />
       <b class="truncate font-medium text-ink">{{ current }}</b>
     </div>

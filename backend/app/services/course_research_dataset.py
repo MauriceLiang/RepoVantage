@@ -7,16 +7,21 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import tempfile
+from collections import Counter
 from pathlib import Path, PurePosixPath
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
+from backend.app.analytics.metrics import numeric_summary
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.config import PROJECT_ROOT, get_settings
+from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import begin_immediate
 from backend.app.persistence.models import (
+    ApplicationSetting,
     Dataset,
     DatasetRepository,
     MaintenanceRun,
@@ -24,10 +29,11 @@ from backend.app.persistence.models import (
     Repository,
     RepositorySnapshot,
 )
-from backend.app.services.repositories import LIBRARY_ID
+from backend.app.services.repositories import LIBRARY_ID, STANDARD_TEST_ID, STANDARD_TEST_NAME
 
 COURSE_RESEARCH_ID = "course-research-300-v1"
 COURSE_RESEARCH_NAME = "300 仓库课程研究样本（历史快照）"
+COURSE_LIBRARY_INITIALIZED_KEY = "course_research_300_library_initialized_v1"
 BUNDLE_ROOT = (PROJECT_ROOT / "data/datasets/course-research-300-v1").resolve()
 ARCHIVE_RELATIVE = Path("course-research-300-v1/weeks.json.gz")
 EXPECTED_SOURCE_SHA256 = "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d"
@@ -190,6 +196,244 @@ def _course_run_id(repository_id: int) -> str:
     return f"course150-v1-{repository_id}"
 
 
+def course_research_dashboard(session: Session, dataset_id: str) -> dict:
+    """Return only the pre-collected fields used by the overview charts."""
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None or dataset.type != "research" or dataset_id not in {COURSE_RESEARCH_ID, STANDARD_TEST_ID}:
+        raise AppError(422, "VALIDATION_ERROR", "课程研究模式必须选择课程研究或标准测试数据集")
+    try:
+        source = json.loads(dataset.source_metadata_json or "{}")
+    except (TypeError, ValueError):
+        source = {}
+
+    members = session.execute(
+        select(DatasetRepository, Repository)
+        .join(Repository, Repository.repository_id == DatasetRepository.repository_id)
+        .where(
+            DatasetRepository.dataset_id == dataset_id,
+            DatasetRepository.exclusion_status.is_(None),
+        )
+        .order_by(DatasetRepository.repository_id)
+    ).all()
+    repository_ids = [member.repository_id for member, _repository in members]
+    if not repository_ids:
+        return {
+            "dataset_id": dataset_id,
+            "name": dataset.name,
+            "repository_count": 0,
+            "course_summary": {"data_as_of": source.get("data_as_of"), "weekly_records": 0,
+                               "repositories_with_12_complete_commit_weeks": 0},
+            "course_language_groups": [],
+            "course_repositories": [],
+        }
+
+    latest_snapshots: dict[int, RepositorySnapshot] = {}
+    for snapshot in session.scalars(
+        select(RepositorySnapshot)
+        .where(RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True))
+        .order_by(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id))
+    ).all():
+        latest_snapshots.setdefault(snapshot.repository_id, snapshot)
+
+    run_ids = [_course_run_id(repository_id) for repository_id in repository_ids]
+    runs = {run.repository_id: run for run in session.scalars(
+        select(MaintenanceRun).where(MaintenanceRun.run_id.in_(run_ids))
+    ).all()}
+    weeks_by_run: dict[str, list[MaintenanceWeek]] = {}
+    weeks = session.scalars(
+        select(MaintenanceWeek)
+        .where(MaintenanceWeek.run_id.in_(run_ids))
+        .order_by(MaintenanceWeek.run_id, MaintenanceWeek.week_start)
+    ).all()
+    for week in weeks:
+        weeks_by_run.setdefault(week.run_id, []).append(week)
+
+    rows = []
+    language_groups: dict[str, dict[str, float | int]] = {}
+    complete_commit_repositories = 0
+    for member, repository in members:
+        run = runs.get(member.repository_id)
+        repository_weeks = weeks_by_run.get(run.run_id, []) if run else []
+        complete_weeks = [week for week in repository_weeks if week.commit_coverage in {"complete", "true_zero"}]
+        weekly_mean = None
+        active_weeks = None
+        if len(complete_weeks) == 12:
+            complete_commit_repositories += 1
+            weekly_mean = sum(week.commits for week in complete_weeks) / 12
+            active_weeks = sum(week.commits > 0 for week in complete_weeks)
+            group = language_groups.setdefault(repository.language or "未知", {"repository_count": 0, "commit_sample_count": 0, "weekly_commit_total": 0.0})
+            group["commit_sample_count"] += 1
+            group["weekly_commit_total"] += weekly_mean
+
+        language = repository.language or "未知"
+        group = language_groups.setdefault(language, {"repository_count": 0, "commit_sample_count": 0, "weekly_commit_total": 0.0})
+        group["repository_count"] += 1
+        snapshot = latest_snapshots.get(member.repository_id)
+        rows.append({
+            "repository_id": member.repository_id,
+            "full_name": repository.full_name,
+            "language": language,
+            "sample_role": member.selection_tier,
+            "weekly_commit_mean": weekly_mean,
+            "active_weeks": active_weeks,
+            "stars": snapshot.stars if snapshot else None,
+            "forks": snapshot.forks if snapshot else None,
+            "created_at": iso_z(repository.created_at) if repository.created_at else None,
+        })
+
+    groups = [{
+        "language": language,
+        "repository_count": int(values["repository_count"]),
+        "commit_sample_count": int(values["commit_sample_count"]),
+        "weekly_commit_mean": (float(values["weekly_commit_total"]) / int(values["commit_sample_count"]))
+        if values["commit_sample_count"] else None,
+    } for language, values in sorted(language_groups.items())]
+    return {
+        "dataset_id": dataset_id,
+        "name": dataset.name,
+        "repository_count": len(rows),
+        "course_summary": {
+            "data_as_of": source.get("data_as_of"),
+            "weekly_records": len(weeks),
+            "repositories_with_12_complete_commit_weeks": complete_commit_repositories,
+        },
+        "course_language_groups": groups,
+        "course_repositories": rows,
+    }
+
+
+def _standard_test_metadata(bundle: dict) -> dict:
+    metadata = bundle["metadata"]
+    test_ids = {repository_id for repository_id, role in bundle["role_by_id"].items() if role == "test"}
+    test_weeks = [row for row in bundle["weeks"] if row["repository_id"] in test_ids]
+    complete_commit_weeks = [row for row in test_weeks if row["commit_coverage"] in {"complete", "true_zero"}]
+    complete_pr_opened_weeks = [row for row in test_weeks if row["pr_opened_coverage"] in {"complete", "true_zero"}]
+    complete_pr_merged_weeks = [row for row in test_weeks if row["pr_merged_coverage"] in {"complete", "true_zero"}]
+    return {
+        **metadata,
+        "dataset_id": STANDARD_TEST_ID,
+        "dataset_name": STANDARD_TEST_NAME,
+        "version": STANDARD_TEST_ID,
+        "source_dataset_id": COURSE_RESEARCH_ID,
+        "selected_sample_role": "test",
+        "total_repositories": len(test_ids),
+        "weekly_records": len(test_weeks),
+        "repositories_with_12_complete_commit_weeks": sum(
+            sum(row["repository_id"] == repository_id and row["commit_coverage"] in {"complete", "true_zero"} for row in test_weeks) == 12
+            for repository_id in test_ids
+        ),
+        "coverage": {
+            "commit_week_complete_or_true_zero": len(complete_commit_weeks),
+            "commit_week_failed": sum(row["commit_coverage"] == "failed" for row in test_weeks),
+            "commit_week_partial": sum(row["commit_coverage"] == "partial" for row in test_weeks),
+            "commits_in_complete_or_true_zero_weeks": sum(row["commits"] or 0 for row in complete_commit_weeks),
+            "pr_opened_week_complete_or_true_zero": len(complete_pr_opened_weeks),
+            "pr_merged_week_complete_or_true_zero": len(complete_pr_merged_weeks),
+            "pr_merged_week_partial_concurrent_change": sum(row["pr_merged_coverage"] == "partial_concurrent_change" for row in test_weeks),
+            "prs_opened_in_complete_or_true_zero_weeks": sum(row["prs_opened"] or 0 for row in complete_pr_opened_weeks),
+            "prs_merged_in_complete_or_true_zero_weeks": sum(row["prs_merged"] or 0 for row in complete_pr_merged_weeks),
+        },
+    }
+
+
+def _ensure_standard_test_dataset(session: Session, bundle: dict) -> int:
+    expected_ids = {repository_id for repository_id, role in bundle["role_by_id"].items() if role == "test"}
+    dataset = session.get(Dataset, STANDARD_TEST_ID)
+    if dataset is not None and dataset.type != "research":
+        raise CourseBundleError(f"{STANDARD_TEST_ID} 已被其他数据集类型占用")
+    existing = session.scalars(select(DatasetRepository).where(DatasetRepository.dataset_id == STANDARD_TEST_ID)).all()
+    metadata = _standard_test_metadata(bundle)
+    if existing:
+        existing_ids = {member.repository_id for member in existing}
+        current = {}
+        if dataset and dataset.source_metadata_json:
+            try:
+                current = json.loads(dataset.source_metadata_json)
+            except (TypeError, ValueError):
+                current = {}
+        if existing_ids != expected_ids or current.get("bundle_hash") != bundle["bundle_hash"]:
+            raise CourseBundleError(f"{STANDARD_TEST_ID} 已含其他成员或版本；拒绝覆盖")
+        for member in existing:
+            member.selection_tier = "test"
+            member.inclusion_reason = "固定 150/150 留仓测试组；作为应用标准样本，不参与模型训练"
+            member.selection_source = COURSE_RESEARCH_ID
+        added = 0
+    else:
+        if dataset is None:
+            dataset = Dataset(dataset_id=STANDARD_TEST_ID, name=STANDARD_TEST_NAME, type="research")
+            session.add(dataset)
+        for repository_id in sorted(expected_ids):
+            if session.get(Repository, repository_id) is None:
+                raise CourseBundleError(f"标准测试样本缺少仓库资料：{repository_id}")
+            session.add(DatasetRepository(
+                dataset_id=STANDARD_TEST_ID,
+                repository_id=repository_id,
+                added_at=utc_now(),
+                selection_tier="test",
+                inclusion_reason="固定 150/150 留仓测试组；作为应用标准样本，不参与模型训练",
+                selection_source=COURSE_RESEARCH_ID,
+            ))
+        added = len(expected_ids)
+    assert dataset is not None
+    dataset.name = STANDARD_TEST_NAME
+    dataset.type = "research"
+    dataset.rules_version = STANDARD_TEST_ID
+    dataset.frozen_at = parse_github_datetime(metadata["data_as_of"])
+    dataset.description = "机器学习标准测试数据；固定 150 个留出仓库，仅用于标准展示和留出评估，不用于训练。"
+    dataset.source_metadata_json = json.dumps({**metadata, "bundle_hash": bundle["bundle_hash"]}, ensure_ascii=False)
+    session.flush()
+    return added
+
+
+def _sync_course_library_memberships(
+    session: Session,
+    bundle: dict,
+    *,
+    include_missing_course_memberships: bool,
+) -> tuple[int, int]:
+    course_ids = set(bundle["role_by_id"])
+    imported_members = session.scalars(select(DatasetRepository).where(
+        DatasetRepository.dataset_id == LIBRARY_ID,
+        DatasetRepository.selection_source.in_((COURSE_RESEARCH_ID, "featured bundle import")),
+    )).all()
+    removed = 0
+    for member in imported_members:
+        is_old_course_training_member = (
+            member.selection_source == COURSE_RESEARCH_ID and member.repository_id not in course_ids
+        )
+        is_old_featured_member = (
+            member.selection_source == "featured bundle import" and member.repository_id not in course_ids
+        )
+        if is_old_course_training_member or is_old_featured_member:
+            session.delete(member)
+            removed += 1
+
+    existing_ids = set(session.scalars(select(DatasetRepository.repository_id).where(
+        DatasetRepository.dataset_id == LIBRARY_ID
+    )).all())
+    added = 0
+    if include_missing_course_memberships:
+        for repository_id in sorted(course_ids - existing_ids):
+            session.add(DatasetRepository(
+                dataset_id=LIBRARY_ID,
+                repository_id=repository_id,
+                added_at=utc_now(),
+                selection_source=COURSE_RESEARCH_ID,
+            ))
+            added += 1
+    return added, removed
+
+
+def _initialize_course_library(session: Session, bundle: dict, *, include_missing: bool) -> tuple[int, int]:
+    if session.get(ApplicationSetting, COURSE_LIBRARY_INITIALIZED_KEY) is not None:
+        return 0, 0
+    result = _sync_course_library_memberships(
+        session, bundle, include_missing_course_memberships=include_missing,
+    )
+    session.add(ApplicationSetting(setting_key=COURSE_LIBRARY_INITIALIZED_KEY, setting_value="1"))
+    return result
+
+
 def _copy_archive(source: Path, archive_root: Path) -> str:
     archive_root = archive_root.expanduser().resolve()
     target = archive_root / ARCHIVE_RELATIVE
@@ -225,8 +469,19 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
             except (TypeError, ValueError):
                 current = {}
         if existing_count == 300 and current.get("bundle_hash") == bundle["bundle_hash"]:
+            standard_added = _ensure_standard_test_dataset(session, bundle)
+            default_membership_count = session.scalar(select(func.count()).select_from(DatasetRepository).where(
+                DatasetRepository.dataset_id == LIBRARY_ID,
+                DatasetRepository.selection_source.in_((COURSE_RESEARCH_ID, "featured bundle import")),
+            )) or 0
+            library_added, library_removed = _initialize_course_library(
+                session, bundle, include_missing=default_membership_count > 0,
+            )
+            session.commit()
             return {"dataset_id": COURSE_RESEARCH_ID, "bundle_hash": bundle["bundle_hash"],
-                    "repositories": 300, "already_imported": True, "archive_path": archive_path}
+                    "repositories": 300, "standard_test_repositories_added": standard_added,
+                    "library_memberships_added": library_added, "library_memberships_removed": library_removed,
+                    "already_imported": True, "archive_path": archive_path}
         raise CourseBundleError("course-research-300-v1 已含其他成员或版本；拒绝覆盖")
     if dataset is not None and dataset.type != "research":
         raise CourseBundleError("course-research-300-v1 已被其他数据集类型占用")
@@ -273,17 +528,15 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
         elif repository.full_name != row["full_name"]:
             # A newer local record may reflect a repository rename. Preserve it and its live fields.
             pass
-        for dataset_id, role in ((COURSE_RESEARCH_ID, bundle["role_by_id"][repository_id]), (LIBRARY_ID, None)):
-            membership = session.get(DatasetRepository, (dataset_id, repository_id))
-            if membership is None:
-                session.add(DatasetRepository(
-                    dataset_id=dataset_id, repository_id=repository_id,
-                    added_at=profile_time, selection_tier=role,
-                    inclusion_reason=("固定 150/150 课程回测样本；该角色仅说明实验分组" if dataset_id == COURSE_RESEARCH_ID else None),
-                    selection_source="course-research-300-v1",
-                ))
-                if dataset_id == LIBRARY_ID:
-                    counts["library_memberships_added"] += 1
+        role = bundle["role_by_id"][repository_id]
+        course_membership = session.get(DatasetRepository, (COURSE_RESEARCH_ID, repository_id))
+        if course_membership is None:
+            session.add(DatasetRepository(
+                dataset_id=COURSE_RESEARCH_ID, repository_id=repository_id,
+                added_at=profile_time, selection_tier=role,
+                inclusion_reason="固定 150/150 课程回测样本；该角色仅说明实验分组",
+                selection_source=COURSE_RESEARCH_ID,
+            ))
 
         source_time = parse_github_datetime(row.get("snapshot_at") or row.get("fetched_at")) or profile_time
         latest_snapshot = session.scalar(select(RepositorySnapshot).where(
@@ -346,6 +599,10 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
                 counts["maintenance_weeks_added"] += 1
             counts["maintenance_runs_added"] += 1
         counts["repositories"] += 1
+    counts["standard_test_repositories_added"] = _ensure_standard_test_dataset(session, bundle)
+    counts["library_memberships_added"], counts["library_memberships_removed"] = _initialize_course_library(
+        session, bundle, include_missing=True,
+    )
     session.commit()
     return {"dataset_id": COURSE_RESEARCH_ID, "bundle_hash": bundle["bundle_hash"],
             "already_imported": False, "archive_path": archive_path, **counts}
@@ -353,8 +610,8 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
 
 def course_research_insights(session: Session, dataset_id: str) -> dict:
     dataset = session.get(Dataset, dataset_id)
-    if dataset is None or dataset.type != "research" or dataset_id != COURSE_RESEARCH_ID:
-        raise CourseBundleError("course analysis requires course-research-300-v1 research dataset")
+    if dataset is None or dataset.type != "research" or dataset_id not in {COURSE_RESEARCH_ID, STANDARD_TEST_ID}:
+        raise CourseBundleError("course analysis requires a course research dataset")
     try:
         source = json.loads(dataset.source_metadata_json or "{}")
     except (TypeError, ValueError):
@@ -362,81 +619,119 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
     memberships = session.scalars(select(DatasetRepository).where(
         DatasetRepository.dataset_id == dataset_id, DatasetRepository.exclusion_status.is_(None)
     ).order_by(DatasetRepository.repository_id)).all()
+    repository_ids = [member.repository_id for member in memberships]
+    latest_snapshots: dict[int, RepositorySnapshot] = {}
+    for snapshot in session.scalars(select(RepositorySnapshot).where(
+        RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True)
+    ).order_by(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id))).all():
+        latest_snapshots.setdefault(snapshot.repository_id, snapshot)
+    from backend.app.services.course_test_events import _snapshot, historical_metric_summary
+    event_snapshot = _snapshot()
+    event_connection = None
+    event_manifest = None
+    if event_snapshot is not None:
+        path, event_manifest = event_snapshot
+        try:
+            event_connection = sqlite3.connect(f"{path.as_uri()}?mode=ro&immutable=1", uri=True)
+            event_connection.row_factory = sqlite3.Row
+        except (OSError, sqlite3.Error) as exc:
+            raise AppError(503, "COURSE_TEST_EVENTS_UNAVAILABLE", "历史事件数据无法读取") from exc
+
+    event_metrics = {
+        "issue_median_hours": ("issue_resolution", "median_hours", "hours"),
+        "pr_median_hours": ("pr_merges", "median_hours", "hours"),
+        "release_interval_days": ("release_cadence", "median_interval_days", "days"),
+    }
+    metric_units = {"commits_weekly_mean": "commits/week", **{key: value[2] for key, value in event_metrics.items()}}
     rows, grouped = [], {}
+    weekly_record_count = 0
+    event_window_end = None
     for member in memberships:
         repository = session.get(Repository, member.repository_id)
         if repository is None:
             continue
+        snapshot = latest_snapshots.get(member.repository_id)
         run = session.get(MaintenanceRun, _course_run_id(member.repository_id))
         weeks = session.scalars(select(MaintenanceWeek).where(
             MaintenanceWeek.run_id == run.run_id
         ).order_by(MaintenanceWeek.week_start)).all() if run else []
+        weekly_record_count += len(weeks)
         complete = [week for week in weeks if week.commit_coverage in {"complete", "true_zero"}]
         total = sum(week.commits for week in complete) if len(complete) == 12 else None
         active = sum(week.commits > 0 for week in complete) if len(complete) == 12 else None
         mean = total / 12 if total is not None else None
         language = repository.language or "未知"
-        grouped.setdefault(language, []).append(mean)
-        rows.append({
+        values = {"commits_weekly_mean": mean, "course_commit_total_12w": total, "course_active_weeks_12w": active}
+        quality = {
+            "commits_weekly_mean": {"status": "ready" if total is not None else "insufficient_data",
+                                    "coverage": "complete" if total is not None else "partial",
+                                    "valid_samples": 12 if total is not None else len(complete),
+                                    "reason": None if total is not None else "最近 12 周 Commit 覆盖不完整"},
+        }
+        event_available = (
+            event_connection is not None
+            and session.get(DatasetRepository, (COURSE_RESEARCH_ID, member.repository_id)) is not None
+            and run is not None
+        )
+        event_result = historical_metric_summary(event_connection, event_manifest, member.repository_id, 90) if event_available else None
+        if event_result and event_window_end is None:
+            event_window_end = event_result["window_end"]
+        for key, (metric_name, value_key, _unit) in event_metrics.items():
+            metric = event_result["insights"].get(metric_name) if event_result else None
+            event_quality = metric.get("quality", {}) if metric else {}
+            value = metric.get(value_key) if metric and event_quality.get("status") in {"ready", "partial"} else None
+            values[key] = value
+            quality[key] = {
+                "status": event_quality.get("status", "missing"),
+                "coverage": event_quality.get("coverage", "not_collected"),
+                "valid_samples": event_quality.get("valid_samples", 0),
+                "reason": event_quality.get("reason") if value is not None else (
+                    "窗口内没有可计算的有效记录" if event_result else "本地历史事件不可用"
+                ),
+            }
+        row = {
             "repository_id": member.repository_id, "full_name": repository.full_name, "language": language,
+            "stars": snapshot.stars if snapshot else None,
+            "forks": snapshot.forks if snapshot else None,
+            "created_at": iso_z(repository.created_at) if repository.created_at else None,
             "analyzed_at": iso_z(run.captured_at) if run else None,
             "window_start": iso_z(weeks[0].week_start) if len(weeks) == 12 else None,
             "window_end": iso_z(weeks[-1].week_end) if len(weeks) == 12 else None,
             "run_id": run.run_id if run else None,
             "sample_role": member.selection_tier,
-            "values": {"commits_weekly_mean": mean, "issue_median_hours": None,
-                       "pr_median_hours": None, "release_interval_days": None,
-                       "course_commit_total_12w": total, "course_active_weeks_12w": active},
-            "metric_quality": {
-                "commits_weekly_mean": {"status": "ready" if total is not None else "insufficient_data",
-                                         "coverage": "complete" if total is not None else "partial",
-                                         "valid_samples": 12 if total is not None else len(complete),
-                                         "reason": None if total is not None else "最近 12 周 Commit 覆盖不完整"},
-                "issue_median_hours": {"status": "missing", "coverage": "not_collected", "valid_samples": 0, "reason": "本课程数据包不含 Issue 事件"},
-                "pr_median_hours": {"status": "missing", "coverage": "not_collected", "valid_samples": 0, "reason": "周级 PR 数量不包含合并耗时事件"},
-                "release_interval_days": {"status": "missing", "coverage": "not_collected", "valid_samples": 0, "reason": "本课程数据包不含 Release 事件"},
-            },
-        })
-    languages = sorted(grouped)
+            "values": values, "metric_quality": quality,
+        }
+        rows.append(row)
+        grouped.setdefault(language, []).append(row)
+    if event_connection is not None:
+        event_connection.close()
     groups = [{"language": language, "n": len(grouped[language]),
-               "metrics": {"commits_weekly_mean": {"count": sum(value is not None for value in grouped[language]),
-                                                     "mean": (sum(value for value in grouped[language] if value is not None) / max(1, sum(value is not None for value in grouped[language]))) if any(value is not None for value in grouped[language]) else None,
-                                                     "median": None, "std": None},
-                           "issue_median_hours": {"count": 0, "mean": None, "median": None, "std": None},
-                           "pr_median_hours": {"count": 0, "mean": None, "median": None, "std": None},
-                           "release_interval_days": {"count": 0, "mean": None, "median": None, "std": None}}}
-              for language in languages]
+               "metrics": {key: numeric_summary([row["values"][key] for row in grouped[language] if row["values"][key] is not None])
+                           for key in metric_units}}
+              for language in sorted(grouped)]
     eligible_count = sum(row["values"]["course_commit_total_12w"] is not None for row in rows)
-    missing_reasons = [{"reason": "本课程数据包不含 Issue 事件", "count": len(rows)}]
-    summary = {
-        "commits_weekly_mean": {"count": eligible_count, "mean": (sum(row["values"]["commits_weekly_mean"] for row in rows if row["values"]["commits_weekly_mean"] is not None) / eligible_count) if eligible_count else None,
-                                "median": None, "std": None, "missing_count": len(rows) - eligible_count,
-                                "missing_rate": (len(rows) - eligible_count) / len(rows) if rows else None, "unit": "commits/week"},
-        "issue_median_hours": {"count": 0, "mean": None, "median": None, "std": None,
-                               "missing_count": len(rows), "missing_rate": 1.0 if rows else None, "unit": "hours"},
-        "pr_median_hours": {"count": 0, "mean": None, "median": None, "std": None,
-                            "missing_count": len(rows), "missing_rate": 1.0 if rows else None, "unit": "hours"},
-        "release_interval_days": {"count": 0, "mean": None, "median": None, "std": None,
-                                  "missing_count": len(rows), "missing_rate": 1.0 if rows else None, "unit": "days"},
-    }
-    metric_quality = {
-        "commits_weekly_mean": {"valid_samples": eligible_count, "missing_count": len(rows) - eligible_count,
-                                "missing_rate": (len(rows) - eligible_count) / len(rows) if rows else None,
-                                "status_counts": {"ready": eligible_count, "insufficient_data": len(rows) - eligible_count},
-                                "missing_reasons": ([{"reason": "最近 12 周 Commit 覆盖不完整", "count": len(rows) - eligible_count}] if eligible_count < len(rows) else [])},
-    }
-    for key, reason in (("issue_median_hours", "本课程数据包不含 Issue 事件"),
-                        ("pr_median_hours", "周级 PR 数量不包含合并耗时事件"),
-                        ("release_interval_days", "本课程数据包不含 Release 事件")):
-        metric_quality[key] = {"valid_samples": 0, "missing_count": len(rows),
-                               "missing_rate": 1.0 if rows else None, "status_counts": {"missing": len(rows)},
-                               "missing_reasons": [{"reason": reason, "count": len(rows)}] if rows else []}
+    summary, metric_quality = {}, {}
+    for key, unit in metric_units.items():
+        available = [row["values"][key] for row in rows if row["values"][key] is not None]
+        missing_count = len(rows) - len(available)
+        missing_rate = missing_count / len(rows) if rows else None
+        statuses = Counter(row["metric_quality"][key]["status"] for row in rows)
+        reasons = Counter(row["metric_quality"][key]["reason"] or "窗口内没有可计算的有效记录"
+                          for row in rows if row["values"][key] is None)
+        summary[key] = {**numeric_summary(available), "missing_count": missing_count, "missing_rate": missing_rate, "unit": unit}
+        metric_quality[key] = {"valid_samples": len(available), "missing_count": missing_count, "missing_rate": missing_rate,
+                               "partial_count": sum(row["values"][key] is not None and row["metric_quality"][key]["status"] == "partial" for row in rows),
+                               "status_counts": dict(sorted(statuses.items())),
+                               "missing_reasons": [{"reason": reason, "count": count} for reason, count in sorted(reasons.items())]}
+    paired_count = sum(row["values"]["issue_median_hours"] is not None and row["values"]["pr_median_hours"] is not None for row in rows)
     course_summary = {
         "data_as_of": source.get("data_as_of"),
         "observation_window": source.get("observation_window"),
-        "weekly_records": source.get("weekly_records", 0),
-        "repositories_with_12_complete_commit_weeks": source.get("repositories_with_12_complete_commit_weeks", 0),
+        "event_window_end": event_window_end,
+        "weekly_records": weekly_record_count,
+        "repositories_with_12_complete_commit_weeks": eligible_count,
         "split_counts": source.get("split_counts", {"train": 0, "test": 0}),
+        "selected_sample_role": source.get("selected_sample_role", "all"),
         "coverage": source.get("coverage", {}),
     }
     return {
@@ -446,14 +741,15 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
         "dataset_version": source.get("version") or dataset.rules_version,
         "frozen_at": iso_z(dataset.frozen_at), "sample_size": len(rows), "analyzable_members": eligible_count,
         "source": source.get("source") or dataset.description,
-        "metric_version": "course-research-300-v1", "summary": summary, "metric_quality": metric_quality,
+        "metric_version": dataset_id, "summary": summary, "metric_quality": metric_quality,
         "groups": groups, "rows": rows,
-        "correlation": {"n": 0, "coefficient": None, "p_value": None, "note": "课程数据仅含周级提交聚合，不含 Issue / PR 耗时配对事件"},
+        "correlation": {"n": paired_count, "coefficient": None, "p_value": None, "note": "本页提供描述性统计；部分指标依据已观察样本。"},
         "course_summary": course_summary,
         "limitations": [
             "这是固定历史快照，不是实时仓库状态；若存在更新的在线采集，仓库分析使用更新数据。",
             "提交趋势模型只输出未来四周类别；M1 反映提交模式，M3 是 MAD 统计提示。",
             "train/test 标签仅说明本次历史回测角色；测试组不是全新外部样本。",
-            "数据包不包含 Issue / PR 合并耗时或 Release 事件，因此这些指标明确显示缺失。",
+            *( ["当前标准数据只包含固定的留出测试组；训练组仅保留在完整 300 仓库实验数据集中。"] if source.get("selected_sample_role") == "test" else [] ),
+            "Commit 使用最近 12 个完整周；Issue、PR 使用事件快照中的 90 天窗口，Release 使用 365 天窗口。部分覆盖指标按已观察样本统计。",
         ],
     }
