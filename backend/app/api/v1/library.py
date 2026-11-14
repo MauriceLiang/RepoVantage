@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import case, desc, func, select
+from sqlalchemy.orm import Session, load_only
 
 from backend.app.api.dependencies import get_github_client, get_session
 from backend.app.api.helpers import envelope, pagination
 from backend.app.core.exceptions import AppError
 from backend.app.integrations.github.client import GitHubClient, validate_full_name
-from backend.app.persistence.models import DatasetRepository, Repository
+from backend.app.persistence.models import DatasetRepository, Repository, RepositorySnapshot
 from backend.app.schemas.analytics import RepositoryListResponse
 from backend.app.schemas.common import SuccessEnvelope
 from backend.app.schemas.repositories import AddRepositoryRequest, AddRepositoryResponse
-from backend.app.services.repositories import LIBRARY_ID, add_idempotency_response, cached_idempotency_response, enqueue_add, summary
+from backend.app.services.repositories import LIBRARY_ID, add_idempotency_response, cached_idempotency_response, enqueue_add, summaries
 
 
 router = APIRouter(prefix="/library/repositories", tags=["library"])
@@ -51,26 +51,55 @@ def list_repositories(
     per_page: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
-    repo_ids = select(DatasetRepository.repository_id).where(DatasetRepository.dataset_id == LIBRARY_ID)
-    statement = select(Repository).where(Repository.repository_id.in_(repo_ids))
+    filters = [DatasetRepository.dataset_id == LIBRARY_ID]
     if q:
-        statement = statement.where(Repository.full_name.ilike(f"%{q}%") | Repository.description.ilike(f"%{q}%"))
+        filters.append(Repository.full_name.ilike(f"%{q}%") | Repository.description.ilike(f"%{q}%"))
     if language:
-        statement = statement.where(Repository.language == language)
-    all_repos = session.scalars(statement).all()
-    rows = [summary(session, repo) for repo in all_repos]
-    if status:
-        rows = [row for row in rows if row["analysis_status"] == status]
+        filters.append(Repository.language == language)
+    statement = select(Repository).join(DatasetRepository, DatasetRepository.repository_id == Repository.repository_id).where(*filters)
+
     reverse = order == "desc"
     if sort == "name":
-        rows.sort(key=lambda row: row["full_name"].casefold(), reverse=reverse)
-    elif sort == "stars":
-        rows.sort(key=lambda row: (row["stars"] is None, row["stars"] or 0), reverse=reverse)
+        sort_value = func.lower(Repository.full_name)
     else:
-        rows.sort(key=lambda row: (row["last_successful_collection_at"] is None, row["last_successful_collection_at"] or ""), reverse=reverse)
-    total = len(rows)
+        snapshot_column = RepositorySnapshot.stars if sort == "stars" else RepositorySnapshot.collected_at
+        sort_value = (
+            select(snapshot_column)
+            .where(RepositorySnapshot.repository_id == Repository.repository_id, RepositorySnapshot.valid.is_(True))
+            .order_by(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id))
+            .limit(1)
+            .scalar_subquery()
+        )
+    null_rank = case((sort_value.is_(None), 1), else_=0)
+    ordering = (
+        [sort_value.desc() if reverse else sort_value.asc(), Repository.repository_id.asc()]
+        if sort == "name"
+        else [null_rank.desc() if reverse else null_rank.asc(), sort_value.desc() if reverse else sort_value.asc(), Repository.repository_id.asc()]
+    )
+    statement = statement.options(load_only(
+        Repository.repository_id,
+        Repository.full_name,
+        Repository.description,
+        Repository.language,
+        Repository.created_at,
+        Repository.pushed_at,
+        Repository.archived,
+    ))
     start = (page - 1) * per_page
-    return envelope(request, {"items": rows[start : start + per_page]}, pagination=pagination(page, per_page, total))
+    if status:
+        rows = summaries(session, session.scalars(statement.order_by(*ordering)).all())
+        rows = [row for row in rows if row["analysis_status"] == status]
+        total = len(rows)
+        items = rows[start : start + per_page]
+    else:
+        total = session.scalar(
+            select(func.count(Repository.repository_id))
+            .join(DatasetRepository, DatasetRepository.repository_id == Repository.repository_id)
+            .where(*filters)
+        ) or 0
+        repositories = session.scalars(statement.order_by(*ordering).offset(start).limit(per_page)).all()
+        items = summaries(session, repositories)
+    return envelope(request, {"items": items}, pagination=pagination(page, per_page, total))
 
 
 @router.delete("/{repository_id}", status_code=204)

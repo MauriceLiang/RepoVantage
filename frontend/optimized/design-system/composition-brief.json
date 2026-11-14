@@ -1,0 +1,48 @@
+{
+  "product": "RepoVantage 前端优化预览",
+  "product_type": "仓库数据分析工作台",
+  "page_goal": "Operate + Read",
+  "primary_user_task": "浏览默认仓库样例，理解维护数据，并在需要时进入单仓分析或比较候选。",
+  "content_evidence": [
+    "总览：300 仓库、Stars、主语言、创建年份、Forks、Commit 活动连续性。",
+    "仓库：名称、语言、Stars、周均 Commit、Issue/PR 耗时、数据覆盖。",
+    "比较：2–5 个候选、四项权重、归一化单项分和 0–100 综合分。",
+    "研究：固定 300 仓库样本、语言分组、维护关系、指标覆盖和仓库列表。",
+    "单仓：概览、活动、Issue、PR、Release。",
+    "任务：实际阶段语义的 Mock 状态、可确定进度与重试交互。"
+  ],
+  "data_trust": "所有数字均为本地生成的 Mock 演示值，页面持续标注，不连接 API。",
+  "constraints": [
+    "只写入 frontend/optimized/，不修改正式前端路由和数据源。",
+    "沿用 Vue 3、ECharts 和 lucide-vue-next 图标。",
+    "继承 RepoVantage 暖橙主色和简洁中性色，浅色为默认并提供深色主题。",
+    "图表展示单位、时间窗和分组口径；缺失值不补成 0。"
+  ],
+  "composition_candidates": [
+    {
+      "id": "activity-first",
+      "structure": "总览以 Commit 趋势大图为首屏主视觉，统计和其他分布下沉。",
+      "tradeoff": "适合持续监控单一时间序列，但压低 300 仓库横截面信息的首屏可见度。"
+    },
+    {
+      "id": "summary-first",
+      "structure": "页面标题与样本口径之后先展示紧凑统计和近期变化，再以六张同级图表回答分布问题。仓库、比较和研究页按决策顺序组织筛选、得分和证据。",
+      "tradeoff": "总览需要纵向滚动查看六张图表；首屏先建立数据范围，再展开细节。"
+    },
+    {
+      "id": "table-first",
+      "structure": "以 300 行仓库列表为主，图表与综合排名作为辅助分析。",
+      "tradeoff": "适合逐仓操作，但不利于快速理解总体分布和语言差异。"
+    }
+  ],
+  "decision": {
+    "selected": "summary-first",
+    "reason": "主要任务是先读懂样本范围和维护数据，再深入单仓或进行权重比较；摘要与证据并列，避免大幅装饰挤占图表空间。"
+  },
+  "motion": {
+    "page_switch": "短距离淡入淡出，减少内容突然替换。",
+    "weights": "滑块保持原生连续操控，相关权重和综合分即时更新；排名列表位置平滑重排。",
+    "charts": "ECharts 以短时更新插值呈现变化；筛选列表使用轻量位移。",
+    "reduced_motion": "支持 prefers-reduced-motion 并提供设置开关。"
+  }
+}

@@ -568,15 +568,27 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
   }
 
   async listRepositories(): Promise<RepositorySummary[]> {
-    const items: Record<string, any>[] = []
-    let page = 1
-    let hasNext = true
-    while (hasNext) {
-      const params = new URLSearchParams({ sort: 'last_collected', order: 'desc', page: String(page), per_page: '100' })
-      const result = await request<Envelope<{ items: Record<string, any>[] }>>(`/library/repositories?${params}`)
-      items.push(...result.data.items)
-      hasNext = object(result.meta?.pagination).has_next === true
-      page += 1
+    const perPage = 100
+    const loadPage = async (page: number) => {
+      const params = new URLSearchParams({ sort: 'last_collected', order: 'desc', page: String(page), per_page: String(perPage) })
+      return request<Envelope<{ items: Record<string, any>[] }>>(`/library/repositories?${params}`)
+    }
+    const firstPage = await loadPage(1)
+    const items = [...firstPage.data.items]
+    const pagination = object(firstPage.meta?.pagination)
+    const total = numberOrNull(pagination.total)
+    if (total !== null) {
+      const pageCount = Math.ceil(total / perPage)
+      const pages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => loadPage(index + 2)))
+      items.push(...pages.flatMap((page) => page.data.items))
+    } else {
+      let page = 1
+      let hasNext = pagination.has_next === true
+      while (hasNext) {
+        const nextPage = await loadPage(++page)
+        items.push(...nextPage.data.items)
+        hasNext = object(nextPage.meta?.pagination).has_next === true
+      }
     }
     return items.map((item) => mapRepository(item))
   }

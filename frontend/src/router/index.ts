@@ -9,7 +9,7 @@ const router = createRouter({
     { path: '/compare', name: 'compare', component: () => import('@/pages/Comparison/ComparisonPage.vue'), meta: { crumb: '工作台', title: '项目比较', nav: 'compare' } },
     { path: '/research', name: 'research', component: () => import('@/pages/Research/ResearchPage.vue'), meta: { crumb: '工作台', title: '研究分析', nav: 'research' } },
     { path: '/settings', name: 'settings', component: () => import('@/pages/Settings/SettingsPage.vue'), meta: { crumb: '工作台', title: '设置', nav: 'settings' } },
-    { path: '/tasks', name: 'tasks', component: () => import('@/pages/Tasks/TasksPage.vue'), meta: { crumb: '工作台', title: '任务', nav: 'repositories' } },
+    { path: '/tasks', name: 'tasks', component: () => import('@/pages/Tasks/TasksPage.vue'), meta: { crumb: '工作台', title: '任务', nav: 'tasks' } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: () => ({ top: 0 }),

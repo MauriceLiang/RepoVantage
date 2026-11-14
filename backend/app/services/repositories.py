@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
@@ -162,33 +162,110 @@ def analysis_status(session: Session, repository_id: int) -> str:
     return task.status if task.status in {"partial", "failed"} else "not_started"
 
 
-def summary(session: Session, repo: Repository) -> dict[str, Any]:
-    snapshot = latest_snapshot(session, repo.repository_id)
-    task = latest_task(session, repo.repository_id)
-    datasets = session.scalars(select(DatasetRepository.dataset_id).where(DatasetRepository.repository_id == repo.repository_id)).all()
-    has_historical_data = COURSE_RESEARCH_ID in datasets and session.get(MaintenanceRun, f"course150-v1-{repo.repository_id}") is not None
-    status = analysis_status(session, repo.repository_id)
-    if has_historical_data and status in {"not_started", "failed"}:
-        status = "completed" if status == "not_started" else "partial"
-    collected = snapshot.collected_at if snapshot else None
-    data_status = "missing" if collected is None else ("fresh" if utc_now() - collected <= timedelta(hours=get_settings().base_refresh_hours) else "stale")
-    return {
-        "repository_id": repo.repository_id,
-        "full_name": repo.full_name,
-        "description": repo.description,
-        "language": repo.language,
-        "stars": snapshot.stars if snapshot else None,
-        "forks": snapshot.forks if snapshot else None,
-        "created_at": iso_z(repo.created_at),
-        "pushed_at": iso_z(snapshot.pushed_at if snapshot else repo.pushed_at),
-        "archived": repo.archived,
-        "analysis_status": status,
-        "data_status": data_status,
-        "last_successful_collection_at": iso_z(collected),
-        "latest_task_id": task.task_id if task else None,
-        "datasets": sorted(datasets),
-        "has_historical_data": has_historical_data,
+def summaries(session: Session, repositories: list[Repository]) -> list[dict[str, Any]]:
+    if not repositories:
+        return []
+
+    repository_ids = [repo.repository_id for repo in repositories]
+    latest_snapshots = select(
+        RepositorySnapshot.repository_id.label("repository_id"),
+        RepositorySnapshot.collected_at.label("collected_at"),
+        RepositorySnapshot.stars.label("stars"),
+        RepositorySnapshot.forks.label("forks"),
+        RepositorySnapshot.pushed_at.label("pushed_at"),
+        func.row_number().over(
+            partition_by=RepositorySnapshot.repository_id,
+            order_by=(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id)),
+        ).label("position"),
+    ).where(RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True)).subquery()
+    snapshots = {
+        row.repository_id: row
+        for row in session.execute(select(latest_snapshots).where(latest_snapshots.c.position == 1))
     }
+
+    latest_tasks = select(
+        CollectionTask.repository_id.label("repository_id"),
+        CollectionTask.task_id.label("task_id"),
+        CollectionTask.status.label("status"),
+        func.row_number().over(
+            partition_by=CollectionTask.repository_id,
+            order_by=(desc(CollectionTask.created_at), desc(CollectionTask.task_id)),
+        ).label("position"),
+    ).where(CollectionTask.repository_id.in_(repository_ids)).subquery()
+    tasks = {
+        row.repository_id: row
+        for row in session.execute(select(latest_tasks).where(latest_tasks.c.position == 1))
+    }
+
+    latest_analyses = select(
+        AnalysisResult.repository_id.label("repository_id"),
+        AnalysisResult.coverage.label("coverage"),
+        func.row_number().over(
+            partition_by=AnalysisResult.repository_id,
+            order_by=(desc(AnalysisResult.source_collected_at), desc(AnalysisResult.result_id)),
+        ).label("position"),
+    ).where(AnalysisResult.repository_id.in_(repository_ids)).subquery()
+    analyses = {
+        row.repository_id: row
+        for row in session.execute(select(latest_analyses).where(latest_analyses.c.position == 1))
+    }
+
+    datasets_by_repository: dict[int, set[str]] = {}
+    for repository_id, dataset_id in session.execute(
+        select(DatasetRepository.repository_id, DatasetRepository.dataset_id).where(DatasetRepository.repository_id.in_(repository_ids))
+    ):
+        datasets_by_repository.setdefault(repository_id, set()).add(dataset_id)
+
+    historical_run_ids = [f"course150-v1-{repository_id}" for repository_id in repository_ids]
+    historical_repository_ids = set(session.scalars(
+        select(MaintenanceRun.repository_id).where(MaintenanceRun.run_id.in_(historical_run_ids))
+    ))
+
+    now = utc_now()
+    refresh_hours = get_settings().base_refresh_hours
+    rows = []
+    for repo in repositories:
+        snapshot = snapshots.get(repo.repository_id)
+        task = tasks.get(repo.repository_id)
+        analysis = analyses.get(repo.repository_id)
+        datasets = datasets_by_repository.get(repo.repository_id, set())
+        has_historical_data = COURSE_RESEARCH_ID in datasets and repo.repository_id in historical_repository_ids
+
+        if analysis is not None:
+            status = "partial" if analysis.coverage == "partial" else "completed"
+        elif task is None:
+            status = "not_started"
+        elif task.status in ("queued", "running"):
+            status = "queued" if task.status == "queued" else "processing"
+        else:
+            status = task.status if task.status in {"partial", "failed"} else "not_started"
+
+        if has_historical_data and status in {"not_started", "failed"}:
+            status = "completed" if status == "not_started" else "partial"
+        collected = snapshot.collected_at if snapshot is not None else None
+        data_status = "missing" if collected is None else ("fresh" if now - collected <= timedelta(hours=refresh_hours) else "stale")
+        rows.append({
+            "repository_id": repo.repository_id,
+            "full_name": repo.full_name,
+            "description": repo.description,
+            "language": repo.language,
+            "stars": snapshot.stars if snapshot is not None else None,
+            "forks": snapshot.forks if snapshot is not None else None,
+            "created_at": iso_z(repo.created_at),
+            "pushed_at": iso_z(snapshot.pushed_at if snapshot is not None else repo.pushed_at),
+            "archived": repo.archived,
+            "analysis_status": status,
+            "data_status": data_status,
+            "last_successful_collection_at": iso_z(collected),
+            "latest_task_id": task.task_id if task is not None else None,
+            "datasets": sorted(datasets),
+            "has_historical_data": has_historical_data,
+        })
+    return rows
+
+
+def summary(session: Session, repo: Repository) -> dict[str, Any]:
+    return summaries(session, [repo])[0]
 
 
 def preview(payload: dict[str, Any], already_in_library: bool) -> dict[str, Any]:

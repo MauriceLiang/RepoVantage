@@ -26,7 +26,7 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
       >
         <header class="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 py-3.5 sm:px-6 sm:py-4">
           <div class="min-w-0">
-            <DialogTitle class="m-0 text-[18px] font-semibold leading-snug">关于 RepoVantage</DialogTitle>
+            <DialogTitle class="m-0 text-[18px] font-semibold leading-snug">背景信息</DialogTitle>
             <DialogDescription class="mt-1 text-[12px] leading-relaxed text-muted">项目背景、意义与使用边界</DialogDescription>
           </div>
           <DialogClose as-child>
@@ -53,8 +53,8 @@ import { DialogClose, DialogContent, DialogDescription, DialogOverlay, DialogPor
             <section aria-labelledby="about-project-background-title" class="min-w-0">
               <h2 id="about-project-background-title" class="m-0 text-[16px] font-semibold">项目背景</h2>
               <div class="mt-3 flex flex-col gap-4 text-[14px] leading-[1.85] text-muted">
-                <p class="m-0">作为一名个人开发者，我曾在项目开发中面对多个功能相近的 GitHub 开源方案，却很难判断哪个更适合自己。只看项目介绍和 Star 数，我仍不知道该选哪一个，还得逐个查看 Commit、Issue、PR 和 Release，手动梳理项目的维护与协作情况。</p>
-                <p class="m-0">为了减少选型时的反复查找，我创建了 RepoVantage。它从 GitHubDA 逐步发展而来，把开发活动、Issue 与 PR 处理、版本发布整理成趋势与时间线，并支持按一致的观察范围比较多个仓库。</p>
+                <p class="m-0">作为一名个人开发者，我曾在项目开发中面对多个功能相近的 GitHub 开源方案，但是面对这么多方案，又是难以选择。如果只看项目介绍和 Star 数，我还不知道该选哪一个，还得逐个查看 Commit、Issue、PR 和 Release，手动梳理项目的维护与协作情况。</p>
+                <p class="m-0">为了减少选型时的反复查找，我开发了GitHub开源项目数据分析与技术选型辅助系统，把开发活动、Issue 与 PR 处理、版本发布整理成趋势与时间线，并支持按一致的观察范围比较多个仓库。</p>
               </div>
               <h3 class="mb-0 mt-5 border-t border-line pt-4 text-[13px] font-semibold text-ink">使用示例：团队选择开源组件</h3>
               <div class="mt-3 flex flex-col gap-4 text-[14px] leading-[1.85] text-muted">
