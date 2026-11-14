@@ -1,0 +1,8 @@
+{
+  "frozen_at": "2026-11-10T00:30:26.713698+00:00",
+  "supersedes_sha256": "9fd158db4cdac2c232417624fc775f6c6e0756a7682d2e64cca23478b5648aed",
+  "script_sha256": "761d9cac2742ce24dfd614805305e74bf6dd8250e68d73ae642d4f57afdfaed8",
+  "training_data_sha256": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
+  "protocol_sha256": "6e89e7e839aa7314df371d9ecbe8d5104011d37f74b649e11421f20027ab90cf",
+  "note": "正式评分前补充固定阈值的规模、连续性和活跃周波动规则对照；只描述，不增加或更改任何准入条件，不重新预测。先前诊断锁仍保留。"
+}

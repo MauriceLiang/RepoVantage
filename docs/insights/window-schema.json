@@ -17,7 +17,7 @@
               }
             ],
             "title": "Run Id",
-            "description": "所选覆盖证明运行的 ID；不是本次 GET 新建的计算快照。"
+            "description": "所选覆盖证明运行的 ID；历史事件快照没有对应运行时为空。"
           },
           "metric_version": {
             "type": "string",
@@ -71,7 +71,7 @@
               }
             ],
             "title": "Analyzed At",
-            "description": "所选覆盖证明运行的分析时间；本次重算时间见 calculated_at。"
+            "description": "所选覆盖证明运行或历史快照的时间；本次重算时间见 calculated_at。"
           },
           "source_task_ids": {
             "items": {
@@ -183,7 +183,10 @@
           },
           "calculation_basis": {
             "type": "string",
-            "const": "current_local_event_store",
+            "enum": [
+              "current_local_event_store",
+              "course-test-events-v1"
+            ],
             "title": "Calculation Basis",
             "default": "current_local_event_store"
           },
@@ -197,7 +200,7 @@
               }
             ],
             "title": "Calculated At",
-            "description": "本次从当前本地事件库重算的时间；范围不可用时为空。"
+            "description": "本次从本地事件库或历史快照重算的时间；范围不可用时为空。"
           },
           "event_source_task_ids": {
             "items": {
@@ -205,7 +208,7 @@
             },
             "type": "array",
             "title": "Event Source Task Ids",
-            "description": "本次读取的去重事件记录的来源任务；不表示不可变历史快照。"
+            "description": "本次读取的本地事件记录的来源任务；历史快照没有对应任务时为空。"
           },
           "observed_counts": {
             "additionalProperties": {

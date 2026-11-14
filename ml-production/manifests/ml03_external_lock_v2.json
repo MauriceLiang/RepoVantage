@@ -1,0 +1,16 @@
+{
+  "locked_at": "2026-11-10T00:08:07.654054+00:00",
+  "hashes": {
+    "ml-production/protocols/ml03_release_protocol_v3.json": "6e89e7e839aa7314df371d9ecbe8d5104011d37f74b649e11421f20027ab90cf",
+    "ml-production/manifests/ml03_external_holdout_v2.json": "8c9a468391e16e6174deef8e8c27808787374e9860617188050084c93294f992",
+    "dataprepare/MachineLearn/run/ml03-v5-development/model.joblib": "c9455a338ef951a2a1f1cc0bbbb7e338309c631c00f0f3b7e84b89dc003d805a",
+    "dataprepare/MachineLearn/run/ml03-v5-development/numeric_model.json": "13f9db7cedfef15ba477a60f838dfd1f39051501a522503d93eb64c3a84254c7",
+    "dataprepare/MachineLearn/run/ml03-v5-development/size_baseline.joblib": "f4a2edb91ad1cd97754cd04876811510171b7f9b448ac2024705990bb254c9bb",
+    "dataprepare/MachineLearn/run/ml03-v5-development/training_manifest.json": "66dba09b15f8d1bb8fb7be8f9a07f93bd46075ba908b3e81dffe26508491b31b",
+    "backend/app/services/maintenance_collection.py": "ab848e030b7c03daeb301def0feef758277d69616e94aa9133b5d2a6638581bc",
+    "backend/app/analytics/maintenance_features.py": "3c2a1c3b504aee0ffa16aa4d893961d3f2c4466afeb481f766994ec4dbd86338",
+    "backend/app/analytics/maintenance_features_v2.py": "82cd93d781d9497b08c6d878dc1fe5620cc157bbde6fb892be36838fd2d8cbe7",
+    "scripts/collect_ml03_external_v2.py": "d18b9ead1c9651d4544be72b22ee4d81e8e6fe60a7070599f8a880dee9ec5bc6"
+  },
+  "note": "第二批独立名单和候选模型在任何第二批周事件采集或评分前冻结；首批失败不被覆盖。"
+}

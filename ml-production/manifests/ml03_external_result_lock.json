@@ -1,0 +1,10 @@
+{
+  "locked_at": "2026-11-10T00:01:20.916539+00:00",
+  "result": "numerical_gate_failed",
+  "hashes": {
+    "dataprepare/MachineLearn/run/ml03-v3-external-evaluation/metrics.json": "d5c886e010b741aebae38e1eef37910f31cd358c64c99e80fdd46abaa4d15217",
+    "dataprepare/MachineLearn/run/ml03-v3-external-evaluation/details.json": "a7575b3c7aa31a1d643a5c04b2c70ced9f4eb61cfddb0b49a78cb96b96f0daf9",
+    "dataprepare/MachineLearn/run/ml03-v3-external-evaluation/human_review.csv": "8a0df1cd70da12408bbf2c4f627599644cce098aa96c57aa5d207f6552e429c6"
+  },
+  "next_protocol": "Any redesign requires a fresh disjoint external holdout; these outcomes are never retested as independent."
+}

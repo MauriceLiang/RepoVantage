@@ -9,7 +9,7 @@ const styles: Record<string, string> = {
 </script>
 
 <template>
-  <span class="inline-flex items-center gap-1.5 rounded-[4px] px-1.5 py-0.5 text-[11px] font-medium" :class="styles[variant]">
+  <span class="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-[color,background-color,border-color] duration-200" :class="styles[variant]">
     <slot />
   </span>
 </template>

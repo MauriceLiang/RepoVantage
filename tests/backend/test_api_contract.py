@@ -328,7 +328,7 @@ def test_insight_provenance_openapi_matches_documented_contract(backend_client):
     client, _factory, _github = backend_client
     schema = client.get('/openapi.json').json()['components']['schemas']['RepositoryInsights']
     properties = schema['properties']
-    assert properties['calculation_basis']['const'] == 'current_local_event_store'
+    assert set(properties['calculation_basis']['enum']) == {'current_local_event_store', 'course-test-events-v1'}
     assert {'run_id', 'analyzed_at', 'source_task_ids', 'source_archive_paths', 'calculated_at', 'event_source_task_ids', 'observed_counts'} <= properties.keys()
     assert 'calculated_at' in properties['analyzed_at']['description']
     snapshot = json.loads((Path(__file__).resolve().parents[2] / 'docs/insights/window-schema.json').read_text())

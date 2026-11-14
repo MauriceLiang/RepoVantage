@@ -1,0 +1,34 @@
+{
+  "scenarios": [
+    {
+      "name": "real_backend_single_repository",
+      "text": "未来活动估算\n\n以已覆盖的历史活动作为参考；估算不是对未来活动的保证。\n\n未来四周 Commit\n证据不足\n\n采集数据已过期，请刷新后再估计未来四周。\n\n来源运行 0c229c3e-baa8-5c13-afa6-9e9fb2bbe023 · 采集时间 2026-10-22 08:26 UTC\n\n未来四周新建 PR\n证据不足\n\n当前产品采集仅包含已关闭 PR，不能据此估计全部 PR 的创建量。\n\n来源运行 0c229c3e-baa8-5c13-afa6-9e9fb2bbe023 · 采集时间 2026-10-22 08:26 UTC\n\n尚无获准发布的机器学习模型；预测区间和未验证的风险概率不可用。"
+    },
+    {
+      "name": "real_backend_comparison_and_download",
+      "repository_ids": [
+        "90793418",
+        "53631945"
+      ],
+      "status": "available",
+      "result": "共同窗口：2026-08-02T06:38:18Z 至 2026-10-29T12:30:23Z\n\n1. sharkdp/fd\n规则得分 1.000\n每周 Commit（越多越高）：6.67 commits/week · 贡献 1.000 · 样本 80 · 2026-08-03T00:00:00Z 至 2026-10-26T00:00:00Z · 来源 f8c065bd-7264-434a-85e1-65173ac0b266\n2. BurntSushi/ripgrep\n规则得分 0.000\n每周 Commit（越多越高）：1.33 commits/week · 贡献 0.000 · 样本 16 · 2026-08-03T00:00:00Z 至 2026-10-26T00:00:00Z · 来源 78699da4-80e7-4e11-b379-966681f1354d\n\n每周 Commit（越多越高） 权重增加 25% 后顺序：sharkdp/fd → BurntSushi/ripgrep\n\n只比较使用者确认用途相近的候选；规则排序不是采用成功概率。 缺失、不满足硬约束或覆盖不足的候选不参与评分。 归一化分数随候选集合与权重变化；Release 使用单独的 365 天窗口。 历史指标口径：insights-v1；没有已批准的预测模型参与。",
+      "report": "repovantage-selection.md"
+    },
+    {
+      "name": "explicit_consent_save_and_delete_local_feedback",
+      "status": "pass"
+    },
+    {
+      "name": "constraint_excludes_candidates",
+      "status": "insufficient_data",
+      "excluded": 2
+    },
+    {
+      "name": "mobile_selection_layout",
+      "viewport": 390,
+      "document": 390,
+      "card": 358
+    }
+  ],
+  "errors": []
+}

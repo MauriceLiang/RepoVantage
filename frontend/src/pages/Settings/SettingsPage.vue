@@ -52,7 +52,7 @@ onMounted(loadSettings)
 </script>
 
 <template>
-  <main class="space-y-5 px-7 py-6">
+  <main class="space-y-5 px-4 py-5 sm:px-7 sm:py-6">
     <header>
       <div class="flex items-center gap-2 text-[12px] text-muted"><Settings2 :size="14" /> 应用偏好</div>
       <h1 class="mt-1 text-[22px] font-semibold tracking-tight">设置</h1>
@@ -86,7 +86,7 @@ onMounted(loadSettings)
             step="1"
             :disabled="loading || saving"
             aria-describedby="github-max-pages-help"
-            class="h-9 w-24 rounded-md border border-line bg-panel px-3 text-[13px] outline-none focus:border-ink/30 disabled:opacity-50"
+            class="h-9 w-24 rounded-[var(--gd-radius-control)] border border-line bg-panel px-3 text-[13px] outline-none transition-[border-color,box-shadow] duration-200 focus:border-ink/30 disabled:opacity-50"
           >
           <span class="text-[12px] text-muted">页 / 接口</span>
         </div>

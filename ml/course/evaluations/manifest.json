@@ -1,0 +1,27 @@
+{
+  "data_scope": "既有 300 仓库 52 周聚合资料；不是新采集的独立测试集。",
+  "dataset_id": "repo-evaluation-2026-v1",
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "numpy": "2.4.3",
+  "python": "3.11.9",
+  "repositories": 300,
+  "scikit_learn": "1.9.1",
+  "seed": 20261110,
+  "source": "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz",
+  "source_sha256": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
+  "split": {
+    "test": 45,
+    "train": 210,
+    "validation": 45
+  },
+  "status": "course_research",
+  "tasks": {
+    "M1": "available",
+    "M2": "available",
+    "M3": "baseline_only"
+  },
+  "weekly_rows": 15600,
+  "weeks_per_repository": [
+    52
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-11-10T00:58:10.166995+00:00",
+  "repository_id": 31028375,
+  "repository": "DefectDojo/django-DefectDojo",
+  "task_status": "succeeded",
+  "pattern_status": "available",
+  "method": "statistical_baseline",
+  "reason": "no_approved_model",
+  "page_counts": {
+    "commits": 30,
+    "prs_created": 30
+  },
+  "coverage_reasons": {
+    "commits": [],
+    "prs_created": []
+  },
+  "evidence": {
+    "commits_52w": 2941,
+    "prs_created_52w": 2867,
+    "commit_active_weeks": 52,
+    "pr_active_weeks": 52,
+    "longest_zero_commit_weeks": 0,
+    "commit_recent_12_week_mean": 80.33333333333333,
+    "commit_previous_40_week_mean": 49.425
+  },
+  "note": "隔离数据库中的后续产品链路诊断；不预测、不重算或修改已冻结的独立外部验收。"
+}

@@ -1,0 +1,20 @@
+{
+  "registry_version": 1,
+  "models": [
+    {
+      "model_id": "ML-03",
+      "version": "v5-research-20261110",
+      "runtime_state": "research_only",
+      "artifact_sha256": "13f9db7cedfef15ba477a60f838dfd1f39051501a522503d93eb64c3a84254c7",
+      "feature_schema_version": "maintenance-temporal-shape-v2",
+      "training_data_sha256": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
+      "approved_artifact": null,
+      "approval_record": null,
+      "approval_record_sha256": null,
+      "supported_repository_ids": [],
+      "fallback_method": "statistical_baseline",
+      "approved_at": null,
+      "reason": "第二批独立测试拒判率 40%，超过冻结上限 35%；真实双人复核与负责人批准缺失，维持研究状态。"
+    }
+  ]
+}

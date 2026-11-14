@@ -104,7 +104,7 @@ def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> Col
     task.lease_owner = worker_id
     task.lease_until = now + timedelta(seconds=lease_seconds)
     task.message = "正在从 GitHub 获取仓库数据"
-    if task.depth == "deep":
+    if task.depth == "deep" and task.scope_kind != "maintenance":
         session.execute(delete(TaskModuleProgress).where(TaskModuleProgress.task_id == task.task_id))
         task.progress_kind = "stages"
         task.progress_percent = 0
@@ -112,7 +112,7 @@ def claim_next_task(session: Session, worker_id: str, lease_seconds: int) -> Col
         task.current_module = "profile"
         initialize_attempt_progress(session, task, now)
     else:
-        task.progress_kind = "unknown"
+        task.progress_kind = "indeterminate" if task.scope_kind == "maintenance" else "unknown"
         task.progress_percent = None
         task.progress_updated_at = None
         task.current_module = None

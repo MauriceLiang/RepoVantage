@@ -1,0 +1,10 @@
+{
+  "locked_at": "2026-11-10T00:53:56.125124+00:00",
+  "kind": "descriptive_only",
+  "does_not_change_numerical_gate": true,
+  "hashes": {
+    "ml-production/manifests/ml03_external_result_lock_v2.json": "0ab01075f6eb635d9a95d199438548b63c313ecbb3f527c0477e46670699372b",
+    "ml-production/manifests/ml03_diagnostics_lock_v2.json": "91b69d9c0a208ca0e065e0e6af81d28c2bd2eca57ac1b1c45c832ad0d72cd519",
+    "dataprepare/MachineLearn/run/ml03-v5-external-diagnostics/diagnostics.json": "6b0800c7ae61e8346adb6f00916dc82d6b22a340c16c26b3220ec1e423b30fdd"
+  }
+}

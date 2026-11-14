@@ -80,6 +80,7 @@ function taskScopeLabel(task: TaskItem): string {
   if (task.scopeKind === 'quick') return `快速采集${task.windowDays ? ` · ${task.windowDays} 天` : ''}`
   if (task.scopeKind === 'incremental') return '增量同步'
   if (task.scopeKind === 'backfill') return '历史回填'
+  if (task.scopeKind === 'maintenance') return '52 周维护活动'
   return ''
 }
 
@@ -113,10 +114,10 @@ function taskDetail(task: TaskItem): string {
 </script>
 
 <template>
-  <div class="flex flex-col gap-[18px] px-7 pb-8 pt-[22px]">
+  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
     <div>
       <h1 class="m-0 text-[24px] font-semibold">任务</h1>
-      <p class="mt-1.5 text-muted">仓库采集与精选数据导入均由后端 Worker 执行；进度只反映实际任务阶段，不代表历史覆盖率。</p>
+      <p class="mt-1.5 text-muted">仓库采集由后端 Worker 执行；进度只反映实际任务阶段，不代表历史覆盖率。</p>
     </div>
 
     <section class="grid grid-cols-2 divide-line rounded-[10px] border border-line bg-panel px-5 py-3.5 sm:grid-cols-4 sm:divide-x">
@@ -139,7 +140,7 @@ function taskDetail(task: TaskItem): string {
       <div v-else-if="loading && !tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
         <div v-for="i in 4" :key="i" class="h-16 animate-pulse rounded bg-track/60" />
       </div>
-      <div v-else-if="!tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-10 text-center text-[12px] text-muted">当前没有任务。可以从仓库页添加仓库或导入精选数据。</div>
+      <div v-else-if="!tasks.length" class="min-h-0 flex-1 overflow-y-auto overscroll-contain py-10 text-center text-[12px] text-muted">当前没有任务。可以从仓库页添加仓库。</div>
 
       <template v-else>
         <p v-if="error" class="mb-2 text-[11px] text-danger">刷新失败，仍显示上次获取的任务状态：{{ error }}</p>
@@ -147,8 +148,8 @@ function taskDetail(task: TaskItem): string {
           <span>任务 / 类型</span><span>状态</span><span>更新时间</span><span>当前阶段</span><span class="text-right">进度</span><span />
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          <div class="divide-y divide-line">
-            <div v-for="task in tasks" :key="task.id" data-testid="task-row" :data-task-id="task.id" :data-scope-kind="task.scopeKind" :data-window-days="task.windowDays" class="grid grid-cols-1 items-center gap-3 py-3 lg:grid-cols-[minmax(190px,1.6fr)_96px_92px_minmax(280px,1.8fr)_64px_92px] lg:gap-4">
+          <TransitionGroup tag="div" name="gd-motion-list" class="divide-y divide-line">
+            <div v-for="task in tasks" :key="task.id" data-testid="task-row" :data-task-id="task.id" :data-scope-kind="task.scopeKind" :data-window-days="task.windowDays" class="gd-interactive-row -mx-2 grid grid-cols-1 items-center gap-3 px-2 py-3 lg:grid-cols-[minmax(190px,1.6fr)_96px_92px_minmax(280px,1.8fr)_64px_92px] lg:gap-4">
               <div class="min-w-0">
                 <div class="truncate text-[13px] font-semibold">{{ task.repository }}</div>
                 <div class="text-[11.5px] text-muted">
@@ -174,7 +175,7 @@ function taskDetail(task: TaskItem): string {
                 <GdButton v-else variant="ghost" size="sm" class="min-w-[78px]" @click="view(task)">{{ task.taskType === 'dataset_import' ? task.status === 'done' ? '查看结果' : '查看进度' : '查看仓库' }}</GdButton>
               </div>
             </div>
-          </div>
+          </TransitionGroup>
         </div>
       </template>
     </GdCard>

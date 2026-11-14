@@ -1,0 +1,8 @@
+{
+  "locked_at": "2026-11-10T00:00:45.448273+00:00",
+  "hashes": {
+    "scripts/evaluate_ml03_external.py": "29e60aac856c5d2369ab9974452a785948cf4c215715f5b63060a69e6c03aa6c",
+    "scripts/ml03_feature_parity.py": "e1306b16d09d00f42ec4c5dd1e08ca5d88f1b82d3c482d40a35f30e537f32918"
+  },
+  "prior_attempt": "在任何外部模型预测前因 Python 3.11/3.12 约 1e-16 的浮点舍入差异停止；没有写入外部评分。修正仅使用 1e-12 数值容差，名单、模型和验收门槛不变。"
+}

@@ -10,10 +10,10 @@ withDefaults(defineProps<{ variant?: 'primary' | 'outline' | 'ghost' | 'danger';
   <button
     :disabled="disabled || loading"
     :aria-busy="loading"
-    class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[7px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-45"
+    class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-[var(--gd-radius-control)] font-medium transition-[color,background-color,border-color,opacity,transform,scale,box-shadow] duration-200 disabled:cursor-not-allowed disabled:opacity-45"
     :class="[
       size === 'sm' ? 'h-7 px-2.5 text-[12px]' : 'h-[34px] px-3.5 text-[13px]',
-      variant === 'primary' && 'bg-ink text-bg hover:opacity-90',
+      variant === 'primary' && 'bg-[var(--gd-primary-button)] text-white shadow-sm shadow-s1/15 hover:shadow-md hover:shadow-s1/20',
       variant === 'outline' && 'border border-line bg-panel hover:bg-soft',
       variant === 'ghost' && 'text-muted hover:bg-track hover:text-ink',
       variant === 'danger' && 'border border-danger/30 bg-warnbg text-danger hover:opacity-80',

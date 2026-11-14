@@ -1,0 +1,11 @@
+{
+  "recorded_at": "2026-11-10T00:04:51.237501+00:00",
+  "status": "development_gate_failed",
+  "hashes": {
+    "dataprepare/MachineLearn/run/ml03-v4-development/metrics_development.json": "015589035366b8da29f3c6a8c3422c51948c4b1c805f4d824748dbce3bda848c",
+    "dataprepare/MachineLearn/run/ml03-v4-development/training_manifest.json": "766d7a88e2e3b684620736eed9bd0b48d05157d3cfa1879cfbfeef7bc0a37612",
+    "dataprepare/MachineLearn/run/ml03-v4-development/model.joblib": "99494ae1c212f41e7c8a0144f7847e554265fc328b679e9e7168512381c8e62a",
+    "dataprepare/MachineLearn/run/ml03-v4-development/numeric_model.json": "94026833906a002d4141436562034c5857ed38c9ca88ec862f7a98f5493247aa"
+  },
+  "note": "未在第二批 75 个外部仓库计算模型结果；保留该批为未触碰留出集。"
+}

@@ -320,6 +320,42 @@ class ApplicationSetting(Base):
     updated_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
+class SelectionFeedback(Base):
+    __tablename__ = "selection_feedback"
+
+    feedback_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    snapshot_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class MaintenanceRun(Base):
+    __tablename__ = "repository_maintenance_runs"
+    __table_args__ = (Index("ix_maintenance_repo_captured", "repository_id", "captured_at"),)
+
+    run_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.repository_id", ondelete="CASCADE"), nullable=False)
+    status: Mapped[str] = mapped_column(String(30), nullable=False)
+    history_start: Mapped[object] = mapped_column(DateTime, nullable=False)
+    history_end: Mapped[object] = mapped_column(DateTime, nullable=False)
+    captured_at: Mapped[object] = mapped_column(DateTime, nullable=False)
+    head_sha: Mapped[str | None] = mapped_column(String(40))
+    source_sha256: Mapped[str | None] = mapped_column(String(64))
+    archive_path: Mapped[str | None] = mapped_column(Text)
+    details_json: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class MaintenanceWeek(Base):
+    __tablename__ = "repository_maintenance_weeks"
+
+    run_id: Mapped[str] = mapped_column(ForeignKey("repository_maintenance_runs.run_id", ondelete="CASCADE"), primary_key=True)
+    week_start: Mapped[object] = mapped_column(DateTime, primary_key=True)
+    week_end: Mapped[object] = mapped_column(DateTime, nullable=False)
+    commits: Mapped[int] = mapped_column(Integer, nullable=False)
+    prs_created: Mapped[int] = mapped_column(Integer, nullable=False)
+    commit_coverage: Mapped[str] = mapped_column(String(30), nullable=False)
+    pr_created_coverage: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
 class RepositoryActivityEvent(Base):
     __tablename__ = "repository_activity_events"
     __table_args__ = (

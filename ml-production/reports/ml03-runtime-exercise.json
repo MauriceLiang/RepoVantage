@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-11-10T00:38:22.458955+00:00",
+  "environment": "本机隔离合成测试；批准记录和仓库均为测试数据，不是生产验收。",
+  "uncached_requests": 50,
+  "monitoring_before_rollback": {
+    "counters": {
+      "requests": 50,
+      "success": 50
+    },
+    "latency_ms_p50": 24.725834002310876,
+    "latency_ms_p95": 27.04249999806052,
+    "latency_samples": 50,
+    "peak_rss_bytes_max": 15433728,
+    "cache_entries": 50,
+    "note": "进程内诊断数据，重启后清空；不是生产监控服务等级。"
+  },
+  "after_disable": {
+    "status": "fallback",
+    "reason": "model_not_enabled"
+  },
+  "event": {
+    "at": "2026-11-10T00:38:22.458655+00:00",
+    "model_id": "ML-03",
+    "version": "fixture-v1",
+    "from": "active",
+    "to": "disabled",
+    "reason": "isolated rollback exercise"
+  },
+  "limits": "macOS 子进程检查峰值 RSS，但没有强制的地址空间内存上限；延迟只是本机单次测试，不代表生产 SLO。"
+}

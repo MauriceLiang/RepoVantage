@@ -1,0 +1,66 @@
+{
+  "version": "ml03-release-protocol-v1",
+  "frozen_at": "2026-11-09T14:26:59.644912+00:00",
+  "seed": 20261109,
+  "source_manifest_sha256": "a9c2e9d10aad9beb7f1659d5c1192b3b6c32ce1c9670430966615b9b60fa11ba",
+  "pool_sha256": "d254c1e245fef2e3949f9c42855f917da3eaafc895dfbdf0658b086dff47206d",
+  "train_manifest_sha256": "5645ec0a04522e269ebb00290921f55c32a045a01a4edc6638f8da1b9d7d5efd",
+  "external_sampling": {
+    "per_language_star_stratum": 4,
+    "target_repositories": 60,
+    "activity_proxy": "profile pushed_at within 90 days of 2026-11-09T00:00:00Z; metadata only, not a model feature",
+    "selection_rule": "每层可用候选按固定哈希排序，尽量各取两名近期/非近期；某组不足时以同层剩余候选补足，不按模型表现替换。",
+    "metadata_failures": "保留失败记录；只在冻结前按上述固定规则从同层剩余候选补齐。"
+  },
+  "time_window": {
+    "start": "2025-11-03T00:00:00Z",
+    "end_exclusive": "2026-11-02T00:00:00Z",
+    "weeks": 52,
+    "timezone": "UTC"
+  },
+  "events": {
+    "commits": "committer timestamp, fallback author timestamp, on default branch SHA visible at collection",
+    "pull_requests": "all states, created_at; creation-order pages until before window or terminal page"
+  },
+  "feature_sets": {
+    "A": "log1p commit total and log1p all-PR-created total",
+    "B": "A plus shape features",
+    "C": "shape features: commit and PR active-week fractions, commit longest zero-run fraction, log1p weekly CV with mean+1 smoothing, log1p clipped 12-week/previous-40-week smoothed mean ratio, log1p smoothed PR/commit ratio"
+  },
+  "training": {
+    "fit": "historical train IDs only; fit scaling and KMeans together",
+    "selection": "historical validation IDs only; prefer C then B among qualifying candidates, select highest validation silhouette; if none qualify freeze the best stability candidate as research-only",
+    "candidate_k": [
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "baseline": "A size-only KMeans, and descriptive activity tertiles",
+    "comparison": "Ward on train as diagnostic only; never used for online inference",
+    "bootstrap_repetitions": 50,
+    "bootstrap_unit": "repository",
+    "oob_ari_p05_min": 0.7,
+    "min_train_cluster_fraction": 0.08,
+    "max_size_tertile_nmi": 0.55,
+    "validation_silhouette_min": 0.2,
+    "within_size_bins": "at least two of three train-derived size tertiles have at least two clusters each with at least three members"
+  },
+  "external": {
+    "min_frozen_repositories": 60,
+    "min_complete_and_in_domain": 40,
+    "max_rejection_fraction": 0.35,
+    "ood_rule": "training-derived per-cluster 99th percentile standardized distance and feature ranges; reject rather than force assignment",
+    "nontrivial_gain": "within at least two activity tertiles, at least two clusters have >=3 repositories, and shape-space silhouette exceeds size-only baseline by >=0.05",
+    "evaluation_reuse": "only one formal evaluation per frozen model and holdout; failed results remain frozen",
+    "human_review": "two actual independent humans review at least 40 eligible repositories, neutral descriptions and disagreements; project owner approval required",
+    "automatic_approval": false
+  },
+  "prohibitions": [
+    "未通过人工审查、独立评估与负责人批准不得生产加载",
+    "维护行为簇不是质量分数，不进入选型总分",
+    "不把当前分支快照伪称过去时点的默认分支成员关系",
+    "不以无覆盖数据补零"
+  ]
+}

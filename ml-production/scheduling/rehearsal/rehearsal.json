@@ -1,0 +1,15 @@
+{
+  "status": "pass",
+  "checked_at": "2026-11-09T14:47:21Z",
+  "repository_id": 122630331,
+  "head_observation": {
+    "repository_id": 122630331,
+    "branch": "main",
+    "head_sha": "e84b045766b6274005676036bc15e0adaca6c2d8",
+    "observed_at": "2026-11-09T14:47:21Z",
+    "profile_http_status": 200,
+    "head_http_status": 200
+  },
+  "target_labels_created": false,
+  "predictions_sha256": "075f96abb9d4bf2f0bf2447e08e431e36f8bfe5ba5be1423ac5a78936db38ff9"
+}

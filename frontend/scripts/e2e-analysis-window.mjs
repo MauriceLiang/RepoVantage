@@ -112,13 +112,16 @@ try {
     await navigate('/tasks')
     await page.waitForSelector('[data-testid="task-row"]')
     assert.equal((await page.$$('[data-task-id^="mock-refresh-"]')).length, 0, '切换窗口和模式不得自动创建任务')
+    assert.equal(await page.$('[data-task-id="mock-featured-failed"]'), null, '已停用的 15 仓库精选导入不应出现在任务演示中')
     assert.match(await text('[data-task-id="t4"]'), /GitHub API 速率限制/, '失败与限流原因应保留在任务记录中')
     assert.match(await text('[data-task-id="t3"]'), /部分完成/, '数据不足/部分完成状态应可见')
     await click('[data-task-id="t4"] button')
     const retriedTask = await page.waitForSelector('[data-task-id^="mock-retry-"]')
     assert.match(await retriedTask.evaluate((element) => element.textContent ?? ''), /排队中.*等待 Worker 重新执行/s, '重试后应出现新的排队任务')
     await navigate('/repositories')
-    await navigate('/repositories/steady-core/overview')
+    assert.doesNotMatch(await page.$eval('body', (element) => element.textContent ?? ''), /最多加载 100 个/)
+    assert.doesNotMatch(await page.$eval('body', (element) => element.textContent ?? ''), /导入精选仓库|下载数据包/)
+    await page.goto(new URL('/repositories/steady-core/overview', base).href, { waitUntil: 'networkidle0' })
     const days = theme === 'light' ? 180 : 30
     const mode = theme === 'light' ? 'window' : 'quick'
     await select('analysis-window', days)
@@ -191,44 +194,40 @@ try {
     if (theme === 'light') {
       await navigate('/research')
       await page.waitForSelector('[data-testid="research-empty-state"]')
-      assert.equal(await page.$('[data-testid="research-kpis"]'), null, '精选样本未导入时不应展示空指标与图表')
+      assert.match(await text('[data-testid="research-empty-state"]'), /默认 300 仓库数据暂不可用/, '演示模式不能伪造真实默认仓库样本')
+      assert.equal(await page.$('[data-testid="research-kpis"]'), null, '没有真实标准样本时不应展示空指标与图表')
       assert.equal(await page.$('[data-testid="export-research-statistics"]'), null, '空样本不应导出统计结果')
-      await select('research-mode', 'formal')
-      await page.waitForFunction(() => document.querySelector('[data-testid="research-empty-state"]')?.textContent?.includes('待负责人确认'))
-      assert.equal(await page.$('[data-testid="import-featured"]'), null, '正式研究模式不能自动导入或替换样本')
-      await select('research-mode', 'exploratory')
-      await click('[data-testid="import-featured"]')
-      await page.waitForFunction(() => document.querySelector('[data-testid="import-featured"]')?.textContent?.includes('精选数据导入中'), { timeout: 5000 })
-      await navigate('/tasks')
-      const importTask = await page.waitForSelector('[data-task-id^="mock-featured-import-"]')
-      assert.match(await importTask.evaluate((element) => element.textContent ?? ''), /排队中|正在导入/, '精选导入需要展示进行中状态')
-      const taskId = await importTask.evaluate((element) => element.getAttribute('data-task-id'))
-      await page.waitForFunction((id) => document.querySelector(`[data-task-id="${id}"]`)?.textContent?.includes('精选数据导入完成'), { timeout: 20000 }, taskId)
-      await navigate('/research')
-      await page.waitForSelector('[data-testid="research-kpis"]')
-      assert.ok(Number(await text('[data-testid="research-sample-count"]')) > 0, '精选任务完成后应展示已导入样本统计')
-      const researchDir = await mkdtemp(join(artifacts, `${theme}-research-download-`))
-      await session.send('Browser.setDownloadBehavior', { behavior: 'allow', browserContextId: context.id, downloadPath: researchDir })
-      await click('[data-testid="export-research-statistics"]')
-      let statsFile
-      for (let attempt = 0; attempt < 100 && !statsFile; attempt++) {
-        statsFile = (await readdir(researchDir)).find((name) => name.endsWith('.csv'))
-        if (!statsFile) await delay(100)
-      }
-      assert.ok(statsFile, '未下载到研究统计 CSV')
-      const statsText = await readFile(join(researchDir, statsFile), 'utf8')
-      assert.match(statsText, /总体范围/)
-      assert.match(statsText, /curated_featured/)
-      await click('[data-testid="export-research-members"]')
-      let memberFile
-      for (let attempt = 0; attempt < 100 && !memberFile; attempt++) {
-        memberFile = (await readdir(researchDir)).filter((name) => name.endsWith('.csv')).find((name) => name !== statsFile)
-        if (!memberFile) await delay(100)
-      }
-      assert.ok(memberFile, '未下载到样本成员 CSV')
-      const members = parseCsv(await readFile(join(researchDir, memberFile), 'utf8'))
-      assert.equal(members.length, 86)
-      assert.equal(members[0].dataset_id, 'featured-default')
+      assert.equal(await page.$('[data-testid="research-mode"]'), null, '研究页固定使用默认仓库数据，不保留模式选择')
+      assert.equal(await page.$('[data-testid="import-featured"]'), null, '研究页不再提供旧精选导入入口')
+      const repositoryPages = await page.evaluate(async () => {
+        const { HttpRepositoryDataSource } = await import('/src/services/httpRepositoryDataSource.ts')
+        const originalFetch = window.fetch
+        const requestedPages = []
+        window.fetch = async (input) => {
+          const url = new URL(String(input), location.origin)
+          if (url.pathname === '/api/browser/session') {
+            return new Response(JSON.stringify({ csrf_token: 'test-token' }), { headers: { 'content-type': 'application/json' } })
+          }
+          const pageNumber = Number(url.searchParams.get('page'))
+          requestedPages.push(pageNumber)
+          const start = (pageNumber - 1) * 100
+          const items = Array.from({ length: Math.min(100, 150 - start) }, (_, offset) => {
+            const repositoryId = start + offset + 1
+            return { repository_id: repositoryId, full_name: `standard/repository-${repositoryId}`, analysis_status: 'not_started' }
+          })
+          return new Response(JSON.stringify({
+            data: { items },
+            meta: { pagination: { page: pageNumber, per_page: 100, total: 150, has_next: pageNumber * 100 < 150 } },
+          }), { headers: { 'content-type': 'application/json' } })
+        }
+        try {
+          const items = await new HttpRepositoryDataSource().listRepositories()
+          return { count: items.length, firstId: items[0]?.id, lastId: items.at(-1)?.id, pages: requestedPages }
+        } finally {
+          window.fetch = originalFetch
+        }
+      })
+      assert.deepEqual(repositoryPages, { count: 150, firstId: '1', lastId: '150', pages: [1, 2] }, '仓库列表需读取全部分页，不得截断在 100 个')
       await navigate('/compare')
     }
 
@@ -320,7 +319,7 @@ try {
     await page.screenshot({ path: join(artifacts, `${theme}-mobile.png`) })
     assert.deepEqual(apiRequests, [], 'Mock smoke 不应访问后端或真实 GitHub API')
     assert.deepEqual(errors, [], '浏览器出现未处理错误')
-    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-issue-pr-comments', ...(theme === 'light' ? ['drawer-stale-response', 'drawer-online-error', 'research-mode-isolation', 'featured-import-progress', 'featured-import-task', 'research-member-and-statistics-csv'] : []), 'layout-desktop-mobile'] })
+    report.scenarios.push({ theme, status: 'passed', collectionMode: mode, collectionDays: days, checks: ['analysis-windows', 'no-automatic-task', 'collection-scope', 'comparison-windows', 'mode-preserves-window', 'csv-30-180', 'insufficient-data-visible', 'failure-and-rate-limit-visible', 'retry-requeues-task', 'mock-issue-pr-comments', ...(theme === 'light' ? ['drawer-stale-response', 'drawer-online-error', 'standard-test-default', 'repository-pagination-150', 'featured-sample-retired', 'research-default-dataset'] : []), 'layout-desktop-mobile'] })
     await context.close()
     console.log(`PASS ${theme}: analysis, collection, comparison, CSV, layout`)
   }

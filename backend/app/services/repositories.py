@@ -9,19 +9,24 @@ from sqlalchemy.orm import Session
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
 from backend.app.core.config import get_settings
 from backend.app.core.exceptions import AppError
-from backend.app.persistence.models import AnalysisResult, CollectionTask, Dataset, DatasetRepository, Repository, RepositorySnapshot
+from backend.app.persistence.models import AnalysisResult, CollectionTask, Dataset, DatasetRepository, MaintenanceRun, Repository, RepositorySnapshot
 from backend.app.persistence.db import begin_immediate
 
 
 LIBRARY_ID = "library-default"
 RESEARCH_ID = "research-2026-v1"
 FEATURED_ID = "featured-default"
+STANDARD_TEST_ID = "course-research-test-150-v1"
+STANDARD_TEST_NAME = "机器学习标准测试数据集（150 个留出仓库）"
+COURSE_RESEARCH_ID = "course-research-300-v1"
 
 
 def ensure_default_datasets(session: Session) -> None:
     defaults = (
         (LIBRARY_ID, "我的分析库", "library", None, None, "共享课程工作区的仓库集合"),
         (RESEARCH_ID, "开源软件研究样本 v1", "research", "selection-v1", None, "等待通过真实采样清单导入冻结成员；空样本不是研究结果"),
+        (COURSE_RESEARCH_ID, "默认仓库数据集（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "使用已采集的仓库资料、周统计与本地事件快照；不因查看分析而重新拉取"),
+        (STANDARD_TEST_ID, STANDARD_TEST_NAME, "research", STANDARD_TEST_ID, None, "从 300 仓库机器学习数据中固定选出的 150 个留出测试仓库；不用于模型训练"),
         (FEATURED_ID, "首页精选", "featured", None, None, "人工维护的公开仓库集合"),
     )
     for dataset_id, name, kind, rules, frozen_at, description in defaults:
@@ -86,7 +91,17 @@ def make_task(
     for existing in active:
         same_scope = existing.scope_kind == scope_kind
         same_window = scope_kind not in {"quick", "window"} or _task_window_days(existing) == window_days
-        if (existing.depth == depth and (depth == "basic" or (same_scope and same_window))) or (depth == "basic" and existing.depth == "deep"):
+        if scope_kind == "maintenance":
+            try:
+                existing_scope = json.loads(existing.scope_json or "{}")
+            except (TypeError, ValueError):
+                existing_scope = {}
+            try:
+                requested_scope = json.loads(scope_json or "{}")
+            except (TypeError, ValueError):
+                requested_scope = {}
+            same_window = existing_scope.get("lookback_weeks", 12) == requested_scope.get("lookback_weeks", 12)
+        if (existing.depth == depth and (depth == "basic" or (same_scope and same_window))) or (depth == "basic" and existing.depth == "deep" and existing.scope_kind != "maintenance"):
             return existing
     now = utc_now()
     if depth == "deep" and scope_json is None:
@@ -151,6 +166,10 @@ def summary(session: Session, repo: Repository) -> dict[str, Any]:
     snapshot = latest_snapshot(session, repo.repository_id)
     task = latest_task(session, repo.repository_id)
     datasets = session.scalars(select(DatasetRepository.dataset_id).where(DatasetRepository.repository_id == repo.repository_id)).all()
+    has_historical_data = COURSE_RESEARCH_ID in datasets and session.get(MaintenanceRun, f"course150-v1-{repo.repository_id}") is not None
+    status = analysis_status(session, repo.repository_id)
+    if has_historical_data and status in {"not_started", "failed"}:
+        status = "completed" if status == "not_started" else "partial"
     collected = snapshot.collected_at if snapshot else None
     data_status = "missing" if collected is None else ("fresh" if utc_now() - collected <= timedelta(hours=get_settings().base_refresh_hours) else "stale")
     return {
@@ -163,11 +182,12 @@ def summary(session: Session, repo: Repository) -> dict[str, Any]:
         "created_at": iso_z(repo.created_at),
         "pushed_at": iso_z(snapshot.pushed_at if snapshot else repo.pushed_at),
         "archived": repo.archived,
-        "analysis_status": analysis_status(session, repo.repository_id),
+        "analysis_status": status,
         "data_status": data_status,
         "last_successful_collection_at": iso_z(collected),
         "latest_task_id": task.task_id if task else None,
         "datasets": sorted(datasets),
+        "has_historical_data": has_historical_data,
     }
 
 

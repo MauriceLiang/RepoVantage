@@ -190,7 +190,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <template v-else>
           <div v-if="payload.releaseName" class="mt-2 text-[12.5px] font-medium text-ink">{{ payload.releaseName }}</div>
           <ReleaseNotes v-if="payload.body" :body="payload.body" class="mt-2 max-h-[55vh] overflow-auto rounded-md bg-soft/50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink" />
-          <p v-else class="mt-2 text-[12.5px] text-muted">此版本没有填写发布说明。</p>
+          <p v-else class="mt-2 text-[12.5px] text-muted">{{ payload.historicalSnapshot === 'true' ? '历史快照未保存发布说明。' : '此版本没有填写发布说明。' }}</p>
         </template>
       </section>
     </template>
@@ -221,7 +221,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 Issue 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
         <ReleaseNotes v-else-if="payload.body" :body="payload.body" class="mt-2 max-h-[55vh] overflow-auto rounded-md bg-soft/50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink" />
-        <p v-else-if="payload.bodyStatus === 'ready'" class="mt-2 text-[12.5px] text-muted">此 Issue 没有填写描述。</p>
+        <p v-else-if="payload.bodyStatus === 'ready'" class="mt-2 text-[12.5px] text-muted">{{ payload.historicalSnapshot === 'true' && payload.onlineStatus !== 'ready' ? '历史快照未保存 Issue 描述。' : '此 Issue 没有填写描述。' }}</p>
         <p v-if="payload.onlineStatus !== 'ready' && Number(payload.commentsCount) > 0" class="mt-2 text-[11px] text-muted">本地记录显示有 {{ payload.commentsCount }} 条评论；点击“在线获取”加载讨论内容。</p>
       </section>
       <section v-if="payload.onlineStatus === 'ready'" class="mt-5">
@@ -271,7 +271,7 @@ const subtitle = computed(() => ui.drawerKind === 'commits'
         <p v-if="payload.bodyStatus === 'loading'" class="mt-2 text-[12.5px] text-muted">正在读取 PR 详情…</p>
         <p v-else-if="payload.bodyStatus === 'error'" class="mt-2 text-[12.5px] leading-relaxed text-warnfg">{{ payload.bodyError }}</p>
         <ReleaseNotes v-else-if="payload.body" :body="payload.body" class="mt-2 max-h-[55vh] overflow-auto rounded-md bg-soft/50 px-3 py-2.5 text-[12.5px] leading-relaxed text-ink" />
-        <p v-else-if="payload.bodyStatus === 'ready'" class="mt-2 text-[12.5px] text-muted">此 PR 没有填写描述。</p>
+        <p v-else-if="payload.bodyStatus === 'ready'" class="mt-2 text-[12.5px] text-muted">{{ payload.historicalSnapshot === 'true' && payload.onlineStatus !== 'ready' ? '历史快照未保存 PR 描述。' : '此 PR 没有填写描述。' }}</p>
         <p v-if="payload.onlineStatus !== 'ready' && Number(payload.commentsCount) > 0" class="mt-2 text-[11px] text-muted">本地记录显示有 {{ payload.commentsCount }} 条评论；点击“在线获取”加载讨论。</p>
       </section>
       <section v-if="payload.onlineStatus === 'ready'" class="mt-5">

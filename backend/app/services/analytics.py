@@ -210,6 +210,8 @@ def data_quality(session: Session, dataset_id: str, expected_type: str = "resear
     notes = ["缺失率分母为当前数据集成员总数。"]
     if expected_type == "research":
         notes.append("研究样本只有导入带来源和筛选记录的清单后才具有研究证据。")
+        if dataset_id == "course-research-300-v1":
+            notes.append("本课程数据集是固定历史快照；仓库分析页使用更新的在线维护记录（若有）。")
     else:
         notes.append("精选集合是策展探索样本，不代表 GitHub 全体，也不能作为概率抽样的正式研究样本。")
     if dataset.source_metadata_json:
@@ -295,6 +297,8 @@ def export_repositories(session: Session, scope: str, dataset_id: str | None, la
     output = io.StringIO(newline="")
     writer = csv.writer(output)
     columns = ["repository_id", "full_name", "description", "language", "stars", "forks", "created_at", "pushed_at", "collected_at", "analysis_status", "dataset_id"]
+    if scope == "research" and analysis_mode == "course":
+        columns.append("sample_role")
     writer.writerow(columns)
     for row in rows:
         repo, snapshot = row["repository"], row["snapshot"]
@@ -311,6 +315,9 @@ def export_repositories(session: Session, scope: str, dataset_id: str | None, la
             analysis_status(session, repo.repository_id),
             dataset_id,
         ]
+        if scope == "research" and analysis_mode == "course":
+            membership = session.get(DatasetRepository, (dataset_id, repo.repository_id))
+            values.append(membership.selection_tier if membership else None)
         writer.writerow([_csv_safe(value) for value in values])
     filename = f"repositories_{utc_now().date().isoformat()}.csv"
     return output.getvalue(), filename

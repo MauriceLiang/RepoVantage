@@ -5,7 +5,7 @@ import { useDataSource } from './useDataSource'
 let requestSequence = 0
 
 /** 打开版本详情；只允许最新请求更新当前抽屉。 */
-export function useReleaseDrawer(repositoryId: () => string) {
+export function useReleaseDrawer(repositoryId: () => string, historicalSnapshot: () => boolean = () => false) {
   const ui = useUiStore()
   const dataSource = useDataSource()
 
@@ -21,6 +21,7 @@ export function useReleaseDrawer(repositoryId: () => string) {
       type: release.prerelease ? '预发布（prerelease）' : '正式发布',
       interval: release.intervalDays === null ? '—' : `${release.intervalDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天`,
       bodyStatus: 'loading',
+      historicalSnapshot: historicalSnapshot() ? 'true' : 'false',
     }
     ui.openDrawer('release', payload)
     try {

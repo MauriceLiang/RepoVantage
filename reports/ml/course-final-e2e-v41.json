@@ -1,0 +1,1020 @@
+{
+  "date": "2026-11-10",
+  "baseline_commit": "311f3c40e9ec8fd34ea415107050d41e23fa2c00",
+  "environment": {
+    "database": "/private/tmp/repovantage-course-final-v41/db/app.db",
+    "raw_archive_dir": "/private/tmp/repovantage-course-final-v41/raw",
+    "default_database_touched": false,
+    "default_raw_data_touched": false
+  },
+  "real_github_sample_count": 8,
+  "repeat_12_week_cache_check": {
+    "repository": "octocat/Hello-World",
+    "http_status": 200,
+    "status": "cached",
+    "reused": true,
+    "run_id": "c9ab2a68-4382-4749-8298-c62651019b9f",
+    "additional_github_calls": 0
+  },
+  "repositories": [
+    {
+      "repository_id": 2183193,
+      "full_name": "Theano/Theano",
+      "html_url": "https://github.com/Theano/Theano",
+      "created_at": "2011-08-10T03:48:06Z",
+      "pushed_at": "2024-01-15T03:16:24Z",
+      "collection_runs": [
+        {
+          "task_id": "40e1945a-d940-44d5-8d45-86fa2b2d6fdf",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [],
+          "commit_pages": 1,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 0,
+            "true_zero": 12,
+            "partial": 0
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 16,
+          "elapsed_seconds": 9.239,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "9059f5f94af4a8d71702b69bbbffe9a7b3e6419cee1bcbf60737a56857275774",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "低活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 0,
+              "commit_active_weeks": 0,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 0.0,
+              "commit_longest_zero_weeks": 12,
+              "pr_coverage": "complete",
+              "pr_created_total": 0,
+              "pr_active_weeks": 0,
+              "pr_observed_weeks": 12
+            }
+          },
+          "activity_trend": {
+            "status": "insufficient_data",
+            "method": "none",
+            "trend": null,
+            "reason_code": "low_activity_scope",
+            "evidence": {}
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 0,
+                "commit_robust_z": 0.0,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 0,
+            "window_active_weeks": 0,
+            "last_12w_total": 0,
+            "last_12w_active_weeks": 0
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 0,
+              "true_zero": 12,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 0,
+              "true_zero": 12,
+              "partial": 0
+            }
+          }
+        },
+        {
+          "task_id": "29e45306-87aa-4e36-907c-9b1dd4b8c2f6",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 24,
+          "history_start": "2026-05-25T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 24,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [],
+          "commit_pages": 1,
+          "pr_search_requests_attempted": 24,
+          "pr_coverage_weeks": {
+            "complete": 0,
+            "true_zero": 24,
+            "partial": 0
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 28,
+          "elapsed_seconds": 16.958,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "7cf6f390f05706fab59353d594cc9938d5c48f107557308f3636def2bfe0ceda",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "低活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 0,
+              "commit_active_weeks": 0,
+              "commit_observed_weeks": 24,
+              "commit_active_fraction": 0.0,
+              "commit_longest_zero_weeks": 24,
+              "pr_coverage": "complete",
+              "pr_created_total": 0,
+              "pr_active_weeks": 0,
+              "pr_observed_weeks": 24
+            }
+          },
+          "activity_trend": {
+            "status": "insufficient_data",
+            "method": "none",
+            "trend": null,
+            "reason_code": "low_activity_scope",
+            "evidence": {}
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 0,
+                "commit_robust_z": 0.0,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 0,
+            "window_active_weeks": 0,
+            "last_12w_total": 0,
+            "last_12w_active_weeks": 0
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 0,
+              "true_zero": 24,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 0,
+              "true_zero": 24,
+              "partial": 0
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": [
+        {
+          "task_id": "2121692c-fc5b-4d86-9e54-b5c3ba74cf83",
+          "status": "succeeded",
+          "elapsed_seconds": 6.101,
+          "http_call_estimate": 5,
+          "modules": [
+            {
+              "module": "commits",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 0,
+              "elapsed_seconds": 0.867,
+              "error_code": null
+            },
+            {
+              "module": "issues",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 0,
+              "elapsed_seconds": 0.531,
+              "error_code": null
+            },
+            {
+              "module": "profile",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 1,
+              "elapsed_seconds": 1.151,
+              "error_code": null
+            },
+            {
+              "module": "pulls",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 100,
+              "elapsed_seconds": 2.719,
+              "error_code": null
+            },
+            {
+              "module": "releases",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 0,
+              "elapsed_seconds": 0.795,
+              "error_code": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repository_id": 4164482,
+      "full_name": "django/django",
+      "html_url": "https://github.com/django/django",
+      "created_at": "2012-04-28T02:47:18Z",
+      "pushed_at": "2026-11-09T09:19:25Z",
+      "collection_runs": [
+        {
+          "task_id": "df783627-0892-49c5-913b-315b704b774c",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [],
+          "commit_pages": 3,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 12,
+            "true_zero": 0,
+            "partial": 0
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 18,
+          "elapsed_seconds": 14.784,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "7aca5b1acd97ff4b9c627ac743d78b5ef324ef55ad6a70f555200b47f848e139",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "持续活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 231,
+              "commit_active_weeks": 12,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 1.0,
+              "commit_longest_zero_weeks": 0,
+              "pr_coverage": "complete",
+              "pr_created_total": 467,
+              "pr_active_weeks": 12,
+              "pr_observed_weeks": 12
+            }
+          },
+          "activity_trend": {
+            "status": "available",
+            "method": "machine_learning",
+            "trend": "下降",
+            "reason_code": null,
+            "evidence": {
+              "recent_4w_commits": 99,
+              "previous_4w_commits": 81,
+              "active_weeks_12w": 12
+            }
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 27,
+                "commit_robust_z": 0.713552194845346,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 231,
+            "window_active_weeks": 12,
+            "last_12w_total": 231,
+            "last_12w_active_weeks": 12
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 12,
+              "true_zero": 0,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 12,
+              "true_zero": 0,
+              "partial": 0
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": [
+        {
+          "task_id": "a14c2d66-92a1-49ae-986b-37da468edd02",
+          "status": "succeeded",
+          "elapsed_seconds": 32.009,
+          "http_call_estimate": 18,
+          "modules": [
+            {
+              "module": "commits",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 3,
+              "observed_items": 243,
+              "elapsed_seconds": 4.786,
+              "error_code": null
+            },
+            {
+              "module": "issues",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 7,
+              "observed_items": 684,
+              "elapsed_seconds": 12.453,
+              "error_code": null
+            },
+            {
+              "module": "profile",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 1,
+              "elapsed_seconds": 0.845,
+              "error_code": null
+            },
+            {
+              "module": "pulls",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 6,
+              "observed_items": 600,
+              "elapsed_seconds": 13.411,
+              "error_code": null
+            },
+            {
+              "module": "releases",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 0,
+              "elapsed_seconds": 0.479,
+              "error_code": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repository_id": 1296269,
+      "full_name": "octocat/Hello-World",
+      "html_url": "https://github.com/octocat/Hello-World",
+      "created_at": "2011-01-26T19:01:12Z",
+      "pushed_at": "2024-08-20T23:54:42Z",
+      "collection_runs": [
+        {
+          "task_id": "c9ab2a68-4382-4749-8298-c62651019b9f",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [],
+          "commit_pages": 1,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 12,
+            "true_zero": 0,
+            "partial": 0
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 16,
+          "elapsed_seconds": 12.984,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "08e4c01f84b9c1b5128a008921a360a9fe6326ccf4d2ead0419bf5af410b50eb",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "低活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 0,
+              "commit_active_weeks": 0,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 0.0,
+              "commit_longest_zero_weeks": 12,
+              "pr_coverage": "complete",
+              "pr_created_total": 314,
+              "pr_active_weeks": 12,
+              "pr_observed_weeks": 12
+            }
+          },
+          "activity_trend": {
+            "status": "insufficient_data",
+            "method": "none",
+            "trend": null,
+            "reason_code": "low_activity_scope",
+            "evidence": {}
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 0,
+                "commit_robust_z": 0.0,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 0,
+            "window_active_weeks": 0,
+            "last_12w_total": 0,
+            "last_12w_active_weeks": 0
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 0,
+              "true_zero": 12,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 12,
+              "true_zero": 0,
+              "partial": 0
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": []
+    },
+    {
+      "repository_id": 596892,
+      "full_name": "pallets/flask",
+      "html_url": "https://github.com/pallets/flask",
+      "created_at": "2010-04-06T11:11:59Z",
+      "pushed_at": "2026-10-30T15:05:22Z",
+      "collection_runs": [
+        {
+          "task_id": "7c912929-bdff-4d64-9266-449ae0d96bc9",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [
+            "GITHUB_RATE_LIMITED",
+            "not_observed"
+          ],
+          "commit_pages": 1,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 4,
+            "true_zero": 2,
+            "partial": 5
+          },
+          "rate_limited_pr_weeks": 1,
+          "github_request_estimate": 16,
+          "elapsed_seconds": 7.984,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "08c75fb5928650ddb76028b73b91c13c1e2eef9010149644dfd4b2ae42f75b8b",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "集中活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 10,
+              "commit_active_weeks": 3,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 0.25,
+              "commit_longest_zero_weeks": 3,
+              "pr_coverage": "partial_or_unavailable",
+              "pr_created_total": null
+            }
+          },
+          "activity_trend": {
+            "status": "available",
+            "method": "machine_learning",
+            "trend": "基本稳定",
+            "reason_code": null,
+            "evidence": {
+              "recent_4w_commits": 4,
+              "previous_4w_commits": 5,
+              "active_weeks_12w": 3
+            }
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 0,
+                "commit_robust_z": 0.0,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 10,
+            "window_active_weeks": 3,
+            "last_12w_total": 10,
+            "last_12w_active_weeks": 3
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 3,
+              "true_zero": 9,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 4,
+              "true_zero": 2,
+              "partial": 6
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": [
+        {
+          "task_id": "2d99ac53-3bd2-4761-9d7b-8271a5da17a3",
+          "status": "succeeded",
+          "elapsed_seconds": 10.153,
+          "http_call_estimate": 6,
+          "modules": [
+            {
+              "module": "commits",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 11,
+              "elapsed_seconds": 0.593,
+              "error_code": null
+            },
+            {
+              "module": "issues",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 71,
+              "elapsed_seconds": 1.378,
+              "error_code": null
+            },
+            {
+              "module": "profile",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 1,
+              "elapsed_seconds": 1.325,
+              "error_code": null
+            },
+            {
+              "module": "pulls",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 2,
+              "observed_items": 200,
+              "elapsed_seconds": 6.071,
+              "error_code": null
+            },
+            {
+              "module": "releases",
+              "status": "complete",
+              "coverage": "complete",
+              "pages_fetched": 1,
+              "observed_items": 38,
+              "elapsed_seconds": 0.737,
+              "error_code": null
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "repository_id": 81598961,
+      "full_name": "python/cpython",
+      "html_url": "https://github.com/python/cpython",
+      "created_at": "2017-02-10T19:23:51Z",
+      "pushed_at": "2026-11-10T07:52:17Z",
+      "collection_runs": [
+        {
+          "task_id": "ea764935-451b-4f4b-b3df-84b44d86a4ff",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [
+            "GITHUB_RATE_LIMITED",
+            "not_observed"
+          ],
+          "commit_pages": 15,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 0,
+            "true_zero": 0,
+            "partial": 11
+          },
+          "rate_limited_pr_weeks": 1,
+          "github_request_estimate": 30,
+          "elapsed_seconds": 22.73,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "584068ccf54ade1f054d497b9b761af187d64a0f27a0fa4a697a580112926992",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "持续活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 1458,
+              "commit_active_weeks": 12,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 1.0,
+              "commit_longest_zero_weeks": 0,
+              "pr_coverage": "partial_or_unavailable",
+              "pr_created_total": null
+            }
+          },
+          "activity_trend": {
+            "status": "available",
+            "method": "machine_learning",
+            "trend": "下降",
+            "reason_code": null,
+            "evidence": {
+              "recent_4w_commits": 681,
+              "previous_4w_commits": 410,
+              "active_weeks_12w": 12
+            }
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 135,
+                "commit_robust_z": 1.2299387989918422,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 1458,
+            "window_active_weeks": 12,
+            "last_12w_total": 1458,
+            "last_12w_active_weeks": 12
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 12,
+              "true_zero": 0,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 0,
+              "true_zero": 0,
+              "partial": 12
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": []
+    },
+    {
+      "repository_id": 10270250,
+      "full_name": "react/react",
+      "html_url": "https://github.com/react/react",
+      "created_at": "2013-05-24T16:15:54Z",
+      "pushed_at": "2026-11-09T19:23:31Z",
+      "collection_runs": [
+        {
+          "task_id": "97c67fd7-e0c3-48ae-b364-12113bfc70cd",
+          "status": "succeeded",
+          "run_status": "complete",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": true,
+          "commit_coverage_reasons": [],
+          "pr_coverage_reasons": [
+            "GITHUB_RATE_LIMITED",
+            "not_observed"
+          ],
+          "commit_pages": 2,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 0,
+            "true_zero": 0,
+            "partial": 11
+          },
+          "rate_limited_pr_weeks": 1,
+          "github_request_estimate": 17,
+          "elapsed_seconds": 4.266,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "bf35af8146332e8fe0ecef6d1c924c0c7e95dc7f8a7b8f6a1fb7928846f85acf",
+          "maintenance_pattern": {
+            "status": "available",
+            "method": "machine_learning",
+            "model_version": "ml03-12w-v1",
+            "pattern_name": "持续活动型",
+            "reason_code": null,
+            "evidence": {
+              "commit_total": 122,
+              "commit_active_weeks": 12,
+              "commit_observed_weeks": 12,
+              "commit_active_fraction": 1.0,
+              "commit_longest_zero_weeks": 0,
+              "pr_coverage": "partial_or_unavailable",
+              "pr_created_total": null
+            }
+          },
+          "activity_trend": {
+            "status": "available",
+            "method": "machine_learning",
+            "trend": "下降",
+            "reason_code": null,
+            "evidence": {
+              "recent_4w_commits": 39,
+              "previous_4w_commits": 26,
+              "active_weeks_12w": 12
+            }
+          },
+          "activity_anomaly": {
+            "status": "baseline_only",
+            "method": "statistical_baseline",
+            "suspected": false,
+            "reason_code": null,
+            "weeks": [
+              {
+                "week_start_utc": "2026-11-02T00:00:00Z",
+                "commit_count": 4,
+                "commit_robust_z": -1.079863140473406,
+                "direction": null
+              }
+            ]
+          },
+          "verified_commit_facts": {
+            "window_total": 122,
+            "window_active_weeks": 12,
+            "last_12w_total": 122,
+            "last_12w_active_weeks": 12
+          },
+          "week_coverage": {
+            "commits": {
+              "complete": 12,
+              "true_zero": 0,
+              "partial": 0
+            },
+            "prs_created": {
+              "complete": 0,
+              "true_zero": 0,
+              "partial": 12
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": []
+    },
+    {
+      "repository_id": 1398080271,
+      "full_name": "storytold/photocraft",
+      "html_url": "https://github.com/storytold/photocraft",
+      "created_at": "2026-09-30T13:37:48Z",
+      "pushed_at": "2026-11-10T02:04:40Z",
+      "collection_runs": [
+        {
+          "task_id": "33a0ca06-610c-4a7d-8cd0-0edbc1d9f485",
+          "status": "partial",
+          "run_status": "partial",
+          "lookback_weeks": 12,
+          "history_start": "2026-10-05T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 5,
+          "complete_commit_coverage": false,
+          "commit_coverage_reasons": [
+            "pagination_incomplete"
+          ],
+          "pr_coverage_reasons": [
+            "search_incomplete_or_1000_result_cap"
+          ],
+          "commit_pages": 100,
+          "pr_search_requests_attempted": 5,
+          "pr_coverage_weeks": {
+            "complete": 3,
+            "true_zero": 0,
+            "partial": 2
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 108,
+          "elapsed_seconds": 128.037,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "85f823d06b2f567257619499644da373a07fb4e1f821eff89e8e4c5d24b0641f",
+          "maintenance_pattern": {
+            "status": "insufficient_data",
+            "method": "none",
+            "model_version": null,
+            "pattern_name": null,
+            "reason_code": "incomplete_commits_coverage",
+            "evidence": null
+          },
+          "activity_trend": {
+            "status": "insufficient_data",
+            "method": "none",
+            "trend": null,
+            "reason_code": "incomplete_commits_coverage",
+            "evidence": null
+          },
+          "activity_anomaly": {
+            "status": "insufficient_data",
+            "method": "none",
+            "suspected": null,
+            "reason_code": "incomplete_commits_coverage",
+            "weeks": null
+          },
+          "verified_commit_facts": null,
+          "week_coverage": {
+            "commits": {
+              "complete": 0,
+              "true_zero": 0,
+              "partial": 5
+            },
+            "prs_created": {
+              "complete": 3,
+              "true_zero": 0,
+              "partial": 2
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": []
+    },
+    {
+      "repository_id": 2325298,
+      "full_name": "torvalds/linux",
+      "html_url": "https://github.com/torvalds/linux",
+      "created_at": "2011-09-04T22:48:12Z",
+      "pushed_at": "2026-11-10T00:41:27Z",
+      "collection_runs": [
+        {
+          "task_id": "c60982dc-6ffc-43d5-a7e8-5a09345c0a28",
+          "status": "partial",
+          "run_status": "partial",
+          "lookback_weeks": 12,
+          "history_start": "2026-08-17T00:00:00Z",
+          "history_end": "2026-11-09T00:00:00Z",
+          "complete_or_observed_weeks": 12,
+          "complete_commit_coverage": false,
+          "commit_coverage_reasons": [
+            "pagination_incomplete"
+          ],
+          "pr_coverage_reasons": [],
+          "commit_pages": 100,
+          "pr_search_requests_attempted": 12,
+          "pr_coverage_weeks": {
+            "complete": 0,
+            "true_zero": 12,
+            "partial": 0
+          },
+          "rate_limited_pr_weeks": 0,
+          "github_request_estimate": 115,
+          "elapsed_seconds": 146.343,
+          "cache_source": "github_commits_endpoint",
+          "source_archive_sha256": "09158e96682887780063c61978e4689ce07c0d5f612b0bd243b8264a1eb9eb5f",
+          "maintenance_pattern": {
+            "status": "insufficient_data",
+            "method": "none",
+            "model_version": null,
+            "pattern_name": null,
+            "reason_code": "incomplete_commits_coverage",
+            "evidence": null
+          },
+          "activity_trend": {
+            "status": "insufficient_data",
+            "method": "none",
+            "trend": null,
+            "reason_code": "incomplete_commits_coverage",
+            "evidence": null
+          },
+          "activity_anomaly": {
+            "status": "insufficient_data",
+            "method": "none",
+            "suspected": null,
+            "reason_code": "incomplete_commits_coverage",
+            "weeks": null
+          },
+          "verified_commit_facts": null,
+          "week_coverage": {
+            "commits": {
+              "complete": 0,
+              "true_zero": 0,
+              "partial": 12
+            },
+            "prs_created": {
+              "complete": 0,
+              "true_zero": 12,
+              "partial": 0
+            }
+          }
+        }
+      ],
+      "90_day_detail_comparison_runs": []
+    }
+  ],
+  "comparison_api": {
+    "insights_status": "comparable",
+    "common_complete_utc_weeks": 12,
+    "selection_status": "available",
+    "method": "rule_based",
+    "ranking": [
+      {
+        "full_name": "django/django",
+        "score": 1.0
+      },
+      {
+        "full_name": "pallets/flask",
+        "score": 0.0
+      }
+    ],
+    "markdown_path": "reports/ml/real-api-comparison-report-v41.md",
+    "result_signature": "6fde82698937cd89fd70c6591a4fffc2e7378e0cd5aa7c0728f360d93fbace4c"
+  },
+  "browser_ui": {
+    "routes": [
+      "/repositories/2183193/overview",
+      "/repositories/596892/overview",
+      "/compare"
+    ],
+    "page_errors": 0,
+    "screenshots": [
+      "reports/ml/screenshots/real-api-low-activity-theano-24w-v41.png",
+      "reports/ml/screenshots/real-api-model-detail-flask-v41.png",
+      "reports/ml/screenshots/real-api-comparison-report-flask-django-v41.png"
+    ],
+    "notes": [
+      "Theano 的低活动 12 周视图通过页面按钮扩展至 24 周并成功完成；扩展后的页面显示 24 周背景、近 12 周模型事实及低活动趋势降级。",
+      "Flask/Django 页面与同次比较 API 的 M1/M2 版本、窗口和得分一致。",
+      "页面的规则排名只使用所选 Commit 均值事实；报告明确其不是采用成功概率。"
+    ]
+  },
+  "request_accounting": {
+    "request_estimate": 364,
+    "method": "per maintenance run: 1 repository profile + 2 default-branch head checks + observed commit pages + attempted per-week GitHub Search requests; excludes transport retries.",
+    "estimated_total_github_http_requests_in_scope": 401,
+    "components": {
+      "repository_resolution_calls": 8,
+      "maintenance_source_audit_estimates": 364,
+      "90_day_analysis_page_requests_estimate": 29
+    },
+    "note": "合计基于 API 审计页与查询周数、8 次真实仓库解析以及深度任务模块页数；不含 GitHubClient 传输自动重试。"
+  }
+}

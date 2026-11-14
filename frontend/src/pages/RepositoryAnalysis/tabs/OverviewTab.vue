@@ -14,7 +14,8 @@ import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
-const { openRelease } = useReleaseDrawer(() => repoId.value)
+const overviewObservations = computed(() => props.analysis.observations.filter((item) => item.id !== 'commit-trend'))
+const { openRelease } = useReleaseDrawer(() => repoId.value, () => props.analysis.provenance?.origin === 'course-test-events-v1')
 const selectedReleaseWeek = ref<{ date: string; releases: ReleaseRecord[] } | null>(null)
 watch([repoId, () => props.analysis.windowAvailability.requestedDays, () => props.analysis.releases], () => { selectedReleaseWeek.value = null })
 
@@ -172,7 +173,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
       <ReleaseIntervalMiniChart v-if="releaseIntervalPoints.length" :items="releaseIntervalPoints" :height="112" />
-      <div v-else class="flex h-[112px] items-center justify-center text-center text-[11px] text-muted">至少需要两次正式发布才能比较间隔</div>
+      <div v-else class="flex h-[112px] items-center justify-center text-center text-[11px] text-muted">当前范围只有 {{ formalReleases.length }} 次正式发布，暂无可计算间隔</div>
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ medianInterval?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</b>
         <span class="text-[11px] leading-tight text-muted">发布间隔 P50 · n={{ releaseIntervalPoints.length }} 个间隔<br />{{ formalReleases.length }} 次正式发布 · 最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
@@ -187,7 +188,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         <p class="mt-0.5 text-[12px] text-muted">完整 8 周提交趋势、Issue/PR 耗时（n≥10）、正式发布节奏（至少 2 次）；部分覆盖只描述已观察样本。</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-        <ObservationList :observations="analysis.observations" />
+        <ObservationList :observations="overviewObservations" />
       </div>
     </GdCard>
 

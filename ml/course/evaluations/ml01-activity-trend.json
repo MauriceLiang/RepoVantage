@@ -1,0 +1,1007 @@
+{
+  "decision": "启用无概率的类别预测",
+  "feature_names": [
+    "commit_log_mean_4w",
+    "commit_log_mean_previous_8w",
+    "commit_active_fraction",
+    "commit_log_cv",
+    "commit_recent_change_log1p"
+  ],
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "label_definition": "future4 vs preceding4; direction requires max(3 commits, 25% of past4) absolute change",
+  "limitations": [
+    "300 仓库和早期窗口已用于此前研究；这是重新设计后的历史回测。",
+    "同仓库窗口重叠，指标仅用于组间留仓检验，不把窗口视为独立仓库。"
+  ],
+  "ml_beats_both_baselines": true,
+  "samples": 11100,
+  "selected_candidate": "logistic_regression",
+  "status": "available",
+  "task": "M2 activity_trend",
+  "test": {
+    "by_recent_activity": {
+      "1-9": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 1,
+            "下降": 3,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.3333333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.19999999999999998,
+          "predicted_class_counts": {
+            "基本稳定": 7
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 1,
+            "下降": 3,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.2222222222222222,
+          "confusion_matrix": [
+            [
+              0,
+              1,
+              2
+            ],
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              0,
+              1,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.19047619047619047,
+          "predicted_class_counts": {
+            "上升": 3,
+            "基本稳定": 4
+          }
+        },
+        "samples": 7,
+        "selected_candidate": {
+          "actual_class_counts": {
+            "上升": 1,
+            "下降": 3,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.4444444444444444,
+          "confusion_matrix": [
+            [
+              2,
+              0,
+              1
+            ],
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              0,
+              1,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.48888888888888893,
+          "predicted_class_counts": {
+            "上升": 2,
+            "下降": 2,
+            "基本稳定": 3
+          }
+        }
+      },
+      "10-99": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 6,
+            "下降": 10,
+            "基本稳定": 1
+          },
+          "balanced_accuracy": 0.3333333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              10,
+              0
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              0,
+              6,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.037037037037037035,
+          "predicted_class_counts": {
+            "基本稳定": 17
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 6,
+            "下降": 10,
+            "基本稳定": 1
+          },
+          "balanced_accuracy": 0.48888888888888893,
+          "confusion_matrix": [
+            [
+              3,
+              1,
+              6
+            ],
+            [
+              0,
+              1,
+              0
+            ],
+            [
+              2,
+              3,
+              1
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.29572649572649573,
+          "predicted_class_counts": {
+            "上升": 7,
+            "下降": 5,
+            "基本稳定": 5
+          }
+        },
+        "samples": 17,
+        "selected_candidate": {
+          "actual_class_counts": {
+            "上升": 6,
+            "下降": 10,
+            "基本稳定": 1
+          },
+          "balanced_accuracy": 0.3111111111111111,
+          "confusion_matrix": [
+            [
+              6,
+              0,
+              4
+            ],
+            [
+              1,
+              0,
+              0
+            ],
+            [
+              3,
+              1,
+              2
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.3111111111111111,
+          "predicted_class_counts": {
+            "上升": 6,
+            "下降": 10,
+            "基本稳定": 1
+          }
+        }
+      },
+      "100+": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 4,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.5,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              3,
+              0
+            ],
+            [
+              0,
+              4,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.19999999999999998,
+          "predicted_class_counts": {
+            "基本稳定": 7
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 4,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.4583333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              2,
+              1
+            ],
+            [
+              1,
+              2,
+              1
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.30158730158730157,
+          "predicted_class_counts": {
+            "上升": 2,
+            "下降": 1,
+            "基本稳定": 4
+          }
+        },
+        "samples": 7,
+        "selected_candidate": {
+          "actual_class_counts": {
+            "上升": 4,
+            "基本稳定": 3
+          },
+          "balanced_accuracy": 0.3333333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              1,
+              2,
+              0
+            ],
+            [
+              1,
+              3,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.16666666666666666,
+          "predicted_class_counts": {
+            "下降": 2,
+            "基本稳定": 5
+          }
+        }
+      },
+      "zero": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 3,
+            "基本稳定": 11
+          },
+          "balanced_accuracy": 0.5,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              11,
+              0
+            ],
+            [
+              0,
+              3,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.29333333333333333,
+          "predicted_class_counts": {
+            "基本稳定": 14
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 3,
+            "基本稳定": 11
+          },
+          "balanced_accuracy": 0.4090909090909091,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              2,
+              9,
+              0
+            ],
+            [
+              1,
+              2,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.27272727272727276,
+          "predicted_class_counts": {
+            "下降": 3,
+            "基本稳定": 11
+          }
+        },
+        "samples": 14,
+        "selected_candidate": {
+          "actual_class_counts": {
+            "上升": 3,
+            "基本稳定": 11
+          },
+          "balanced_accuracy": 0.4090909090909091,
+          "confusion_matrix": [
+            [
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              9,
+              2
+            ],
+            [
+              0,
+              3,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.2608695652173913,
+          "predicted_class_counts": {
+            "上升": 2,
+            "基本稳定": 12
+          }
+        }
+      }
+    },
+    "dummy_most_frequent": {
+      "actual_class_counts": {
+        "上升": 14,
+        "下降": 13,
+        "基本稳定": 18
+      },
+      "balanced_accuracy": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          0,
+          13,
+          0
+        ],
+        [
+          0,
+          18,
+          0
+        ],
+        [
+          0,
+          14,
+          0
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.19047619047619047,
+      "predicted_class_counts": {
+        "基本稳定": 45
+      }
+    },
+    "recent_trend_baseline": {
+      "actual_class_counts": {
+        "上升": 14,
+        "下降": 13,
+        "基本稳定": 18
+      },
+      "balanced_accuracy": 0.3838013838013838,
+      "confusion_matrix": [
+        [
+          3,
+          2,
+          8
+        ],
+        [
+          2,
+          14,
+          2
+        ],
+        [
+          4,
+          8,
+          2
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.3644133644133644,
+      "predicted_class_counts": {
+        "上升": 12,
+        "下降": 9,
+        "基本稳定": 24
+      }
+    },
+    "selected_candidate": {
+      "actual_class_counts": {
+        "上升": 14,
+        "下降": 13,
+        "基本稳定": 18
+      },
+      "balanced_accuracy": 0.4934879934879935,
+      "confusion_matrix": [
+        [
+          8,
+          0,
+          5
+        ],
+        [
+          2,
+          13,
+          3
+        ],
+        [
+          4,
+          8,
+          2
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.4753086419753086,
+      "predicted_class_counts": {
+        "上升": 10,
+        "下降": 14,
+        "基本稳定": 21
+      }
+    }
+  },
+  "test_origin": "2026-10-05T00:00:00Z",
+  "test_repositories": 45,
+  "training_repositories": 255,
+  "validation_combined": {
+    "dummy_most_frequent": {
+      "actual_class_counts": {
+        "上升": 28,
+        "下降": 21,
+        "基本稳定": 41
+      },
+      "balanced_accuracy": 0.3333333333333333,
+      "confusion_matrix": [
+        [
+          0,
+          21,
+          0
+        ],
+        [
+          0,
+          41,
+          0
+        ],
+        [
+          0,
+          28,
+          0
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.20865139949109415,
+      "predicted_class_counts": {
+        "基本稳定": 90
+      }
+    },
+    "hist_gradient_boosting": {
+      "actual_class_counts": {
+        "上升": 28,
+        "下降": 21,
+        "基本稳定": 41
+      },
+      "balanced_accuracy": 0.5262291908633373,
+      "confusion_matrix": [
+        [
+          11,
+          7,
+          3
+        ],
+        [
+          3,
+          33,
+          5
+        ],
+        [
+          7,
+          14,
+          7
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.5147092537545414,
+      "predicted_class_counts": {
+        "上升": 15,
+        "下降": 21,
+        "基本稳定": 54
+      }
+    },
+    "logistic_regression": {
+      "actual_class_counts": {
+        "上升": 28,
+        "下降": 21,
+        "基本稳定": 41
+      },
+      "balanced_accuracy": 0.5286488579171507,
+      "confusion_matrix": [
+        [
+          13,
+          4,
+          4
+        ],
+        [
+          5,
+          25,
+          11
+        ],
+        [
+          8,
+          10,
+          10
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.5185166599759133,
+      "predicted_class_counts": {
+        "上升": 25,
+        "下降": 26,
+        "基本稳定": 39
+      }
+    },
+    "recent_trend_baseline": {
+      "actual_class_counts": {
+        "上升": 28,
+        "下降": 21,
+        "基本稳定": 41
+      },
+      "balanced_accuracy": 0.382404181184669,
+      "confusion_matrix": [
+        [
+          3,
+          3,
+          15
+        ],
+        [
+          7,
+          28,
+          6
+        ],
+        [
+          10,
+          9,
+          9
+        ]
+      ],
+      "confusion_matrix_labels": [
+        "下降",
+        "基本稳定",
+        "上升"
+      ],
+      "macro_f1": 0.3826814385640664,
+      "predicted_class_counts": {
+        "上升": 30,
+        "下降": 20,
+        "基本稳定": 40
+      }
+    }
+  },
+  "validation_folds": [
+    {
+      "latest_training_label_end": "2026-08-10T00:00:00Z",
+      "metrics": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 18,
+            "下降": 7,
+            "基本稳定": 20
+          },
+          "balanced_accuracy": 0.3333333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              7,
+              0
+            ],
+            [
+              0,
+              20,
+              0
+            ],
+            [
+              0,
+              18,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.20512820512820515,
+          "predicted_class_counts": {
+            "基本稳定": 45
+          }
+        },
+        "hist_gradient_boosting": {
+          "actual_class_counts": {
+            "上升": 18,
+            "下降": 7,
+            "基本稳定": 20
+          },
+          "balanced_accuracy": 0.4711640211640211,
+          "confusion_matrix": [
+            [
+              2,
+              3,
+              2
+            ],
+            [
+              1,
+              17,
+              2
+            ],
+            [
+              5,
+              8,
+              5
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.4484567901234568,
+          "predicted_class_counts": {
+            "上升": 9,
+            "下降": 8,
+            "基本稳定": 28
+          }
+        },
+        "logistic_regression": {
+          "actual_class_counts": {
+            "上升": 18,
+            "下降": 7,
+            "基本稳定": 20
+          },
+          "balanced_accuracy": 0.45582010582010585,
+          "confusion_matrix": [
+            [
+              3,
+              2,
+              2
+            ],
+            [
+              3,
+              11,
+              6
+            ],
+            [
+              5,
+              6,
+              7
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.4405594405594406,
+          "predicted_class_counts": {
+            "上升": 15,
+            "下降": 11,
+            "基本稳定": 19
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 18,
+            "下降": 7,
+            "基本稳定": 20
+          },
+          "balanced_accuracy": 0.4044973544973545,
+          "confusion_matrix": [
+            [
+              2,
+              1,
+              4
+            ],
+            [
+              4,
+              13,
+              3
+            ],
+            [
+              7,
+              6,
+              5
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.39444444444444443,
+          "predicted_class_counts": {
+            "上升": 12,
+            "下降": 13,
+            "基本稳定": 20
+          }
+        }
+      },
+      "origin": 40,
+      "training_samples": 5250,
+      "validation_samples": 45
+    },
+    {
+      "latest_training_label_end": "2026-09-07T00:00:00Z",
+      "metrics": {
+        "dummy_most_frequent": {
+          "actual_class_counts": {
+            "上升": 10,
+            "下降": 14,
+            "基本稳定": 21
+          },
+          "balanced_accuracy": 0.3333333333333333,
+          "confusion_matrix": [
+            [
+              0,
+              14,
+              0
+            ],
+            [
+              0,
+              21,
+              0
+            ],
+            [
+              0,
+              10,
+              0
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.21212121212121213,
+          "predicted_class_counts": {
+            "基本稳定": 45
+          }
+        },
+        "hist_gradient_boosting": {
+          "actual_class_counts": {
+            "上升": 10,
+            "下降": 14,
+            "基本稳定": 21
+          },
+          "balanced_accuracy": 0.5349206349206349,
+          "confusion_matrix": [
+            [
+              9,
+              4,
+              1
+            ],
+            [
+              2,
+              16,
+              3
+            ],
+            [
+              2,
+              6,
+              2
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.5325059101654847,
+          "predicted_class_counts": {
+            "上升": 6,
+            "下降": 13,
+            "基本稳定": 26
+          }
+        },
+        "logistic_regression": {
+          "actual_class_counts": {
+            "上升": 10,
+            "下降": 14,
+            "基本稳定": 21
+          },
+          "balanced_accuracy": 0.5603174603174602,
+          "confusion_matrix": [
+            [
+              10,
+              2,
+              2
+            ],
+            [
+              2,
+              14,
+              5
+            ],
+            [
+              3,
+              4,
+              3
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.5575273338940286,
+          "predicted_class_counts": {
+            "上升": 10,
+            "下降": 15,
+            "基本稳定": 20
+          }
+        },
+        "recent_trend_baseline": {
+          "actual_class_counts": {
+            "上升": 10,
+            "下降": 14,
+            "基本稳定": 21
+          },
+          "balanced_accuracy": 0.3952380952380952,
+          "confusion_matrix": [
+            [
+              1,
+              2,
+              11
+            ],
+            [
+              3,
+              15,
+              3
+            ],
+            [
+              3,
+              3,
+              4
+            ]
+          ],
+          "confusion_matrix_labels": [
+            "下降",
+            "基本稳定",
+            "上升"
+          ],
+          "macro_f1": 0.3708865660085172,
+          "predicted_class_counts": {
+            "上升": 18,
+            "下降": 7,
+            "基本稳定": 20
+          }
+        }
+      },
+      "origin": 44,
+      "training_samples": 6090,
+      "validation_samples": 45
+    }
+  ],
+  "validation_repositories": 45
+}

@@ -1,0 +1,822 @@
+{
+  "version": "ml03-external-pool-v1",
+  "frozen_at": "2026-11-09T14:26:59.644912+00:00",
+  "seed": 20261109,
+  "selection_population": "原保留候选，排除历史 300、ML-01 回溯 45 和前瞻 45；不按模型表现挑选。",
+  "exclusion_counts": {
+    "historical": 300,
+    "total_previously_used": 390
+  },
+  "repositories": [
+    {
+      "repository_id": 39935452,
+      "full_name": "yeasy/docker-compose-files",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 977
+    },
+    {
+      "repository_id": 842101547,
+      "full_name": "selfhst/icons",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 985
+    },
+    {
+      "repository_id": 315315266,
+      "full_name": "gotomicro/ego",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 994
+    },
+    {
+      "repository_id": 974927167,
+      "full_name": "hiraise/task-trail",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 0
+    },
+    {
+      "repository_id": 216841474,
+      "full_name": "phodal/coca",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 991
+    },
+    {
+      "repository_id": 626163714,
+      "full_name": "xmidt-org/shared-go",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 1
+    },
+    {
+      "repository_id": 150988662,
+      "full_name": "rogpeppe/go-internal",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 993
+    },
+    {
+      "repository_id": 728665815,
+      "full_name": "Macmod/godap",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 989
+    },
+    {
+      "repository_id": 331254594,
+      "full_name": "yliu7949/KouShare-dl",
+      "stratum": "Go:0-999",
+      "stars_at_original_snapshot": 986
+    },
+    {
+      "repository_id": 1067109086,
+      "full_name": "unkn0wn-root/resterm",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 1993
+    },
+    {
+      "repository_id": 50629145,
+      "full_name": "google/pprof",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9310
+    },
+    {
+      "repository_id": 603535454,
+      "full_name": "tmc/langchaingo",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9738
+    },
+    {
+      "repository_id": 267355027,
+      "full_name": "UnnoTed/wireguird",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 1037
+    },
+    {
+      "repository_id": 3698588,
+      "full_name": "lib/pq",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9968
+    },
+    {
+      "repository_id": 12136863,
+      "full_name": "btcsuite/btcwallet",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 1259
+    },
+    {
+      "repository_id": 196414933,
+      "full_name": "open-telemetry/opentelemetry-collector-contrib",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 5012
+    },
+    {
+      "repository_id": 125275487,
+      "full_name": "kubernetes-sigs/kubebuilder",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9352
+    },
+    {
+      "repository_id": 558188628,
+      "full_name": "higress-group/higress",
+      "stratum": "Go:1000-9999",
+      "stars_at_original_snapshot": 9620
+    },
+    {
+      "repository_id": 13807606,
+      "full_name": "junegunn/fzf",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 83715
+    },
+    {
+      "repository_id": 212613049,
+      "full_name": "cli/cli",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 46721
+    },
+    {
+      "repository_id": 220588935,
+      "full_name": "nezhahq/nezha",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 10364
+    },
+    {
+      "repository_id": 109451092,
+      "full_name": "siderolabs/talos",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 11388
+    },
+    {
+      "repository_id": 161951219,
+      "full_name": "wailsapp/wails",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 36642
+    },
+    {
+      "repository_id": 166304026,
+      "full_name": "BishopFox/sliver",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 12160
+    },
+    {
+      "repository_id": 806285077,
+      "full_name": "darrenburns/posting",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 12530
+    },
+    {
+      "repository_id": 136505169,
+      "full_name": "tinygo-org/tinygo",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 17830
+    },
+    {
+      "repository_id": 509091576,
+      "full_name": "SagerNet/sing-box",
+      "stratum": "Go:10000+",
+      "stars_at_original_snapshot": 39119
+    },
+    {
+      "repository_id": 83952232,
+      "full_name": "binarywang/weixin-java-pay-demo",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 974
+    },
+    {
+      "repository_id": 187368032,
+      "full_name": "goweii/WanAndroid",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 984
+    },
+    {
+      "repository_id": 969914842,
+      "full_name": "saidone75/alfresco-node-vault",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 9
+    },
+    {
+      "repository_id": 28717741,
+      "full_name": "prometheus/cloudwatch_exporter",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 977
+    },
+    {
+      "repository_id": 968398831,
+      "full_name": "nobodyoffc/Safe",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 0
+    },
+    {
+      "repository_id": 11772159,
+      "full_name": "spring-guides/gs-spring-boot",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 993
+    },
+    {
+      "repository_id": 20882897,
+      "full_name": "OpenGamma/Strata",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 980
+    },
+    {
+      "repository_id": 88777477,
+      "full_name": "nitrite/nitrite-java",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 920
+    },
+    {
+      "repository_id": 53251585,
+      "full_name": "renyuneyun/Easer",
+      "stratum": "Java:0-999",
+      "stars_at_original_snapshot": 986
+    },
+    {
+      "repository_id": 81226206,
+      "full_name": "karatelabs/karate",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8992
+    },
+    {
+      "repository_id": 439355916,
+      "full_name": "krahets/LeetCode-Book",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8557
+    },
+    {
+      "repository_id": 18993814,
+      "full_name": "bytedeco/javacv",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8351
+    },
+    {
+      "repository_id": 754169590,
+      "full_name": "PBH-BTN/PeerBanHelper",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 6350
+    },
+    {
+      "repository_id": 35448780,
+      "full_name": "google/google-java-format",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 6211
+    },
+    {
+      "repository_id": 1287669,
+      "full_name": "json-path/JsonPath",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 9452
+    },
+    {
+      "repository_id": 167204613,
+      "full_name": "wildfirechat/im-server",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8568
+    },
+    {
+      "repository_id": 62486091,
+      "full_name": "deltachat/deltachat-android",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 1843
+    },
+    {
+      "repository_id": 13536393,
+      "full_name": "alibaba/transmittable-thread-local",
+      "stratum": "Java:1000-9999",
+      "stars_at_original_snapshot": 8311
+    },
+    {
+      "repository_id": 6766558,
+      "full_name": "Netflix/Hystrix",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 24480
+    },
+    {
+      "repository_id": 715605,
+      "full_name": "redis/jedis",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 12367
+    },
+    {
+      "repository_id": 7508411,
+      "full_name": "ReactiveX/RxJava",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 48174
+    },
+    {
+      "repository_id": 854337508,
+      "full_name": "alibaba/spring-ai-alibaba",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 11051
+    },
+    {
+      "repository_id": 6358188,
+      "full_name": "apache/druid",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 14093
+    },
+    {
+      "repository_id": 75277003,
+      "full_name": "thingsboard/thingsboard",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 22592
+    },
+    {
+      "repository_id": 27729926,
+      "full_name": "grpc/grpc-java",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 12074
+    },
+    {
+      "repository_id": 8205602,
+      "full_name": "mybatis/mybatis-3",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 20439
+    },
+    {
+      "repository_id": 163387337,
+      "full_name": "apache/incubator-seata",
+      "stratum": "Java:10000+",
+      "stars_at_original_snapshot": 26006
+    },
+    {
+      "repository_id": 809767236,
+      "full_name": "dimastatz/whisper-flow",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 996
+    },
+    {
+      "repository_id": 982295854,
+      "full_name": "askpt/openfeature-aspire-sample",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 2
+    },
+    {
+      "repository_id": 591767721,
+      "full_name": "nklmilojevic/home",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 16
+    },
+    {
+      "repository_id": 955481400,
+      "full_name": "ecarrenolozano/omnipath-secondary-adapter-plain",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 1
+    },
+    {
+      "repository_id": 81565159,
+      "full_name": "otto-torino/django-baton",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 997
+    },
+    {
+      "repository_id": 10068798,
+      "full_name": "gcovr/gcovr",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 996
+    },
+    {
+      "repository_id": 1451800,
+      "full_name": "sehmaschine/django-filebrowser",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 998
+    },
+    {
+      "repository_id": 764318739,
+      "full_name": "Doron-Shpigel/Pole-Zero-Map-to-Bode-Plot",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 0
+    },
+    {
+      "repository_id": 59824305,
+      "full_name": "mottosso/Qt.py",
+      "stratum": "Python:0-999",
+      "stars_at_original_snapshot": 997
+    },
+    {
+      "repository_id": 768641029,
+      "full_name": "xingpingcn/enhanced-FaaS-in-China",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 3105
+    },
+    {
+      "repository_id": 31028375,
+      "full_name": "DefectDojo/django-DefectDojo",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 5029
+    },
+    {
+      "repository_id": 16964283,
+      "full_name": "olofk/fusesoc",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1477
+    },
+    {
+      "repository_id": 782634112,
+      "full_name": "NVIDIA/earth2studio",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1210
+    },
+    {
+      "repository_id": 564031511,
+      "full_name": "ChaozhongLiu/DyberPet",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1003
+    },
+    {
+      "repository_id": 6390826,
+      "full_name": "Doist/bitmapist",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1010
+    },
+    {
+      "repository_id": 6210553,
+      "full_name": "psd-tools/psd-tools",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1482
+    },
+    {
+      "repository_id": 333850832,
+      "full_name": "JerBouma/FinanceDatabase",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 9520
+    },
+    {
+      "repository_id": 140887618,
+      "full_name": "KhronosGroup/glTF-Blender-IO",
+      "stratum": "Python:1000-9999",
+      "stars_at_original_snapshot": 1666
+    },
+    {
+      "repository_id": 203188450,
+      "full_name": "Atarity/deploy-your-own-saas",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 10132
+    },
+    {
+      "repository_id": 266417772,
+      "full_name": "SimplifyJobs/Summer2027-Internships",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 48092
+    },
+    {
+      "repository_id": 290091948,
+      "full_name": "labmlai/annotated_deep_learning_paper_implementations",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 67583
+    },
+    {
+      "repository_id": 151871286,
+      "full_name": "pypa/pipx",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 12983
+    },
+    {
+      "repository_id": 627727693,
+      "full_name": "axolotl-ai-cloud/axolotl",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 12610
+    },
+    {
+      "repository_id": 498011141,
+      "full_name": "huggingface/diffusers",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 34773
+    },
+    {
+      "repository_id": 671269505,
+      "full_name": "BerriAI/litellm",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 61780
+    },
+    {
+      "repository_id": 143580,
+      "full_name": "django-cms/django-cms",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 10676
+    },
+    {
+      "repository_id": 873328,
+      "full_name": "getsentry/sentry",
+      "stratum": "Python:10000+",
+      "stars_at_original_snapshot": 45627
+    },
+    {
+      "repository_id": 270167613,
+      "full_name": "ehsanmok/create-your-own-lang-with-rust",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 957
+    },
+    {
+      "repository_id": 823467100,
+      "full_name": "TransformerOptimus/SuperCoder",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 999
+    },
+    {
+      "repository_id": 773851464,
+      "full_name": "nixops4/nixops4",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 951
+    },
+    {
+      "repository_id": 587768462,
+      "full_name": "symbolica-dev/symbolica",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 995
+    },
+    {
+      "repository_id": 326453917,
+      "full_name": "qarmin/szyszka",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 985
+    },
+    {
+      "repository_id": 861970515,
+      "full_name": "talwat/lowfi",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 950
+    },
+    {
+      "repository_id": 185532731,
+      "full_name": "smartcorelib/smartcore",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 968
+    },
+    {
+      "repository_id": 469920647,
+      "full_name": "mozilla/cargo-vet",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 998
+    },
+    {
+      "repository_id": 720989931,
+      "full_name": "ibraheemdev/papaya",
+      "stratum": "Rust:0-999",
+      "stars_at_original_snapshot": 955
+    },
+    {
+      "repository_id": 52397656,
+      "full_name": "alilleybrinker/langs-in-rust",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1041
+    },
+    {
+      "repository_id": 943950290,
+      "full_name": "datahaven-xyz/datahaven",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 7878
+    },
+    {
+      "repository_id": 722915479,
+      "full_name": "golemcloud/golem",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1523
+    },
+    {
+      "repository_id": 715493447,
+      "full_name": "loco-rs/loco",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 9496
+    },
+    {
+      "repository_id": 84448164,
+      "full_name": "mitnk/cicada",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1008
+    },
+    {
+      "repository_id": 419028280,
+      "full_name": "verus-lang/verus",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 3378
+    },
+    {
+      "repository_id": 826280820,
+      "full_name": "Losses/rune",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1012
+    },
+    {
+      "repository_id": 692344201,
+      "full_name": "AkimioJR/AutoFilm",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1056
+    },
+    {
+      "repository_id": 163319421,
+      "full_name": "linebender/kurbo",
+      "stratum": "Rust:1000-9999",
+      "stars_at_original_snapshot": 1021
+    },
+    {
+      "repository_id": 519895363,
+      "full_name": "GyulyVGC/sniffnet",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 41660
+    },
+    {
+      "repository_id": 479289739,
+      "full_name": "rerun-io/rerun",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 11623
+    },
+    {
+      "repository_id": 268424739,
+      "full_name": "helix-editor/helix",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 46671
+    },
+    {
+      "repository_id": 610292163,
+      "full_name": "stalwartlabs/stalwart",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 15220
+    },
+    {
+      "repository_id": 7270538,
+      "full_name": "ankitects/anki",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 32201
+    },
+    {
+      "repository_id": 50565430,
+      "full_name": "pnpm/pnpm",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 36888
+    },
+    {
+      "repository_id": 846698999,
+      "full_name": "aaif-goose/goose",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 55522
+    },
+    {
+      "repository_id": 143822069,
+      "full_name": "sunface/rust-course",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 31050
+    },
+    {
+      "repository_id": 193526915,
+      "full_name": "dandavison/delta",
+      "stratum": "Rust:10000+",
+      "stars_at_original_snapshot": 32551
+    },
+    {
+      "repository_id": 633933895,
+      "full_name": "Vaalley/pokemouille",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 2
+    },
+    {
+      "repository_id": 632242782,
+      "full_name": "michaelongaro/Autostrum",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 18
+    },
+    {
+      "repository_id": 117403675,
+      "full_name": "cabloy/cabloy",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 984
+    },
+    {
+      "repository_id": 675184132,
+      "full_name": "kebijuelun/Awesome-LLM-Learning",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 982
+    },
+    {
+      "repository_id": 164374373,
+      "full_name": "julianpoy/RecipeSage",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 977
+    },
+    {
+      "repository_id": 100764624,
+      "full_name": "fabiospampinato/vscode-todo-plus",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 998
+    },
+    {
+      "repository_id": 394437978,
+      "full_name": "upstash/redis-js",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 980
+    },
+    {
+      "repository_id": 274430747,
+      "full_name": "fsouza/prettierd",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 998
+    },
+    {
+      "repository_id": 264020206,
+      "full_name": "remorses/genql",
+      "stratum": "TypeScript:0-999",
+      "stars_at_original_snapshot": 980
+    },
+    {
+      "repository_id": 744111131,
+      "full_name": "Skolaczk/next-starter",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1002
+    },
+    {
+      "repository_id": 584189373,
+      "full_name": "rupali-codes/LinksHub",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1018
+    },
+    {
+      "repository_id": 1569980,
+      "full_name": "mqttjs/MQTT.js",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 9126
+    },
+    {
+      "repository_id": 858645266,
+      "full_name": "modstart-lib/linkandroid",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 2695
+    },
+    {
+      "repository_id": 286295150,
+      "full_name": "antfu-collective/vitesse",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 9440
+    },
+    {
+      "repository_id": 54584318,
+      "full_name": "davidedc/Algebrite",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1003
+    },
+    {
+      "repository_id": 752251073,
+      "full_name": "e18e/module-replacements",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1012
+    },
+    {
+      "repository_id": 488959298,
+      "full_name": "Arthi-chaud/Meelo",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1441
+    },
+    {
+      "repository_id": 207588519,
+      "full_name": "Redocly/redocly-cli",
+      "stratum": "TypeScript:1000-9999",
+      "stars_at_original_snapshot": 1538
+    },
+    {
+      "repository_id": 138361150,
+      "full_name": "doocs/jvm",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 11121
+    },
+    {
+      "repository_id": 65750241,
+      "full_name": "expo/expo",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 52977
+    },
+    {
+      "repository_id": 642497346,
+      "full_name": "langfuse/langfuse",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 36165
+    },
+    {
+      "repository_id": 691146,
+      "full_name": "tweenjs/tween.js",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 10149
+    },
+    {
+      "repository_id": 658389713,
+      "full_name": "wxt-dev/wxt",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 10639
+    },
+    {
+      "repository_id": 594155488,
+      "full_name": "Stirling-Tools/Stirling-PDF",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 94700
+    },
+    {
+      "repository_id": 1008373485,
+      "full_name": "siteboon/claudecodeui",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 14230
+    },
+    {
+      "repository_id": 929121414,
+      "full_name": "coleam00/Archon",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 23745
+    },
+    {
+      "repository_id": 35866694,
+      "full_name": "RocketChat/Rocket.Chat",
+      "stratum": "TypeScript:10000+",
+      "stars_at_original_snapshot": 46308
+    }
+  ]
+}

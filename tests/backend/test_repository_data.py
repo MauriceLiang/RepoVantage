@@ -180,6 +180,7 @@ def test_clear_selected_repository_data_removes_library_entries_and_keeps_other_
         "activity_windows": 1,
         "analysis_results": 1,
         "insight_runs": 1,
+        "maintenance_runs": 0,
         "checkpoints": 1,
         "collection_logs": 1,
         "raw_archive_directory_removed": True,

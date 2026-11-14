@@ -10,6 +10,12 @@ data/*
 data/datasets/*
 !data/datasets/featured-v1/
 !data/datasets/featured-v1/**
+!data/datasets/course-research-300-v1/
+!data/datasets/course-research-300-v1/**
+!data/datasets/course-test-events-v1/
+!data/datasets/course-test-events-v1/**
+!data/datasets/course-research-events-300-v1/
+!data/datasets/course-research-events-300-v1/**
 /data/collected/
 /data/raw/
 /data/*.db
@@ -24,3 +30,5 @@ frontend/node_modules/
 frontend/dist/
 !docs/insights/
 docs
+dataprepare
+.DS_Store

@@ -1,0 +1,54 @@
+{
+  "date": "2026-11-10",
+  "browser": "Codex in-app browser",
+  "data_mode": "真实 GitHub API 数据、临时 SQLite 与本地 RepoVantage 前端",
+  "requested_viewport_css_px": {
+    "width": 390,
+    "height": 844
+  },
+  "effective_viewport_css_px": {
+    "width": 433,
+    "height": 938
+  },
+  "routes": [
+    {
+      "route": "/repositories/596892/overview",
+      "repository": "pallets/flask",
+      "document_client_width_px": 433,
+      "document_scroll_width_px": 433,
+      "overflowing_page_elements": 0,
+      "visible_data": [
+        "M1 集中活动型 ml03-12w-v1",
+        "M2 基本稳定 ml01-trend-12w-v1",
+        "M3 MAD 统计规则",
+        "真实 12 周 Commit 与覆盖事实"
+      ]
+    },
+    {
+      "route": "/compare",
+      "repositories": [
+        "pallets/flask",
+        "django/django"
+      ],
+      "document_client_width_px": 433,
+      "document_scroll_width_px": 433,
+      "overflowing_page_elements_outside_scroll_region": 0,
+      "comparison_table_scroll_region": {
+        "overflow_x": "auto",
+        "client_width_px": 364,
+        "scroll_width_px": 860
+      },
+      "visible_data": [
+        "共同 90 天观察窗口",
+        "每周 Commit 对比",
+        "并列 M1/M2/M3 证据",
+        "规则排名与 ML 证据分开"
+      ]
+    }
+  ],
+  "notes": [
+    "390×844 视口请求在内置浏览器中实际报告为 433×938 CSS 像素；两者均为窄屏断点范围。",
+    "比较表保留横向滑动容器；页面整体没有横向滚动溢出。",
+    "本记录保存 DOM 尺寸和布局检查；移动截图未另存为仓库文件。"
+  ]
+}

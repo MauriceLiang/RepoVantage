@@ -1,7 +1,6 @@
 import csv
 import io
 from datetime import date, datetime
-
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from sqlalchemy.orm import Session
 
@@ -10,10 +9,28 @@ from backend.app.api.helpers import envelope, pagination
 from backend.app.core.exceptions import AppError
 from backend.app.schemas.common import SuccessEnvelope
 from backend.app.schemas.insights import ClosedIssueDetail, ClosedIssuePage, CommitActivityPage, InsightQuality, InsightSeries, OnlineIssueDetail, OnlinePullRequestDetail, PullRequestDetail, PullRequestPage, ReleaseDetail, RepositoryInsights
+from backend.app.schemas.ml_evaluation import RepositoryEvaluation
 from backend.app.services.insights import repository_closed_issue_detail, repository_closed_issue_online_detail, repository_closed_issues, repository_commit_activity, repository_insights, repository_pull_request_detail, repository_pull_request_online_detail, repository_pull_requests, repository_release_detail
 from backend.app.integrations.github.client import GitHubClient
+from backend.app.services.ml_evaluation import repository_evaluation
 
 router = APIRouter(prefix="/repositories", tags=["insights"])
+
+
+@router.post("/{repository_id}/maintenance-collection", status_code=202)
+def collect_maintenance_activity(repository_id: int, request: Request, response: Response,
+                                  lookback_weeks: int = Query(default=12),
+                                  session: Session = Depends(get_session)):
+    from backend.app.services.maintenance import enqueue_maintenance
+    result = enqueue_maintenance(session, repository_id, lookback_weeks)
+    if result['reused']:
+        response.status_code = 200
+    return envelope(request, result)
+
+
+@router.get("/{repository_id}/evaluation", response_model=SuccessEnvelope[RepositoryEvaluation])
+def evaluation(repository_id: int, request: Request, session: Session = Depends(get_session)):
+    return envelope(request, repository_evaluation(session, repository_id))
 
 
 @router.get("/{repository_id}/insights", response_model=SuccessEnvelope[RepositoryInsights])
@@ -53,9 +70,10 @@ def closed_issues(
     page: int = Query(default=1, ge=1),
     per_page: int = Query(default=20, ge=1, le=100),
     search: str = Query(default="", max_length=100),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_closed_issues(session, repository_id, search)
+    result = repository_closed_issues(session, repository_id, search, window_days=window_days)
     items = result["items"]
     total = len(items)
     result.update({"items": items[(page - 1) * per_page : page * per_page], "page": page, "per_page": per_page, "total": total})
@@ -63,8 +81,8 @@ def closed_issues(
 
 
 @router.get("/{repository_id}/issues/export.csv")
-def export_closed_issues(repository_id: int, search: str = Query(default="", max_length=100), session: Session = Depends(get_session)):
-    result = repository_closed_issues(session, repository_id, search)
+def export_closed_issues(repository_id: int, search: str = Query(default="", max_length=100), window_days: int | None = Query(default=None), session: Session = Depends(get_session)):
+    result = repository_closed_issues(session, repository_id, search, window_days=window_days)
     if not result["available"]:
         raise AppError(409, "ISSUE_ARCHIVE_UNAVAILABLE", result["note"])
     output = io.StringIO(newline="")
@@ -95,9 +113,10 @@ def pull_requests(
     search: str = Query(default="", max_length=100),
     merged_from: datetime | None = Query(default=None),
     merged_to: datetime | None = Query(default=None),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to)
+    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to, window_days=window_days)
     items = result["items"]
     total = len(items)
     result.update({"items": items[(page - 1) * per_page : page * per_page], "page": page, "per_page": per_page, "total": total})
@@ -110,9 +129,10 @@ def export_pull_requests(
     search: str = Query(default="", max_length=100),
     merged_from: datetime | None = Query(default=None),
     merged_to: datetime | None = Query(default=None),
+    window_days: int | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
-    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to)
+    result = repository_pull_requests(session, repository_id, search, merged_from=merged_from, merged_to=merged_to, window_days=window_days)
     if not result["available"]:
         raise AppError(409, "PULL_REQUEST_ARCHIVE_UNAVAILABLE", result["note"])
     output = io.StringIO(newline="")

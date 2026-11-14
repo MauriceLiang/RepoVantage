@@ -1,0 +1,7 @@
+{
+  "decision": "沿用现有统计异常提示；本轮没有重训 Isolation Forest。",
+  "retrained": false,
+  "rule": "previous 11 complete weeks log1p median and MAD; flag absolute robust z >= 3",
+  "status": "preserved_mad_rule",
+  "task": "M3 activity_anomaly"
+}

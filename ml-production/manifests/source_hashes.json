@@ -1,0 +1,21 @@
+{
+  "frozen_at": "2026-11-09T14:26:59.644912+00:00",
+  "git_commit": "311f3c40e9ec8fd34ea415107050d41e23fa2c00",
+  "workspace_dirty": true,
+  "source_sha256": {
+    "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_module_coverage.jsonl.gz": "288369cf60ce5eef7f791489661b4bf430a4b41bc7a794f532dd1ee29dfd3e6f",
+    "dataprepare/MachineLearn/run/p0-reproduction-v2/activity/manifest.json": "4ed7f9d0b648f5ebc22e5d85e1a0d81ea359cd7c68cb1e22fb3ddad662ec79ce",
+    "dataprepare/MachineLearn/run/p0-reproduction-v2/unseen_holdout_manifest.json": "f8af2c15620d72b5f4655b62fc9d9119468bf92931b6778e103bb20543998ab8",
+    "dataprepare/MachineLearn/run/p0-reproduction-v2/prospective_shadow_manifest.json": "eedbd8e9a89d132ba8a1dfa2cdc482aefeb95c981353ca90a4b87e19f073c1af",
+    "dataprepare/MachineLearn/run/p0-reproduction-v2/prospective_shadow_predictions.json": "075f96abb9d4bf2f0bf2447e08e431e36f8bfe5ba5be1423ac5a78936db38ff9",
+    "dataprepare/MachineLearn/ml-300-reserves.json": "22b63367ff38517c886093d66a8d2e34a370663a677769d11f1b9b1d2cad3499",
+    "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
+    "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/capture_manifest.json": "d7af58ca485766dd2c6f1a8ffa8634f18234bb579f7ee53758324269786b98f4",
+    "pyproject.toml": "d2b5080863011c3bbc0f44fad38f39e6ba10a5fa8f35439c53c6013064b4d479",
+    "uv.lock": "3c5d22eb7cdb48ab2722ec1cb84fc52229c25b970ae3bc08cb0853a7c16b0fa5",
+    "dataprepare/MachineLearn/research_s1/requirements.txt": "8a894c41ab06047504d4969d48596a5a9fdea053ea511c9baa84a4958e208cdf"
+  },
+  "pool_sha256": "d254c1e245fef2e3949f9c42855f917da3eaafc895dfbdf0658b086dff47206d",
+  "train_manifest_sha256": "5645ec0a04522e269ebb00290921f55c32a045a01a4edc6638f8da1b9d7d5efd",
+  "note": "此提交上已有未提交变更；训练脚本和模型最终哈希将另外随模型保存。"
+}

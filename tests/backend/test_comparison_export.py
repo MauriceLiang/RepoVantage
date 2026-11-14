@@ -12,7 +12,7 @@ from backend.app.persistence.models import AnalysisResult, Repository, Repositor
 HEADERS = {"X-Internal-Api-Key": "test-internal-key"}
 
 
-def seed_activity_comparison(factory, *, second_days=180, second_offset=0, second_offset_hours=0, partial=False, empty_issues=False):
+def seed_activity_comparison(factory, *, second_days=180, second_offset=0, second_offset_hours=0, partial=False, partial_issues=False, empty_issues=False, missing_first_issues=False, issue_repeats=10):
     from backend.app.services.insights import persist_insights
 
     end = datetime(2026, 10, 19)
@@ -24,14 +24,15 @@ def seed_activity_comparison(factory, *, second_days=180, second_offset=0, secon
             stop = end - timedelta(days=second_offset if repository_id == 322 else 0, hours=second_offset_hours if repository_id == 322 else 0)
             raw = {
                 "commits": [{"sha": f"{days:040x}", "commit": {"committer": {"date": iso_z(stop - timedelta(days=days))}}} for days in (5, 15, 45, 80, 120, 170)],
-                "issues": [] if empty_issues else [{"id": index + 1, "created_at": iso_z(stop - timedelta(days=days + index + 2)), "closed_at": iso_z(stop - timedelta(days=days + index))} for index, days in enumerate([2] * 10 + [45] * 10)],
+                "issues": [] if empty_issues or (missing_first_issues and repository_id == 321) else [{"id": index + 1, "created_at": iso_z(stop - timedelta(days=days + index + 2)), "closed_at": iso_z(stop - timedelta(days=days + index))} for index, days in enumerate([2] * issue_repeats + [45] * issue_repeats)],
                 "pulls": [{"id": index + 1, "created_at": iso_z(stop - timedelta(days=days + index + 1)), "merged_at": iso_z(stop - timedelta(days=days + index))} for index, days in enumerate([2] * 10 + [45] * 10)],
                 "releases": [{"id": index + 1, "published_at": iso_z(stop - timedelta(days=days)), "draft": False, "prerelease": False} for index, days in enumerate((10, 50, 200))],
             }
             start = stop - timedelta(days=second_days if repository_id == 322 else 180)
             sources = {
                 module: {
-                    "coverage": "budget_exhausted" if partial and repository_id == 321 and module == "commits" else "complete",
+                    "coverage": "budget_exhausted" if partial and repository_id == 321 and module == "commits"
+                        or partial_issues and repository_id == 321 and module == "issues" else "complete",
                     "requested_interval": [iso_z(stop - timedelta(days=365) if module == "releases" else start), iso_z(stop)],
                 }
                 for module in raw
@@ -150,7 +151,7 @@ def test_same_period_recalculates_on_two_hour_shared_overlap_and_exports_basis(b
         assert row["metrics"]["issue_median_hours"]["window_start"] == basis["shared_window"]["start"]
         assert row["metrics"]["issue_median_hours"]["window_end"] == basis["shared_window"]["end"]
     assert result["repositories"][0]["metrics"]["release_interval_days"]["quality"] == "partial"
-    assert result["repositories"][0]["metrics"]["release_interval_days"]["value"] is None
+    assert result["repositories"][0]["metrics"]["release_interval_days"]["value"] == 95
     assert result["repositories"][1]["metrics"]["release_interval_days"]["quality"] == "ready"
     assert result["repositories"][1]["metrics"]["release_interval_days"]["window_start"] == "2025-10-18T22:00:00Z"
 

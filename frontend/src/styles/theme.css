@@ -15,6 +15,7 @@
   --gd-warn-bg: #faf2e3;
   --gd-warn-fg: #8a5a12;
   --gd-danger: #c0392b;
+  --gd-primary-button: #c04a25;
   --gd-toast-success-bg: #e8f5eb;
   --gd-toast-success-fg: #206534;
   --gd-toast-error-bg: #fde9e7;
@@ -30,6 +31,15 @@
   --gd-heat-3: #30a14e;
   --gd-heat-4: #216e39;
   --gd-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+  --gd-radius-card: 14px;
+  --gd-radius-control: 8px;
+  --gd-motion-fast: 140ms;
+  --gd-motion-base: 220ms;
+  --gd-motion-enter: 360ms;
+  --gd-motion-route: 420ms;
+  --gd-ease-standard: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --gd-ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --gd-ease-route: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .dark {
@@ -79,7 +89,7 @@
   --color-s5: var(--gd-s5);
   --font-sans: 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --radius-card: 10px;
+  --radius-card: var(--gd-radius-card);
 }
 
 @layer base {
@@ -109,7 +119,93 @@
 
 @layer components {
   .gd-card {
-    @apply bg-panel border border-line rounded-[10px] flex flex-col gap-3.5 min-w-0;
+    @apply bg-panel border border-line flex min-w-0 flex-col gap-3.5;
+    border-radius: var(--gd-radius-card);
+    transition: border-color var(--gd-motion-base) ease, background-color var(--gd-motion-base) ease;
+  }
+  .gd-segment-indicator {
+    transition: transform var(--gd-motion-base) var(--gd-ease-emphasized), width var(--gd-motion-base) var(--gd-ease-emphasized), opacity var(--gd-motion-fast) ease;
+  }
+  .route-transition-stage { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .route-page-enter-active,
+  .route-page-leave-active {
+    grid-area: 1 / 1;
+    min-width: 0;
+    transition: opacity var(--gd-motion-route) var(--gd-ease-route), transform var(--gd-motion-route) var(--gd-ease-route);
+  }
+  .route-page-enter-from { opacity: 0; transform: translateX(18px); }
+  .route-page-leave-to { opacity: 0; transform: translateX(-12px); }
+  .route-page-leave-active { pointer-events: none; }
+  .research-content-enter-active,
+  .research-content-leave-active {
+    transition: opacity 180ms ease, transform 180ms var(--gd-ease-route);
+  }
+  .research-content-enter-from { opacity: 0; transform: translateY(5px); }
+  .research-content-leave-to { opacity: 0; transform: translateY(-3px); }
+  .gd-skeleton-shimmer {
+    background-color: color-mix(in srgb, var(--gd-track) 82%, var(--gd-panel));
+    background-image: linear-gradient(105deg, transparent 28%, color-mix(in srgb, var(--gd-panel) 82%, transparent) 48%, transparent 68%);
+    background-size: 220% 100%;
+    animation: gd-skeleton-shimmer 1.25s ease-in-out infinite;
+  }
+  .route-progress {
+    position: fixed;
+    z-index: 1000;
+    inset: 0 0 auto;
+    height: 2px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .route-progress__bar {
+    display: block;
+    width: 36%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, transparent, var(--gd-primary-button) 35%, var(--gd-s1) 70%, transparent);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--gd-primary-button) 45%, transparent);
+    animation: gd-route-progress 1.15s var(--gd-ease-standard) infinite;
+  }
+  .route-progress-enter-active,
+  .route-progress-leave-active { transition: opacity 140ms ease; }
+  .route-progress-enter-from,
+  .route-progress-leave-to { opacity: 0; }
+  .analysis-tab-stage { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .analysis-tab-enter-active,
+  .analysis-tab-leave-active {
+    grid-area: 1 / 1;
+    min-width: 0;
+    transition: opacity 360ms var(--gd-ease-route), transform 360ms var(--gd-ease-route);
+  }
+  .analysis-tab-enter-from { opacity: 0; transform: translateX(9px); }
+  .analysis-tab-leave-to { opacity: 0; transform: translateX(-7px); }
+  .analysis-tab-leave-active { pointer-events: none; }
+  .gd-stagger > * {
+    animation: gd-stage-in var(--gd-motion-enter) var(--gd-ease-emphasized) both;
+  }
+  .gd-stagger > :nth-child(1) { animation-delay: 30ms; }
+  .gd-stagger > :nth-child(2) { animation-delay: 75ms; }
+  .gd-stagger > :nth-child(3) { animation-delay: 120ms; }
+  .gd-stagger > :nth-child(4) { animation-delay: 165ms; }
+  .gd-motion-list-enter-active,
+  .gd-motion-list-leave-active {
+    transition: opacity var(--gd-motion-base) ease, transform var(--gd-motion-base) var(--gd-ease-standard);
+  }
+  .gd-motion-list-move {
+    transition: transform 280ms var(--gd-ease-standard);
+  }
+  .gd-motion-list-enter-from { opacity: 0; transform: translateY(6px); }
+  .gd-motion-list-leave-to { opacity: 0; transform: translateY(-3px); }
+  .gd-interactive-row {
+    transition: background-color var(--gd-motion-base) ease, box-shadow var(--gd-motion-base) ease;
+  }
+  .gd-interactive-row:hover,
+  .gd-interactive-row:focus-within {
+    background: color-mix(in srgb, var(--gd-s1) 6%, var(--gd-panel));
+    box-shadow: inset 3px 0 0 color-mix(in srgb, var(--gd-s1) 74%, transparent);
+  }
+  .gd-interactive-row[aria-selected='true'],
+  .gd-interactive-row[data-selected='true'] {
+    background: color-mix(in srgb, var(--gd-s1) 7%, var(--gd-panel));
   }
   .gd-label {
     @apply text-[11.5px] text-muted;
@@ -119,5 +215,57 @@
   }
   .gd-link {
     @apply inline-flex items-center gap-1 font-medium underline decoration-[#d8d8d8] underline-offset-[3px] hover:decoration-ink dark:decoration-[#3f3f46];
+    transition: color var(--gd-motion-fast) ease, text-decoration-color var(--gd-motion-fast) ease;
+  }
+}
+
+/* 常用交互元素共用短促的状态过渡，按下按钮时给出轻微压感。 */
+:where(a, button, input, select, textarea, [role='button']) {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform, scale, text-decoration-color;
+  transition-duration: var(--gd-motion-fast);
+  transition-timing-function: var(--gd-ease-standard);
+}
+
+:where(button:not(:disabled)):active {
+  scale: 0.985;
+}
+
+@keyframes gd-stage-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gd-route-progress {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(300%); }
+}
+
+@keyframes gd-skeleton-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -120% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .route-progress__bar {
+    animation: none !important;
+    transform: translateX(90%);
+  }
+  .gd-skeleton-shimmer {
+    animation: none !important;
   }
 }

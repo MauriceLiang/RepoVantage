@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import * as echarts from 'echarts/core'
-import { BarChart, CustomChart, HeatmapChart, LineChart, ScatterChart } from 'echarts/charts'
-import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, MarkPointComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
+import { BarChart, CustomChart, HeatmapChart, LineChart, PieChart, ScatterChart } from 'echarts/charts'
+import { CalendarComponent, DataZoomComponent, GridComponent, LegendComponent, MarkLineComponent, MarkPointComponent, TitleComponent, TooltipComponent, VisualMapComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-echarts.use([BarChart, CustomChart, LineChart, ScatterChart, HeatmapChart, GridComponent, TooltipComponent, LegendComponent, MarkLineComponent, MarkPointComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
+echarts.use([BarChart, CustomChart, LineChart, PieChart, ScatterChart, HeatmapChart, GridComponent, TitleComponent, TooltipComponent, LegendComponent, MarkLineComponent, MarkPointComponent, VisualMapComponent, CalendarComponent, DataZoomComponent, CanvasRenderer])
 
 const props = withDefaults(defineProps<{ option: EChartsOption; height?: number; hideTooltipOnSelect?: boolean }>(), { height: 240, hideTooltipOnSelect: false })
 const emit = defineEmits<{
@@ -16,11 +16,32 @@ const emit = defineEmits<{
 const el = ref<HTMLDivElement | null>(null)
 let chart: echarts.ECharts | null = null
 let observer: ResizeObserver | null = null
+let motionPreference: MediaQueryList | null = null
+let reduceMotion = false
+
+function chartOption(option: EChartsOption): EChartsOption {
+  return {
+    ...option,
+    animation: !reduceMotion,
+    animationDuration: reduceMotion ? 0 : 520,
+    animationDurationUpdate: reduceMotion ? 0 : 320,
+    animationEasing: 'cubicOut',
+    animationEasingUpdate: 'cubicInOut',
+  }
+}
+
+function updateMotionPreference() {
+  reduceMotion = motionPreference?.matches ?? false
+  if (chart) chart.setOption(chartOption(props.option), true)
+}
 
 onMounted(() => {
   if (!el.value) return
+  motionPreference = window.matchMedia('(prefers-reduced-motion: reduce)')
+  reduceMotion = motionPreference.matches
+  motionPreference.addEventListener('change', updateMotionPreference)
   chart = echarts.init(el.value, undefined, { renderer: 'canvas' })
-  chart.setOption(props.option)
+  chart.setOption(chartOption(props.option))
   chart.on('click', (params) => {
     if (typeof params.dataIndex !== 'number') return
     if (props.hideTooltipOnSelect) chart?.dispatchAction({ type: 'hideTip' })
@@ -38,11 +59,13 @@ onMounted(() => {
   observer.observe(el.value)
 })
 
-watch(() => props.option, (option) => chart?.setOption(option, true), { deep: true })
+watch(() => props.option, (option) => chart?.setOption(chartOption(option), true), { deep: true })
 watch(() => props.height, () => chart?.resize())
 
 onBeforeUnmount(() => {
   observer?.disconnect()
+  motionPreference?.removeEventListener('change', updateMotionPreference)
+  motionPreference = null
   chart?.dispose()
   chart = null
 })

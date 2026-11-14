@@ -1,0 +1,8 @@
+{
+  "locked_at": "2026-11-10T00:09:12.221512+00:00",
+  "hashes": {
+    "scripts/evaluate_ml03_external_v2.py": "17492a4400e795cce88862ea4603ee7bb165ce1197e830d1b353c2126f724cf4",
+    "scripts/ml03_feature_parity.py": "e1306b16d09d00f42ec4c5dd1e08ca5d88f1b82d3c482d40a35f30e537f32918"
+  },
+  "note": "第二批外部模型输出尚未计算；固定同一容差及原数值门槛。"
+}

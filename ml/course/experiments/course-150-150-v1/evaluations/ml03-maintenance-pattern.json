@@ -1,0 +1,166 @@
+{
+  "candidate_comparison": {
+    "2": {
+      "cluster_sizes_train": {
+        "0": 97,
+        "1": 53
+      },
+      "mean_seed_pairwise_ari": 1.0,
+      "nmi_with_training_size_quantile_bins": 0.5167920900599172,
+      "seed_pairwise_ari": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "seed_silhouette_by_seed": {
+        "20261111": 0.39672504239748285,
+        "20261112": 0.39672504239748285,
+        "20261113": 0.39672504239748285,
+        "20261114": 0.39672504239748285,
+        "20261115": 0.39672504239748285
+      },
+      "seed_silhouette_mean": 0.39672504239748285,
+      "size_only_train_silhouette": 0.29657601269742156,
+      "train_silhouette": 0.39672504239748285
+    },
+    "3": {
+      "cluster_sizes_train": {
+        "0": 48,
+        "1": 22,
+        "2": 80
+      },
+      "mean_seed_pairwise_ari": 1.0,
+      "nmi_with_training_size_quantile_bins": 0.4081232848897175,
+      "seed_pairwise_ari": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "seed_silhouette_by_seed": {
+        "20261111": 0.4885016709613539,
+        "20261112": 0.4885016709613539,
+        "20261113": 0.4885016709613539,
+        "20261114": 0.4885016709613539,
+        "20261115": 0.4885016709613539
+      },
+      "seed_silhouette_mean": 0.4885016709613539,
+      "size_only_train_silhouette": 0.1514398587188549,
+      "train_silhouette": 0.4885016709613539
+    },
+    "4": {
+      "cluster_sizes_train": {
+        "0": 66,
+        "1": 22,
+        "2": 34,
+        "3": 28
+      },
+      "mean_seed_pairwise_ari": 1.0,
+      "nmi_with_training_size_quantile_bins": 0.435415761698375,
+      "seed_pairwise_ari": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ],
+      "seed_silhouette_by_seed": {
+        "20261111": 0.47598035698025154,
+        "20261112": 0.47598035698025154,
+        "20261113": 0.47598035698025154,
+        "20261114": 0.47598035698025154,
+        "20261115": 0.47598035698025154
+      },
+      "seed_silhouette_mean": 0.47598035698025154,
+      "size_only_train_silhouette": 0.15176080583367585,
+      "train_silhouette": 0.47598035698025154
+    }
+  },
+  "cluster_profiles": {
+    "0": {
+      "feature_means": {
+        "commit_active_fraction": 0.2708333333333333,
+        "commit_log_cv": 0.724484923980409,
+        "commit_longest_zero_fraction": 0.46701388888888884,
+        "commit_recent_change_log1p": -0.19831177831236704,
+        "commit_top2_share": 0.8406659800583128
+      },
+      "median_commit_total_12w": 11.0,
+      "name": "集中活动型",
+      "repositories": 48
+    },
+    "1": {
+      "feature_means": {
+        "commit_active_fraction": 0.0,
+        "commit_log_cv": 0.0,
+        "commit_longest_zero_fraction": 1.0,
+        "commit_recent_change_log1p": 0.0,
+        "commit_top2_share": 0.0
+      },
+      "median_commit_total_12w": 0.0,
+      "name": "低活动型",
+      "repositories": 22
+    },
+    "2": {
+      "feature_means": {
+        "commit_active_fraction": 0.9135416666666666,
+        "commit_log_cv": 0.7319743844026488,
+        "commit_longest_zero_fraction": 0.05208333333333333,
+        "commit_recent_change_log1p": 0.09150885672271106,
+        "commit_top2_share": 0.37105983811771354
+      },
+      "median_commit_total_12w": 156.5,
+      "name": "持续活动型",
+      "repositories": 80
+    }
+  },
+  "decision": "生成独立候选；需完成留出分布与兼容检查后决定是否切换",
+  "decision_checks": {
+    "beats_size_only_silhouette": true,
+    "mean_seed_ari_at_least_0_70": true,
+    "size_nmi_below_0_85": true
+  },
+  "deployment_eligible_by_training_checks": true,
+  "eligible_test_repositories": 150,
+  "eligible_training_repositories": 150,
+  "feature_names": [
+    "commit_active_fraction",
+    "commit_log_cv",
+    "commit_longest_zero_fraction",
+    "commit_recent_change_log1p",
+    "commit_top2_share"
+  ],
+  "feature_schema_version": "course-maintenance-12w-v1",
+  "not_evaluable_repositories": 0,
+  "selected_k": 3,
+  "size_only_test_silhouette": 0.25230783979896604,
+  "status": "candidate",
+  "task": "M1 maintenance_pattern",
+  "test_cluster_sizes": {
+    "0": 38,
+    "1": 28,
+    "2": 84
+  },
+  "test_repositories": 150,
+  "test_silhouette": 0.5231050529060579,
+  "test_size_nmi": 0.4725306706178206,
+  "training_repositories": 150
+}

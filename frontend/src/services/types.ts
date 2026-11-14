@@ -114,13 +114,16 @@ export interface RepositorySummary {
   activityDelta: number | null
   htmlUrl?: string
   alreadyInLibrary?: boolean
+  /** Dataset memberships returned by the repository library API. */
+  datasetIds?: string[]
+  hasHistoricalData?: boolean
 }
 
 export interface CommitEvent {
   sha: string
   title: string
   author: string
-  isBot: boolean
+  isBot: boolean | null
   anonymous?: boolean
   date: string
   url?: string
@@ -204,7 +207,7 @@ export interface PullRequestActivityRecord {
   durationDays: number | null
   state: 'closed' | 'merged'
   draft: boolean
-  commentsCount: number
+  commentsCount: number | null
   url?: string
 }
 
@@ -261,7 +264,7 @@ export interface ReleaseDetails {
 export interface AuthorContribution {
   author: string
   commits: number
-  isBot: boolean
+  isBot: boolean | null
   anonymous?: boolean
 }
 
@@ -313,6 +316,7 @@ export interface RepositoryAnalysis {
     coverageSourceTaskIds: string[]
     coverageArchivePaths: string[]
     eventSourceTaskIds: string[]
+    origin?: string | null
   }
   repository: RepositorySummary
   chartData: RepositoryChartData | null
@@ -331,8 +335,147 @@ export interface RepositoryAnalysis {
   windowAvailability: WindowAvailability
 }
 
+export interface ActivityForecast {
+  metric: 'commits_next_4w' | 'prs_created_next_4w'
+  status: 'available' | 'insufficient_data' | 'not_applicable' | 'temporarily_unavailable'
+  method: 'statistical_baseline' | 'descriptive_only'
+  asOf: string | null
+  prediction: number | null
+  dataCoverage: string
+  historyStart: string | null
+  historyEnd: string | null
+  targetStart: string | null
+  targetEnd: string | null
+  sourceRunId: string | null
+  sourceCollectedAt: string | null
+  notes: string[]
+}
+
+export interface RepositoryEvaluation {
+  repositoryId: string
+  metrics: ActivityForecast[]
+  limitations: string[]
+  researchSample: {
+    datasetId: string
+    datasetVersion: string
+    sampleRole: 'train' | 'test'
+    dataAsOf: string | null
+    observationStart: string | null
+    observationEndExclusive: string | null
+  } | null
+  maintenancePattern: MaintenancePattern
+  recentActivityChange: RecentActivityChange
+  activityTrend: ActivityTrendPrediction
+  activityAnomaly: ActivityAnomalySummary
+}
+
+export interface ActivityTrendPrediction {
+  status: 'available' | 'baseline_only' | 'insufficient_data' | 'partial_data' | 'temporarily_unavailable' | 'model_unavailable'
+  method: 'machine_learning' | 'statistical_baseline' | 'none'
+  trend: string | null
+  modelId: string | null
+  modelVersion: string | null
+  horizonWeeks: number
+  probabilities: null
+  reasonCode: string | null
+  evidence: Record<string, number | string>
+  notes: string[]
+}
+
+export interface RecentActivityChange {
+  status: 'available' | 'insufficient_data' | 'partial_data'
+  method: 'factual'
+  reasonCode: string | null
+  previous4wCommits: number | null
+  recent4wCommits: number | null
+  changeCount: number | null
+  threshold: number | null
+  trend: string | null
+  previousWindowStart: string | null
+  previousWindowEndExclusive: string | null
+  recentWindowStart: string | null
+  recentWindowEndExclusive: string | null
+  notes: string[]
+}
+
+export interface ActivityAnomalySummary {
+  status: 'baseline_only' | 'insufficient_data' | 'partial_data' | 'temporarily_unavailable'
+  method: 'statistical_baseline' | 'none'
+  suspected: boolean
+  reasonCode: string | null
+  weeks: { weekStart: string; commitCount: number; robustZ: number; direction: 'up' | 'down' | null }[]
+  notes: string[]
+}
+
+export interface MaintenanceCollectionResult {
+  taskId: string | null
+  reused: boolean
+  runId: string | null
+  lookbackWeeks: 12 | 24
+}
+
+export interface MaintenancePattern {
+  status: 'available' | 'insufficient_data' | 'unclassified' | 'temporarily_unavailable'
+  method: 'none' | 'statistical_baseline' | 'machine_learning'
+  reasonCode: string | null
+  modelId: string | null
+  modelVersion: string | null
+  featureSchemaVersion: string | null
+  patternId: string | null
+  patternName: string | null
+  displayName: string | null
+  asOf: string | null
+  historyStart: string | null
+  sourceRunId: string | null
+  sourceSha256: string | null
+  collectedAt: string | null
+  coverage: Record<string, string>
+  windowWeeks: number
+  evidence: Record<string, number>
+  limitations: string[]
+}
+
+export type SelectionMetric = 'commits_weekly_mean' | 'issue_median_hours' | 'pr_median_hours' | 'release_interval_days'
+
+export interface SelectionRequest {
+  repositoryIds: string[]
+  scenario?: string
+  candidateGroup?: string
+  candidatesConfirmed?: boolean
+  windowDays: TimeWindow
+  allowedLanguages: string[]
+  allowedLicenses: string[]
+  weights: Record<SelectionMetric, number>
+}
+
+export interface SelectionResult {
+  status: 'available' | 'insufficient_data'
+  scoringVersion: string
+  weights: Partial<Record<SelectionMetric, number>>
+  sharedWindow: { start: string; end: string } | null
+  ranking: { id: string; name: string; score: number; evidence: { metric: SelectionMetric; value: number | null; unit: string; normalized: number; weight: number; contribution: number; quality: string; validSamples: number; windowStart: string | null; windowEnd: string | null; sourceRunId: string | null; sourceKind: string | null; missingPolicy: 'observed' | 'neutral_50' }[] }[]
+  excluded: { id: string; name: string; reasons: string[] }[]
+  sensitivity: { criterion: string; repositoryIds: string[] }[]
+  maintenance: { commonWindow: { start: string; end: string } | null; dataAsOf: string | null; repositories: { id: string; name: string; sampleRole: 'train' | 'test' | null; pattern: MaintenancePattern; recentActivityChange: RecentActivityChange; activityTrend: ActivityTrendPrediction; activityAnomaly: ActivityAnomalySummary }[] }
+  notes: string[]
+  reportMarkdown: string
+  resultSignature: string
+}
+
+export interface SelectionFeedback {
+  id: string
+  scenario: string
+  candidateGroup: string
+  chosenRepositoryId: string
+  chosenRepositoryName: string
+  choiceKind: 'preference' | 'actual_choice'
+  reason: string
+  createdAt: string
+  reviewStatus: 'pending'
+}
+
 export type ComparisonMode = 'same_period' | 'individual_periods'
-export type ResearchAnalysisMode = 'formal' | 'exploratory'
+export type ResearchAnalysisMode = 'formal' | 'exploratory' | 'course'
 
 export interface ComparisonBasis {
   scope: 'shared_observation' | 'repository_windows'
@@ -366,6 +509,9 @@ export interface ComparisonEntry {
   prQuality: string
   prReasonCode: string | null
   releaseMedianDays: number | null
+  releaseQuality: string
+  sampleRole: 'train' | 'test' | null
+  sourceKind: string | null
 }
 
 export interface ComparisonBundle {
@@ -416,6 +562,8 @@ export interface ResearchDataset {
   issueSample: number
   prMedianDays: number | null
   prSample: number
+  releaseMedianDays?: number | null
+  releaseSample?: number
   groups: ResearchGroup[]
   scatter: {
     points: ResearchScatterPoint[]
@@ -425,8 +573,32 @@ export interface ResearchDataset {
     note: string
   }
   quality: { field: string; missingRate: number | null; missingCount: number | null; totalRecords: number | null }[]
-  metricQuality: { field: string; validSamples: number; missingCount: number; missingRate: number | null; reasons: string[] }[]
+  metricQuality: { field: string; validSamples: number; missingCount: number; missingRate: number | null; partialCount?: number; reasons: string[] }[]
+  courseSummary?: {
+    dataAsOf: string | null
+    observationWindow: { start: string | null; endExclusive: string | null }
+    eventWindowEnd: string | null
+    weeklyRecords: number
+    completeCommitRepositories: number
+    splitCounts: { train: number; test: number }
+    coverage: Record<string, number>
+  } | null
+  courseLanguageGroups?: { language: string; repositoryCount: number; commitSampleCount: number; weeklyCommitMean: number | null }[]
+  courseRepositories?: { repositoryId: string; fullName: string; language: string; sampleRole: 'train' | 'test'; weeklyCommitMean: number | null; activeWeeks: number | null; stars?: number | null; forks?: number | null; createdAt?: string | null }[]
   limitations: string[]
+}
+
+export interface RepositoryDashboardData {
+  id: string
+  name: string
+  repositoryCount: number
+  courseSummary: {
+    dataAsOf: string | null
+    weeklyRecords: number
+    completeCommitRepositories: number
+  }
+  courseLanguageGroups: { language: string; repositoryCount: number; commitSampleCount: number; weeklyCommitMean: number | null }[]
+  courseRepositories: { repositoryId: string; fullName: string; language: string; weeklyCommitMean: number | null; activeWeeks: number | null; stars: number | null; forks: number | null; createdAt: string | null }[]
 }
 
 export type TaskStatus = 'queued' | 'running' | 'analyzing' | 'done' | 'partial' | 'failed' | 'cancelled'
@@ -445,7 +617,7 @@ export interface TaskItem {
   phase?: string | null
   progressPercent?: number | null
   progressKind?: 'stages' | 'records' | 'indeterminate' | 'unknown'
-  scopeKind?: 'quick' | 'window' | 'incremental' | 'backfill' | null
+  scopeKind?: 'quick' | 'window' | 'incremental' | 'backfill' | 'maintenance' | null
   windowDays?: number | null
   windowStart?: string | null
   windowEnd?: string | null

@@ -1,19 +1,12 @@
 <script setup lang="ts">
-import { ChartNoAxesCombined, Columns2, Folder, Gauge } from 'lucide-vue-next'
 import { useRoute } from 'vue-router'
+import { primaryNavigation } from './navigation'
 
 const route = useRoute()
-
-const nav = [
-  { key: 'overview', label: '总览', to: '/', icon: Gauge },
-  { key: 'repositories', label: '仓库', to: '/repositories', icon: Folder },
-  { key: 'compare', label: '项目比较', to: '/compare', icon: Columns2 },
-  { key: 'research', label: '研究分析', to: '/research', icon: ChartNoAxesCombined },
-]
 </script>
 
 <template>
-  <aside class="sticky top-0 hidden h-screen w-[224px] shrink-0 flex-col border-r border-line bg-panel px-3 py-[18px] lg:flex">
+  <aside class="sticky top-0 hidden h-screen w-[236px] shrink-0 flex-col border-r border-line bg-panel px-4 py-5 lg:flex">
     <div class="flex h-[38px] items-center gap-2.5 px-1.5">
       <span class="relative grid size-6 shrink-0 place-items-center overflow-hidden">
         <img
@@ -28,15 +21,16 @@ const nav = [
       </div>
     </div>
 
-    <nav class="mt-[18px] flex flex-col gap-0.5">
+    <nav class="mt-7 flex flex-col gap-1">
       <RouterLink
-        v-for="item in nav"
+        v-for="item in primaryNavigation"
         :key="item.key"
         :to="item.to"
-        class="flex h-[34px] items-center gap-2.5 rounded-md px-2.5 text-[13.5px] transition-colors"
+        :aria-current="route.meta.nav === item.key ? 'page' : undefined"
+        class="flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] transition-[color,background-color] duration-200"
         :class="route.meta.nav === item.key ? 'bg-soft font-semibold text-ink' : 'text-muted hover:bg-track hover:text-ink'"
       >
-        <component :is="item.icon" :size="16" />
+        <component :is="item.icon" :size="18" :stroke-width="1.8" />
         {{ item.label }}
       </RouterLink>
     </nav>
