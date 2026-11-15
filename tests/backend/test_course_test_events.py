@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import hashlib
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -15,6 +16,18 @@ from backend.app.services.insights import repository_commit_activity, repository
 
 HEADERS = {"X-Internal-Api-Key": "test-internal-key"}
 REPOSITORY_ID = 1007360921  # trymirai/uzu，固定留出测试组成员。
+
+
+def test_historical_event_manifest_uses_canonical_id_and_keeps_archive_hashes():
+    from backend.app.core.config import PROJECT_ROOT
+
+    bundle = PROJECT_ROOT / "data/datasets/course-research-events-300-v1"
+    manifest = json.loads((bundle / "dataset.json").read_text(encoding="utf-8"))
+    archive = hashlib.sha256((bundle / "events.sqlite3.gz").read_bytes()).hexdigest()
+    assert manifest["dataset_id"] == "course-research-events-300-v1"
+    assert "course-test-events-v1" in manifest["legacy_dataset_ids"]
+    assert manifest["archive_sha256"] == archive == "94651c54b8ded3f928564ff4a665e0e2d4807c7cd934ae16fa694898a326a64c"
+    assert manifest["sqlite_sha256"] == "95b7a864c83a4bc09a534aa8232a90e13ad6e67ed7c40a66900cd65b1c8cb9c7"
 
 
 def test_test_repository_displays_local_event_analysis_and_records(backend_client, tmp_path, monkeypatch):
@@ -34,6 +47,7 @@ def test_test_repository_displays_local_event_analysis_and_records(backend_clien
     assert response.status_code == 200
     result = response.json()["data"]
     assert result["origin"] == "course-test-events-v1"
+    assert result["canonical_dataset_id"] == "course-research-events-300-v1"
     assert result["window_available"] is True
     assert (result["window_start"], result["window_end"]) == ("2026-08-07T10:31:37Z", "2026-11-05T10:31:37Z")
     assert result["observed_counts"]["commits_count"] == 285

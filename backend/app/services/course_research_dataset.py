@@ -302,6 +302,96 @@ def course_research_dashboard(session: Session, dataset_id: str) -> dict:
     }
 
 
+def course_research_atlas(session: Session, dataset_id: str = COURSE_RESEARCH_ID) -> dict:
+    """Return the 300 course repositories and 12-week traces in bounded batch queries."""
+    dataset = session.get(Dataset, dataset_id)
+    if dataset is None or dataset.type != "research" or dataset_id != COURSE_RESEARCH_ID:
+        raise AppError(422, "VALIDATION_ERROR", "仓库研究图谱只使用冻结的 300 仓库课程样本")
+    try:
+        source = json.loads(dataset.source_metadata_json or "{}")
+    except (TypeError, ValueError):
+        source = {}
+    members = session.execute(
+        select(DatasetRepository, Repository)
+        .join(Repository, Repository.repository_id == DatasetRepository.repository_id)
+        .where(DatasetRepository.dataset_id == dataset_id, DatasetRepository.exclusion_status.is_(None))
+        .order_by(DatasetRepository.repository_id)
+    ).all()
+    repository_ids = [member.repository_id for member, _repository in members]
+    run_ids = [_course_run_id(repository_id) for repository_id in repository_ids]
+    runs = session.scalars(select(MaintenanceRun).where(MaintenanceRun.run_id.in_(run_ids))).all() if run_ids else []
+    run_by_repository = {run.repository_id: run for run in runs}
+    actual_run_ids = [run.run_id for run in runs]
+    weeks = session.scalars(
+        select(MaintenanceWeek)
+        .where(MaintenanceWeek.run_id.in_(actual_run_ids))
+        .order_by(MaintenanceWeek.run_id, MaintenanceWeek.week_start)
+    ).all() if actual_run_ids else []
+    weeks_by_run: dict[str, list[MaintenanceWeek]] = {}
+    for week in weeks:
+        weeks_by_run.setdefault(week.run_id, []).append(week)
+    snapshots: dict[int, RepositorySnapshot] = {}
+    if repository_ids:
+        for snapshot in session.scalars(
+            select(RepositorySnapshot)
+            .where(RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True))
+            .order_by(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id))
+        ).all():
+            snapshots.setdefault(snapshot.repository_id, snapshot)
+
+    points, excluded = [], Counter()
+    for member, repository in members:
+        run = run_by_repository.get(member.repository_id)
+        trace = weeks_by_run.get(run.run_id, []) if run else []
+        if len(trace) != 12:
+            excluded["week_records_not_12"] += 1
+            continue
+        complete = all(
+            week.commit_coverage in {"complete", "true_zero"}
+            and week.pr_created_coverage in {"complete", "true_zero"}
+            for week in trace
+        )
+        if not complete:
+            excluded["12_week_activity_coverage_incomplete"] += 1
+            continue
+        snapshot = snapshots.get(member.repository_id)
+        points.append({
+            "repository_id": member.repository_id,
+            "full_name": repository.full_name,
+            "language": repository.language or "未知",
+            "sample_role": member.selection_tier,
+            "stars": snapshot.stars if snapshot else None,
+            "weekly_commit_mean": sum(week.commits for week in trace) / 12,
+            "weekly_pr_open_mean": sum(week.prs_created for week in trace) / 12,
+            "observation_window": {
+                "start": iso_z(trace[0].week_start),
+                "end_exclusive": iso_z(trace[-1].week_end),
+                "weeks": 12,
+            },
+            "coverage": {"commits": "complete", "prs_opened": "complete"},
+            "weekly_trace": [
+                {"week_start": iso_z(week.week_start), "commits": week.commits, "prs_opened": week.prs_created}
+                for week in trace
+            ],
+        })
+    return {
+        "dataset_id": dataset_id,
+        "data_as_of": source.get("data_as_of"),
+        "observation_window": source.get("observation_window"),
+        "repository_count": len(members),
+        "point_count": len(points),
+        "excluded_count": len(members) - len(points),
+        "excluded_reasons": dict(sorted(excluded.items())),
+        "weekly_record_count": len(weeks),
+        "coordinates": {
+            "x": "12 周周均 Commit",
+            "y": "12 周周均新开 PR",
+            "stars": "仅为已核验快照的点大小上下文；缺失时不插补",
+        },
+        "points": points,
+    }
+
+
 def _standard_test_metadata(bundle: dict) -> dict:
     metadata = bundle["metadata"]
     test_ids = {repository_id for repository_id, role in bundle["role_by_id"].items() if role == "test"}
@@ -616,15 +706,35 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
         source = json.loads(dataset.source_metadata_json or "{}")
     except (TypeError, ValueError):
         source = {}
-    memberships = session.scalars(select(DatasetRepository).where(
-        DatasetRepository.dataset_id == dataset_id, DatasetRepository.exclusion_status.is_(None)
-    ).order_by(DatasetRepository.repository_id)).all()
-    repository_ids = [member.repository_id for member in memberships]
+    memberships = session.execute(
+        select(DatasetRepository, Repository)
+        .join(Repository, Repository.repository_id == DatasetRepository.repository_id)
+        .where(DatasetRepository.dataset_id == dataset_id, DatasetRepository.exclusion_status.is_(None))
+        .order_by(DatasetRepository.repository_id)
+    ).all()
+    repository_ids = [member.repository_id for member, _repository in memberships]
     latest_snapshots: dict[int, RepositorySnapshot] = {}
     for snapshot in session.scalars(select(RepositorySnapshot).where(
         RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True)
     ).order_by(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id))).all():
         latest_snapshots.setdefault(snapshot.repository_id, snapshot)
+    run_ids = [_course_run_id(repository_id) for repository_id in repository_ids]
+    runs_by_repository = {
+        run.repository_id: run
+        for run in session.scalars(select(MaintenanceRun).where(MaintenanceRun.run_id.in_(run_ids))).all()
+    }
+    weeks_by_run: dict[str, list[MaintenanceWeek]] = {}
+    for week in session.scalars(
+        select(MaintenanceWeek)
+        .where(MaintenanceWeek.run_id.in_(run_ids))
+        .order_by(MaintenanceWeek.run_id, MaintenanceWeek.week_start)
+    ).all():
+        weeks_by_run.setdefault(week.run_id, []).append(week)
+    event_repository_ids = set(session.scalars(select(DatasetRepository.repository_id).where(
+        DatasetRepository.dataset_id == COURSE_RESEARCH_ID,
+        DatasetRepository.repository_id.in_(repository_ids),
+        DatasetRepository.exclusion_status.is_(None),
+    )).all()) if repository_ids else set()
     from backend.app.services.course_test_events import _snapshot, historical_metric_summary
     event_snapshot = _snapshot()
     event_connection = None
@@ -646,15 +756,10 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
     rows, grouped = [], {}
     weekly_record_count = 0
     event_window_end = None
-    for member in memberships:
-        repository = session.get(Repository, member.repository_id)
-        if repository is None:
-            continue
+    for member, repository in memberships:
         snapshot = latest_snapshots.get(member.repository_id)
-        run = session.get(MaintenanceRun, _course_run_id(member.repository_id))
-        weeks = session.scalars(select(MaintenanceWeek).where(
-            MaintenanceWeek.run_id == run.run_id
-        ).order_by(MaintenanceWeek.week_start)).all() if run else []
+        run = runs_by_repository.get(member.repository_id)
+        weeks = weeks_by_run.get(run.run_id, []) if run else []
         weekly_record_count += len(weeks)
         complete = [week for week in weeks if week.commit_coverage in {"complete", "true_zero"}]
         total = sum(week.commits for week in complete) if len(complete) == 12 else None
@@ -670,7 +775,7 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
         }
         event_available = (
             event_connection is not None
-            and session.get(DatasetRepository, (COURSE_RESEARCH_ID, member.repository_id)) is not None
+            and member.repository_id in event_repository_ids
             and run is not None
         )
         event_result = historical_metric_summary(event_connection, event_manifest, member.repository_id, 90) if event_available else None

@@ -20,9 +20,11 @@
     "test:e2e:analysis-window": "node scripts/e2e-analysis-window.mjs",
     "test:e2e:selection-weights": "node scripts/e2e-selection-weights.mjs",
     "test:e2e:research-dashboard": "node scripts/e2e-research-dashboard.mjs",
+    "test:e2e:research-v44": "node scripts/e2e-research-v44.mjs",
     "test:e2e:collection-empty-state": "node scripts/e2e-collection-empty-state.mjs"
   },
   "dependencies": {
+    "@antv/g2": "^5.4.8",
     "dompurify": "^3.4.17",
     "echarts": "^5.5.1",
     "lucide-vue-next": "^0.468.0",

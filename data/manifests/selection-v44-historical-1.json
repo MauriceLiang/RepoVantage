@@ -1,0 +1,1724 @@
+{
+  "schema_version": 1,
+  "snapshot_version": "selection-v44-historical-1",
+  "metric_policy": "selection-metrics-v1",
+  "source_dataset": "featured-v1",
+  "source_dataset_id": "featured-default",
+  "source_quality_report": "data/manifests/featured-v1-quality-report.json",
+  "source_sha256": {
+    "checksum_manifest": "b4cc448822d7cd1088448f5594a1c53ceb59e904b8f1f12dcf25289dfdfb00ed",
+    "commits": "82ee0e4aba9bfe6316e6552e2c058420f62f04d1e458078c7af73fb1f0530f6b",
+    "issues": "76ec29e3e82f36fa1ac5ad6d0ea7b460a2d7dd97194008870ba9c19799999402",
+    "pulls": "f8dbb5a1ac97b2651c3459fdbb223ae5c597ea3cec1a5dd89fbcf2b83805d98a",
+    "releases": "3fd539f211cc11cf36eedb3a37f7809e6185d2abd64038ce553852704a604a62"
+  },
+  "as_of": "2026-10-22T08:32:31Z",
+  "activity_window": {
+    "start": "2026-07-27T00:00:00Z",
+    "end_exclusive": "2026-10-19T00:00:00Z",
+    "weeks": 12
+  },
+  "release_window": {
+    "start": "2025-10-22T08:32:31Z",
+    "end_exclusive": "2026-10-22T08:32:31Z",
+    "days": 365
+  },
+  "metric_count": 55,
+  "repository_count": 11,
+  "metrics": [
+    {
+      "repository_id": 160919119,
+      "metric_key": "weekly_commit_mean",
+      "value": 25.916666666666668,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 160919119,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 25.333333333333332,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 160919119,
+      "metric_key": "issue_closed_median_days",
+      "value": 0.07841435185185185,
+      "unit": "days",
+      "sample_count": 14,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 160919119,
+      "metric_key": "pr_merged_median_days",
+      "value": 0.04576388888888889,
+      "unit": "days",
+      "sample_count": 170,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 160919119,
+      "metric_key": "release_interval_median_days",
+      "value": 0.643449074074074,
+      "unit": "days",
+      "sample_count": 121,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 596892,
+      "metric_key": "weekly_commit_mean",
+      "value": 1.8333333333333333,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 596892,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 2.9166666666666665,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 596892,
+      "metric_key": "issue_closed_median_days",
+      "value": 0.044502314814814814,
+      "unit": "days",
+      "sample_count": 19,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 596892,
+      "metric_key": "pr_merged_median_days",
+      "value": null,
+      "unit": "days",
+      "sample_count": 4,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 596892,
+      "metric_key": "release_interval_median_days",
+      "value": null,
+      "unit": "days",
+      "sample_count": 0,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "true_zero",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 10270250,
+      "metric_key": "weekly_commit_mean",
+      "value": 10.75,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 10270250,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 17.75,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 10270250,
+      "metric_key": "issue_closed_median_days",
+      "value": 97.07145833333334,
+      "unit": "days",
+      "sample_count": 102,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 10270250,
+      "metric_key": "pr_merged_median_days",
+      "value": 1.6877430555555555,
+      "unit": "days",
+      "sample_count": 134,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 10270250,
+      "metric_key": "release_interval_median_days",
+      "value": 0.0003761574074074074,
+      "unit": "days",
+      "sample_count": 30,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 137078487,
+      "metric_key": "weekly_commit_mean",
+      "value": 8.583333333333334,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 137078487,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 42.5,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 137078487,
+      "metric_key": "issue_closed_median_days",
+      "value": 3.8608159722222224,
+      "unit": "days",
+      "sample_count": 114,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 137078487,
+      "metric_key": "pr_merged_median_days",
+      "value": 0.5106944444444445,
+      "unit": "days",
+      "sample_count": 419,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 137078487,
+      "metric_key": "release_interval_median_days",
+      "value": 18.02601851851852,
+      "unit": "days",
+      "sample_count": 20,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 74293321,
+      "metric_key": "weekly_commit_mean",
+      "value": 13.416666666666666,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 74293321,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 14.916666666666666,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 74293321,
+      "metric_key": "issue_closed_median_days",
+      "value": 17.69726851851852,
+      "unit": "days",
+      "sample_count": 102,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 74293321,
+      "metric_key": "pr_merged_median_days",
+      "value": 2.679085648148148,
+      "unit": "days",
+      "sample_count": 166,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 74293321,
+      "metric_key": "release_interval_median_days",
+      "value": 2.0147800925925923,
+      "unit": "days",
+      "sample_count": 102,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 6296790,
+      "metric_key": "weekly_commit_mean",
+      "value": 119.5,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 6296790,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 19.916666666666668,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 6296790,
+      "metric_key": "issue_closed_median_days",
+      "value": 0.015578703703703704,
+      "unit": "days",
+      "sample_count": 870,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 6296790,
+      "metric_key": "pr_merged_median_days",
+      "value": 1.6995023148148147,
+      "unit": "days",
+      "sample_count": 147,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 6296790,
+      "metric_key": "release_interval_median_days",
+      "value": 0.25077546296296294,
+      "unit": "days",
+      "sample_count": 23,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 139914932,
+      "metric_key": "weekly_commit_mean",
+      "value": 175.58333333333334,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 139914932,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 99.25,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 139914932,
+      "metric_key": "issue_closed_median_days",
+      "value": 40.11245949074075,
+      "unit": "days",
+      "sample_count": 486,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 139914932,
+      "metric_key": "pr_merged_median_days",
+      "value": 1.53625,
+      "unit": "days",
+      "sample_count": 1053,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 139914932,
+      "metric_key": "release_interval_median_days",
+      "value": 5.76005787037037,
+      "unit": "days",
+      "sample_count": 86,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 124230204,
+      "metric_key": "weekly_commit_mean",
+      "value": 73.83333333333333,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 124230204,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 76.25,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 124230204,
+      "metric_key": "issue_closed_median_days",
+      "value": 852.3034143518519,
+      "unit": "days",
+      "sample_count": 222,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 124230204,
+      "metric_key": "pr_merged_median_days",
+      "value": 0.820931712962963,
+      "unit": "days",
+      "sample_count": 812,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 124230204,
+      "metric_key": "release_interval_median_days",
+      "value": 1.293414351851852,
+      "unit": "days",
+      "sample_count": 84,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 20904437,
+      "metric_key": "weekly_commit_mean",
+      "value": 1.5833333333333333,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 20904437,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 2.5,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 20904437,
+      "metric_key": "issue_closed_median_days",
+      "value": 16.936921296296298,
+      "unit": "days",
+      "sample_count": 11,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 20904437,
+      "metric_key": "pr_merged_median_days",
+      "value": 17.974675925925926,
+      "unit": "days",
+      "sample_count": 19,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 20904437,
+      "metric_key": "release_interval_median_days",
+      "value": null,
+      "unit": "days",
+      "sample_count": 0,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "true_zero",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 31504491,
+      "metric_key": "weekly_commit_mean",
+      "value": 2.8333333333333335,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 31504491,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 4.333333333333333,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 31504491,
+      "metric_key": "issue_closed_median_days",
+      "value": 14.177627314814815,
+      "unit": "days",
+      "sample_count": 9,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 31504491,
+      "metric_key": "pr_merged_median_days",
+      "value": 0.031157407407407408,
+      "unit": "days",
+      "sample_count": 41,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 31504491,
+      "metric_key": "release_interval_median_days",
+      "value": 8.971481481481481,
+      "unit": "days",
+      "sample_count": 18,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    },
+    {
+      "repository_id": 234231371,
+      "metric_key": "weekly_commit_mean",
+      "value": 81.33333333333333,
+      "unit": "commits/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周的 Commit 总数除以 12；提交量不代表质量。"
+    },
+    {
+      "repository_id": 234231371,
+      "metric_key": "weekly_pr_open_mean",
+      "value": 16.0,
+      "unit": "pull_requests/week",
+      "sample_count": 12,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "12 个完整 UTC 周内创建的 PR 总数除以 12；协作活动观察指标。"
+    },
+    {
+      "repository_id": 234231371,
+      "metric_key": "issue_closed_median_days",
+      "value": 64.00128472222222,
+      "unit": "days",
+      "sample_count": 37,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 234231371,
+      "metric_key": "pr_merged_median_days",
+      "value": 0.29020833333333335,
+      "unit": "days",
+      "sample_count": 162,
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "n<5 不给出中位数；5≤n<10 仅供探索，n≥10 才满足描述性比较门槛。"
+    },
+    {
+      "repository_id": 234231371,
+      "metric_key": "release_interval_median_days",
+      "value": 22.08888888888889,
+      "unit": "days",
+      "sample_count": 13,
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "data_cutoff_at": "2026-10-22T08:32:31Z",
+      "source_dataset_id": "featured-v1",
+      "coverage_status": "complete",
+      "coverage_ratio": 1.0,
+      "methodology_version": "selection-metrics-v1",
+      "notes": "365 天正式 Release 相邻间隔；不设置优劣方向，也不计入综合分。"
+    }
+  ],
+  "weekly_activity": [
+    {
+      "repository_id": 160919119,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 69,
+          "prs_opened": 49
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 40,
+          "prs_opened": 31
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 16,
+          "prs_opened": 26
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 28,
+          "prs_opened": 16
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 4,
+          "prs_opened": 30
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 18,
+          "prs_opened": 26
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 7
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 2,
+          "prs_opened": 14
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 61,
+          "prs_opened": 40
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 17,
+          "prs_opened": 19
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 56,
+          "prs_opened": 31
+        }
+      ]
+    },
+    {
+      "repository_id": 596892,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 5,
+          "prs_opened": 9
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 11,
+          "prs_opened": 6
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 1
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 8
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 5,
+          "prs_opened": 1
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        }
+      ]
+    },
+    {
+      "repository_id": 10270250,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 13,
+          "prs_opened": 24
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 8,
+          "prs_opened": 27
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 15,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 5,
+          "prs_opened": 19
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 15,
+          "prs_opened": 30
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 19,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 18,
+          "prs_opened": 26
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 9,
+          "prs_opened": 6
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 3,
+          "prs_opened": 5
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 2,
+          "prs_opened": 10
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 12,
+          "prs_opened": 18
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 10,
+          "prs_opened": 18
+        }
+      ]
+    },
+    {
+      "repository_id": 137078487,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 21
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 25,
+          "prs_opened": 27
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 4,
+          "prs_opened": 34
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 17
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 12,
+          "prs_opened": 27
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 43
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 6,
+          "prs_opened": 41
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 22,
+          "prs_opened": 62
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 67
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 69
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 56
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 32,
+          "prs_opened": 46
+        }
+      ]
+    },
+    {
+      "repository_id": 74293321,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 10
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 13
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 9,
+          "prs_opened": 16
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 47,
+          "prs_opened": 18
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 37,
+          "prs_opened": 39
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 11,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 9,
+          "prs_opened": 10
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 3,
+          "prs_opened": 7
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 10,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 9,
+          "prs_opened": 12
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 13,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 12,
+          "prs_opened": 20
+        }
+      ]
+    },
+    {
+      "repository_id": 6296790,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 56,
+          "prs_opened": 17
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 151,
+          "prs_opened": 11
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 126,
+          "prs_opened": 11
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 30,
+          "prs_opened": 14
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 129,
+          "prs_opened": 34
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 112,
+          "prs_opened": 22
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 151,
+          "prs_opened": 26
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 149,
+          "prs_opened": 22
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 37,
+          "prs_opened": 9
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 98,
+          "prs_opened": 23
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 195,
+          "prs_opened": 20
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 200,
+          "prs_opened": 30
+        }
+      ]
+    },
+    {
+      "repository_id": 139914932,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 170,
+          "prs_opened": 81
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 155,
+          "prs_opened": 108
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 125,
+          "prs_opened": 78
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 147,
+          "prs_opened": 88
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 180,
+          "prs_opened": 102
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 165,
+          "prs_opened": 115
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 223,
+          "prs_opened": 101
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 223,
+          "prs_opened": 158
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 143,
+          "prs_opened": 66
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 153,
+          "prs_opened": 74
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 167,
+          "prs_opened": 109
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 256,
+          "prs_opened": 111
+        }
+      ]
+    },
+    {
+      "repository_id": 124230204,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 14,
+          "prs_opened": 13
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 6,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 16,
+          "prs_opened": 20
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 24,
+          "prs_opened": 13
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 23,
+          "prs_opened": 31
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 75,
+          "prs_opened": 77
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 129,
+          "prs_opened": 135
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 66,
+          "prs_opened": 57
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 157,
+          "prs_opened": 200
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 112,
+          "prs_opened": 108
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 120,
+          "prs_opened": 151
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 144,
+          "prs_opened": 106
+        }
+      ]
+    },
+    {
+      "repository_id": 20904437,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 3,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 5
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 11,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 3,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        }
+      ]
+    },
+    {
+      "repository_id": 31504491,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 2,
+          "prs_opened": 3
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 0,
+          "prs_opened": 0
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 1
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 2,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 2
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 4
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 7,
+          "prs_opened": 8
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 9,
+          "prs_opened": 18
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 8,
+          "prs_opened": 10
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 1,
+          "prs_opened": 0
+        }
+      ]
+    },
+    {
+      "repository_id": 234231371,
+      "weeks": [
+        {
+          "week_start": "2026-07-27T00:00:00Z",
+          "commits": 97,
+          "prs_opened": 18
+        },
+        {
+          "week_start": "2026-08-03T00:00:00Z",
+          "commits": 17,
+          "prs_opened": 19
+        },
+        {
+          "week_start": "2026-08-10T00:00:00Z",
+          "commits": 155,
+          "prs_opened": 16
+        },
+        {
+          "week_start": "2026-08-17T00:00:00Z",
+          "commits": 81,
+          "prs_opened": 12
+        },
+        {
+          "week_start": "2026-08-24T00:00:00Z",
+          "commits": 59,
+          "prs_opened": 9
+        },
+        {
+          "week_start": "2026-08-31T00:00:00Z",
+          "commits": 100,
+          "prs_opened": 17
+        },
+        {
+          "week_start": "2026-09-07T00:00:00Z",
+          "commits": 71,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-14T00:00:00Z",
+          "commits": 59,
+          "prs_opened": 15
+        },
+        {
+          "week_start": "2026-09-21T00:00:00Z",
+          "commits": 95,
+          "prs_opened": 18
+        },
+        {
+          "week_start": "2026-09-28T00:00:00Z",
+          "commits": 91,
+          "prs_opened": 17
+        },
+        {
+          "week_start": "2026-10-05T00:00:00Z",
+          "commits": 74,
+          "prs_opened": 14
+        },
+        {
+          "week_start": "2026-10-12T00:00:00Z",
+          "commits": 77,
+          "prs_opened": 22
+        }
+      ]
+    }
+  ],
+  "repository_coverage": [
+    {
+      "repository_id": 160919119,
+      "full_name": "fastapi/fastapi",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 596892,
+      "full_name": "pallets/flask",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 10270250,
+      "full_name": "react/react",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 137078487,
+      "full_name": "vuejs/core",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 74293321,
+      "full_name": "sveltejs/svelte",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 6296790,
+      "full_name": "spring-projects/spring-boot",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 139914932,
+      "full_name": "quarkusio/quarkus",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 124230204,
+      "full_name": "micronaut-projects/micronaut-core",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 20904437,
+      "full_name": "gin-gonic/gin",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 31504491,
+      "full_name": "labstack/echo",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 234231371,
+      "full_name": "gofiber/fiber",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    }
+  ],
+  "http_requests": 0,
+  "limitations": [
+    "冻结精选案例样本，不代表 GitHub 随机样本或完整历史。",
+    "窗口指标描述可观测活动，不代表代码质量、性能、安全或技术适用性。",
+    "候选新增仓库尚无同一截止时间数据，保持待采集。"
+  ],
+  "immutable_fingerprint": "6cb7afb6a062be59cfad38c72161c19d3ca85ae75f9816ca7a0181a15e6d60ed"
+}

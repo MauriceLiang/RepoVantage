@@ -14,7 +14,18 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
-LATER_TABLES = {"dataset_import_jobs", "dataset_import_staging_records", "selection_feedback", "repository_maintenance_runs", "repository_maintenance_weeks"}
+LATER_TABLES = {
+    "dataset_import_jobs",
+    "dataset_import_staging_records",
+    "selection_feedback",
+    "repository_maintenance_runs",
+    "repository_maintenance_weeks",
+    "selection_scenarios",
+    "selection_scenario_candidates",
+    "selection_metric_snapshots",
+    "selection_capability_evidence",
+    "selection_snapshot_releases",
+}
 
 
 def upgrade() -> None:

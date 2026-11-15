@@ -1,0 +1,244 @@
+{
+  "schema_version": 1,
+  "policy_id": "repovantage-v4.4-curation-v1",
+  "policy_date": "2026-11-14",
+  "source_snapshot": "featured-v1 2026-10-22 + GitHub public repository metadata verified 2026-11-14 for new additions",
+  "policy": "Do not add these repositories to frozen ML train/test. Only compare same scenario and same metric observation window. Supplement repositories have no collected dataset until verified by local ETL.",
+  "scenarios": [
+    {
+      "slug": "go-http-api",
+      "title": "Go HTTP/API 服务端技术选型",
+      "priority": 1,
+      "baseline": [
+        "gin-gonic/gin",
+        "labstack/echo",
+        "gofiber/fiber"
+      ],
+      "add": [
+        "go-chi/chi"
+      ],
+      "decision_scope": "开发 Go HTTP/REST API，依据硬约束筛选；Fiber 与 net/http 路线兼容性单独核验"
+    },
+    {
+      "slug": "python-api",
+      "title": "Python Web API 技术选型",
+      "priority": 2,
+      "baseline": [
+        "fastapi/fastapi",
+        "pallets/flask"
+      ],
+      "add": [
+        "litestar-org/litestar"
+      ],
+      "decision_scope": "开发 Python API 服务；同步/异步、API规范、插件及运行部署差异需先做资格判断"
+    },
+    {
+      "slug": "jvm-services",
+      "title": "JVM 后端服务框架选型",
+      "priority": 3,
+      "baseline": [
+        "spring-projects/spring-boot",
+        "quarkusio/quarkus",
+        "micronaut-projects/micronaut-core"
+      ],
+      "add": [],
+      "decision_scope": "JVM HTTP服务/微服务；不得由GitHub活动推导启动速度或内存"
+    },
+    {
+      "slug": "frontend-ui",
+      "title": "前端交互 UI 技术选型",
+      "priority": 4,
+      "baseline": [
+        "react/react",
+        "vuejs/core",
+        "sveltejs/svelte"
+      ],
+      "add": [
+        "solidjs/solid"
+      ],
+      "decision_scope": "客户端UI层选型；SSR和全栈框架能力另建证据，不用核心库仓库直接代理"
+    }
+  ],
+  "repositories": [
+    {
+      "full_name": "fastapi/fastapi",
+      "github_repository_id": 160919119,
+      "language": "Python",
+      "scenario": "python-api",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "FastAPI: Python API 服务",
+      "url": "https://github.com/fastapi/fastapi"
+    },
+    {
+      "full_name": "django/django",
+      "github_repository_id": 4164482,
+      "language": "Python",
+      "scenario": "python-fullstack-reference",
+      "disposition": "reference",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Django: 全栈框架，非本轮API同类评分",
+      "url": "https://github.com/django/django"
+    },
+    {
+      "full_name": "pallets/flask",
+      "github_repository_id": 596892,
+      "language": "Python",
+      "scenario": "python-api",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Flask: 轻量 Web/API 路线",
+      "url": "https://github.com/pallets/flask"
+    },
+    {
+      "full_name": "react/react",
+      "github_repository_id": 10270250,
+      "language": "JavaScript",
+      "scenario": "frontend-ui",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "React: UI 层方案",
+      "url": "https://github.com/react/react"
+    },
+    {
+      "full_name": "vuejs/core",
+      "github_repository_id": 137078487,
+      "language": "TypeScript",
+      "scenario": "frontend-ui",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Vue: UI 层方案",
+      "url": "https://github.com/vuejs/core"
+    },
+    {
+      "full_name": "sveltejs/svelte",
+      "github_repository_id": 74293321,
+      "language": "JavaScript",
+      "scenario": "frontend-ui",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Svelte: UI 层方案",
+      "url": "https://github.com/sveltejs/svelte"
+    },
+    {
+      "full_name": "spring-projects/spring-boot",
+      "github_repository_id": 6296790,
+      "language": "Java",
+      "scenario": "jvm-services",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Spring Boot: JVM 服务端方案",
+      "url": "https://github.com/spring-projects/spring-boot"
+    },
+    {
+      "full_name": "quarkusio/quarkus",
+      "github_repository_id": 139914932,
+      "language": "Java",
+      "scenario": "jvm-services",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Quarkus: JVM 服务端方案",
+      "url": "https://github.com/quarkusio/quarkus"
+    },
+    {
+      "full_name": "micronaut-projects/micronaut-core",
+      "github_repository_id": 124230204,
+      "language": "Java",
+      "scenario": "jvm-services",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Micronaut: JVM 服务端方案",
+      "url": "https://github.com/micronaut-projects/micronaut-core"
+    },
+    {
+      "full_name": "gin-gonic/gin",
+      "github_repository_id": 20904437,
+      "language": "Go",
+      "scenario": "go-http-api",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Gin: Go HTTP/API 框架",
+      "url": "https://github.com/gin-gonic/gin"
+    },
+    {
+      "full_name": "labstack/echo",
+      "github_repository_id": 31504491,
+      "language": "Go",
+      "scenario": "go-http-api",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Echo: Go HTTP/API 框架",
+      "url": "https://github.com/labstack/echo"
+    },
+    {
+      "full_name": "gofiber/fiber",
+      "github_repository_id": 234231371,
+      "language": "Go",
+      "scenario": "go-http-api",
+      "disposition": "compare",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "Fiber: Fasthttp 路线，兼容性需要单独审查",
+      "url": "https://github.com/gofiber/fiber"
+    },
+    {
+      "full_name": "BurntSushi/ripgrep",
+      "github_repository_id": 53631945,
+      "language": "Rust",
+      "scenario": "rust-cli-case-studies",
+      "disposition": "reference",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "内容搜索工具，不能与bat/fd互替",
+      "url": "https://github.com/BurntSushi/ripgrep"
+    },
+    {
+      "full_name": "sharkdp/bat",
+      "github_repository_id": 130464961,
+      "language": "Rust",
+      "scenario": "rust-cli-case-studies",
+      "disposition": "reference",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "文件查看工具，不能与ripgrep/fd互替",
+      "url": "https://github.com/sharkdp/bat"
+    },
+    {
+      "full_name": "sharkdp/fd",
+      "github_repository_id": 90793418,
+      "language": "Rust",
+      "scenario": "rust-cli-case-studies",
+      "disposition": "reference",
+      "status_for_existing_data": "featured-v1 snapshot",
+      "decision_note": "文件查找工具，不能与ripgrep/bat互替",
+      "url": "https://github.com/sharkdp/fd"
+    },
+    {
+      "full_name": "litestar-org/litestar",
+      "github_repository_id": 435625572,
+      "language": "Python",
+      "scenario": "python-api",
+      "disposition": "supplement",
+      "status_for_existing_data": "discovery verified, metric collection pending",
+      "decision_note": "补充同类API候选，尚未纳入旧快照",
+      "url": "https://github.com/litestar-org/litestar"
+    },
+    {
+      "full_name": "go-chi/chi",
+      "github_repository_id": 44344606,
+      "language": "Go",
+      "scenario": "go-http-api",
+      "disposition": "supplement",
+      "status_for_existing_data": "discovery verified, metric collection pending",
+      "decision_note": "补充Go net/http 生态HTTP Router候选",
+      "url": "https://github.com/go-chi/chi"
+    },
+    {
+      "full_name": "solidjs/solid",
+      "github_repository_id": 130884470,
+      "language": "JavaScript",
+      "scenario": "frontend-ui",
+      "disposition": "supplement",
+      "status_for_existing_data": "discovery verified, metric collection pending",
+      "decision_note": "补充前端UI响应式方案",
+      "url": "https://github.com/solidjs/solid"
+    }
+  ]
+}

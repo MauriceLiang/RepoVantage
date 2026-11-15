@@ -60,9 +60,14 @@ def test_0001_database_upgrades_to_task_progress_without_losing_tasks(tmp_path, 
         assert row == ("legacy-task", "succeeded", 75.0, "unknown", None, None)
         assert inspect(connection).has_table("task_module_progress")
         assert inspect(connection).has_table("application_settings")
-        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0008_maintenance"
+        assert connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one() == "0009_selection_scenarios"
         assert inspect(connection).has_table("dataset_import_jobs")
         assert inspect(connection).has_table("dataset_import_staging_records")
+        assert inspect(connection).has_table("selection_scenarios")
+        assert inspect(connection).has_table("selection_scenario_candidates")
+        assert inspect(connection).has_table("selection_metric_snapshots")
+        assert inspect(connection).has_table("selection_capability_evidence")
+        assert inspect(connection).has_table("selection_snapshot_releases")
         staging_columns = {column["name"] for column in inspect(connection).get_columns("dataset_import_staging_records")}
         staging_indexes = {index["name"] for index in inspect(connection).get_indexes("dataset_import_staging_records")}
         assert "repository_id" in staging_columns

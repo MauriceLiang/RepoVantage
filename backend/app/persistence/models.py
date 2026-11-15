@@ -328,6 +328,108 @@ class SelectionFeedback(Base):
     created_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
 
 
+class SelectionScenario(Base):
+    __tablename__ = "selection_scenarios"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    category: Mapped[str] = mapped_column(String(100), nullable=False)
+    purpose: Mapped[str] = mapped_column(Text, nullable=False)
+    hard_constraints_json: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    created_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
+    updated_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
+
+
+class SelectionScenarioCandidate(Base):
+    __tablename__ = "selection_scenario_candidates"
+    __table_args__ = (
+        UniqueConstraint("scenario_id", "repository_id", name="uq_selection_scenario_candidate"),
+        Index("ix_selection_candidate_repository", "repository_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scenario_id: Mapped[int | None] = mapped_column(ForeignKey("selection_scenarios.id", ondelete="CASCADE"))
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.repository_id", ondelete="CASCADE"), nullable=False)
+    role: Mapped[str] = mapped_column(String(20), nullable=False)
+    reference_group: Mapped[str | None] = mapped_column(String(100))
+    source_order: Mapped[int] = mapped_column(Integer, nullable=False)
+    inclusion_reason: Mapped[str] = mapped_column(Text, nullable=False)
+    eligibility: Mapped[str] = mapped_column(String(20), nullable=False)
+    evidence_refs_json: Mapped[str] = mapped_column(Text, nullable=False)
+    reviewed_at: Mapped[object | None] = mapped_column(DateTime)
+    review_method: Mapped[str] = mapped_column(String(100), nullable=False)
+    exclude_reason: Mapped[str | None] = mapped_column(Text)
+    metric_collection_status: Mapped[str] = mapped_column(String(30), nullable=False)
+
+
+class SelectionMetricSnapshot(Base):
+    __tablename__ = "selection_metric_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "scenario_id", "repository_id", "metric_key", "window_start", "window_end_exclusive",
+            "methodology_version", name="uq_selection_metric_snapshot",
+        ),
+        Index("ix_selection_metric_scenario_repo", "scenario_id", "repository_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scenario_id: Mapped[int] = mapped_column(ForeignKey("selection_scenarios.id", ondelete="CASCADE"), nullable=False)
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.repository_id", ondelete="CASCADE"), nullable=False)
+    metric_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    value: Mapped[float | None] = mapped_column(Float)
+    unit: Mapped[str] = mapped_column(String(50), nullable=False)
+    sample_count: Mapped[int | None] = mapped_column(Integer)
+    window_start: Mapped[object | None] = mapped_column(DateTime)
+    window_end_exclusive: Mapped[object | None] = mapped_column(DateTime)
+    data_cutoff_at: Mapped[object] = mapped_column(DateTime, nullable=False)
+    source_dataset_id: Mapped[str] = mapped_column(String(100), nullable=False)
+    coverage_status: Mapped[str] = mapped_column(String(30), nullable=False)
+    coverage_ratio: Mapped[float | None] = mapped_column(Float)
+    methodology_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    calculated_at: Mapped[object] = mapped_column(DateTime, default=utc_now, nullable=False)
+    notes: Mapped[str | None] = mapped_column(Text)
+
+
+class SelectionCapabilityEvidence(Base):
+    __tablename__ = "selection_capability_evidence"
+    __table_args__ = (
+        UniqueConstraint("scenario_id", "repository_id", "capability_key", name="uq_selection_capability_evidence"),
+        Index("ix_selection_capability_scenario_repo", "scenario_id", "repository_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scenario_id: Mapped[int] = mapped_column(ForeignKey("selection_scenarios.id", ondelete="CASCADE"), nullable=False)
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.repository_id", ondelete="CASCADE"), nullable=False)
+    capability_key: Mapped[str] = mapped_column(String(100), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    applicable_version: Mapped[str | None] = mapped_column(String(100))
+    evidence_url: Mapped[str] = mapped_column(Text, nullable=False)
+    source_checked_at: Mapped[object] = mapped_column(DateTime, nullable=False)
+    rationale: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SelectionSnapshotRelease(Base):
+    __tablename__ = "selection_snapshot_releases"
+    __table_args__ = (
+        UniqueConstraint("scenario_id", "scenario_version", name="uq_selection_snapshot_release"),
+        Index("ix_selection_release_scenario_published", "scenario_id", "published_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scenario_id: Mapped[int] = mapped_column(ForeignKey("selection_scenarios.id", ondelete="CASCADE"), nullable=False)
+    scenario_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_dataset_refs_json: Mapped[str] = mapped_column(Text, nullable=False)
+    cutoff_at: Mapped[object] = mapped_column(DateTime, nullable=False)
+    window_policy_json: Mapped[str] = mapped_column(Text, nullable=False)
+    quality_report_path: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    immutable_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    published_at: Mapped[object | None] = mapped_column(DateTime)
+
+
 class MaintenanceRun(Base):
     __tablename__ = "repository_maintenance_runs"
     __table_args__ = (Index("ix_maintenance_repo_captured", "repository_id", "captured_at"),)

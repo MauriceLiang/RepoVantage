@@ -18,6 +18,8 @@
 | `run_id` / `analyzed_at` | 所选覆盖证明运行及其分析时间；使用历史事件快照时 `run_id` 为空，`analyzed_at` 为快照截止时间 |
 | `source_task_ids` / `source_archive_paths` | 覆盖证明运行关联的任务与归档，并非当前事件全部输入的归档清单 |
 | `calculation_basis` | `current_local_event_store` 表示读取当前本地事件表；`course-test-events-v1` 表示读取 300 仓库本地历史事件快照 |
+
+300 仓库历史事件包的规范数据集 ID 是 `course-research-events-300-v1`；API 的 `origin` 与 `calculation_basis` 暂继续返回旧别名 `course-test-events-v1` 以兼容现有客户端，并通过 `canonical_dataset_id` 返回规范 ID。
 | `calculated_at` | 本次计算时间，范围未覆盖时为空 |
 | `event_source_task_ids` | 本次读取事件记录实际对应的来源任务，去重并排序；历史快照没有关联任务时为空 |
 | `observed_counts` | 所选窗口重新计算的观测计数；Release 计数独立使用近 365 天 |

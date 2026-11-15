@@ -19,6 +19,7 @@ try {
   await page.evaluateOnNewDocument(() => localStorage.setItem('repovantage-theme', 'light'))
   await page.goto(new URL('/repositories', base).href, { waitUntil: 'networkidle0' })
   assert.equal(await page.$eval('[data-testid="app"]', (element) => element.getAttribute('data-mode')), 'mock')
+  assert.equal(await page.$eval('nav[aria-label="主要导航"]', (nav) => nav.textContent?.includes('项目比较') ?? false), false, '项目比较不应作为独立侧栏入口')
 
   await page.evaluate(async () => {
     const { MockRepositoryDataSource } = await import('/src/services/mockRepositoryDataSource.ts')
@@ -92,6 +93,9 @@ try {
   await page.waitForSelector('[data-testid="compare-selected"]:not([disabled])')
   await page.click('[data-testid="compare-selected"]')
   await page.waitForSelector('[data-testid="selection-report"]')
+  assert.ok(page.url().endsWith('/compare'), '从仓库选择后应进入项目比较')
+  assert.equal(await page.$eval('nav[aria-label="主要导航"] .nav-link--active', (link) => link.textContent?.trim()), '仓库', '项目比较页应保持仓库导航上下文')
+  assert.deepEqual(await page.$eval('.breadcrumb-link', (link) => ({ label: link.textContent?.trim(), path: new URL(link.href).pathname })), { label: '仓库', path: '/repositories' })
   await page.waitForFunction(() => [...document.querySelectorAll('[data-testid^="weight-metric-"] input[type="range"]')].some((input) => !input.disabled))
   await page.waitForSelector('[data-testid^="selection-score-"]')
 

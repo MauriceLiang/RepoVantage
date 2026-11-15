@@ -18,7 +18,7 @@ const dataMode = import.meta.env.VITE_DATA_MODE === 'mock' ? 'mock' : 'http'
 const currentTitle = computed(() => String(route.meta.title ?? '总览'))
 const breadcrumb = computed(() => String(route.meta.crumb ?? '工作台'))
 const activeNav = computed(() => String(route.meta.nav ?? 'overview'))
-const breadcrumbTarget = computed(() => route.name === 'repository' ? '/repositories' : '/')
+const breadcrumbTarget = computed(() => route.name === 'repository' || route.name === 'compare' ? '/repositories' : '/')
 
 </script>
 

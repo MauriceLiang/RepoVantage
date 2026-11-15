@@ -76,6 +76,11 @@ function csv(path: string): Promise<Blob> {
   return downloadResponse(path, '导出失败')
 }
 
+/** 通过同源浏览器会话读取新增的、由后端提供的研究端点。 */
+export function getBrowserApiData<T>(path: string): Promise<T> {
+  return data<T>(path)
+}
+
 function object(value: unknown): Record<string, any> {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}
 }

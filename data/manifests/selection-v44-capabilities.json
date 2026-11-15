@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "scenario": "go-http-api",
+  "capability_key": "net_http_middleware",
+  "source_checked_at": "2026-11-15T00:00:00Z",
+  "applicable_version": "仓库默认分支文档（2026-11-15 检查；未绑定历史 Release）",
+  "evidence": [
+    {
+      "repository_id": 20904437,
+      "full_name": "gin-gonic/gin",
+      "status": "supported",
+      "evidence_url": "https://github.com/gin-gonic/gin/blob/master/gin.go",
+      "rationale": "Engine 实现标准 http.Handler 接口，可挂载于 net/http Server；仍需按项目使用的 Gin 版本核对。"
+    },
+    {
+      "repository_id": 31504491,
+      "full_name": "labstack/echo",
+      "status": "supported",
+      "evidence_url": "https://github.com/labstack/echo/blob/master/echo.go",
+      "rationale": "Echo 暴露标准 net/http handler 入口，可与标准库 handler/middleware 互操作；仍需按项目使用的 Echo 版本核对。"
+    },
+    {
+      "repository_id": 234231371,
+      "full_name": "gofiber/fiber",
+      "status": "conditional",
+      "evidence_url": "https://github.com/gofiber/fiber/blob/main/docs/middleware/adaptor.md",
+      "rationale": "Fiber 基于 fasthttp；可通过 adaptor 桥接 net/http handler 和 middleware，但整条中间件链及语义需按部署和版本验证。"
+    },
+    {
+      "repository_id": 44344606,
+      "full_name": "go-chi/chi",
+      "status": "supported",
+      "evidence_url": "https://github.com/go-chi/chi",
+      "rationale": "Chi 使用标准 http.Handler 与 net/http middleware 形态；该候选的性能指标仍待同窗采集。"
+    }
+  ]
+}

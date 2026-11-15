@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts/core'
-import { BarChart, LineChart, PieChart, ScatterChart, TreemapChart } from 'echarts/charts'
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components'
+import { BarChart, LineChart, ParallelChart, PieChart, ScatterChart, TreemapChart } from 'echarts/charts'
+import { GridComponent, LegendComponent, ParallelComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import type { EChartsOption } from 'echarts'
 
-echarts.use([BarChart, LineChart, PieChart, ScatterChart, TreemapChart, GridComponent, LegendComponent, TooltipComponent, CanvasRenderer])
+echarts.use([BarChart, LineChart, ParallelChart, PieChart, ScatterChart, TreemapChart, GridComponent, LegendComponent, ParallelComponent, TooltipComponent, CanvasRenderer])
 
 const props = withDefaults(defineProps<{ option: EChartsOption; label: string; height?: number }>(), { height: 260 })
 const root = ref<HTMLDivElement | null>(null)
