@@ -1,6 +1,6 @@
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, PositiveInt, field_validator
+from pydantic import Field, PositiveInt, StringConstraints, field_validator
 
 from backend.app.schemas.common import DTO, SourceMetadata
 
@@ -62,6 +62,21 @@ class AddRepositoryResponse(DTO):
     membership_created: bool
     analysis_status: str
     task_id: str | None
+
+
+class CreateRepositoryGroupRequest(DTO):
+    name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+    repository_ids: list[PositiveInt] = Field(default_factory=list)
+
+
+class RepositoryGroupResponse(DTO):
+    id: int
+    name: str
+    repository_ids: list[int]
+
+
+class AddRepositoryGroupMembersRequest(DTO):
+    repository_ids: list[PositiveInt] = Field(min_length=1)
 
 
 class RefreshRequest(DTO):

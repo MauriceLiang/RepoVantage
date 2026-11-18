@@ -105,11 +105,11 @@ function filterAuthor(author: string) {
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-2">
-    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="commit-heatmap-card">
+    <GdCard class="h-[430px] min-h-0 overflow-hidden" data-testid="commit-heatmap-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">每日提交热力图</h3>
-          <p class="mt-0.5 text-[12px] text-muted">UTC · 拖动图例筛选提交次数；灰格可能为无归档提交或筛选范围外</p>
+          <p class="mt-0.5 text-[12px] text-muted">UTC · 设置每日 Commit 数范围突出对应日期；未命中数据会淡化，灰格也可能表示无归档提交</p>
         </div>
         <span class="shrink-0 text-[11px] text-muted">{{ activity?.commitCount.toLocaleString('zh-CN') ?? '—' }} 条 · {{ activeDays }} 个活跃日</span>
       </div>
@@ -121,11 +121,11 @@ function filterAuthor(author: string) {
       </div>
       <div v-else-if="activity && !activity.available" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] leading-relaxed text-muted">{{ activity.note }}</div>
       <div v-else-if="activity && !activity.dailyCounts.length && (!activity.windowStart || !activity.windowEnd)" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">本次采集范围内没有可展示的逐条 Commit。</div>
-      <CalendarHeatmap v-else-if="activity" :points="dailyPoints" :window-start="activity.windowStart" :window-end="activity.windowEnd" :height="235" />
+      <CalendarHeatmap v-else-if="activity" :points="dailyPoints" :window-start="activity.windowStart" :window-end="activity.windowEnd" :height="260" />
       <p v-if="activity?.note" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity.note }}</p>
     </GdCard>
 
-    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
+    <GdCard class="h-[430px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">作者贡献集中度</h3>

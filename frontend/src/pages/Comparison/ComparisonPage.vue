@@ -3,9 +3,9 @@ import { Download, Plus, TriangleAlert, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
+import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
-import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
@@ -14,6 +14,8 @@ import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, Mainten
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
+import UiPageHeader from '@/components/ui/UiPageHeader.vue'
+import UiPanel from '@/components/ui/UiPanel.vue'
 
 const ui = useUiStore()
 const analysis = useAnalysisStore()
@@ -272,6 +274,17 @@ const selectionContextKey = computed(() => JSON.stringify({ repositoryIds: analy
 const selectionResultContextKey = ref('')
 const selectionResultInputKey = ref('')
 const selectionResultIsStale = computed(() => !!selectionResult.value && selectionResultInputKey.value !== selectionKey.value)
+const selectionScoreRows = computed(() => {
+  const result = selectionResult.value
+  if (!result || result.status !== 'available') return []
+  return result.ranking.map((row, index) => ({
+    id: row.id,
+    name: row.name,
+    score: row.score,
+    rank: index + 1,
+    color: selectionBasisEntries.value.find((entry) => entry.id === row.id)?.color ?? '#73808a',
+  }))
+})
 let selectionRequestId = 0
 let selectionTimer: ReturnType<typeof setTimeout> | null = null
 watch(selectionKey, () => {
@@ -330,24 +343,20 @@ async function exportComparison() {
 </script>
 
 <template>
-  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="m-0 text-[24px] font-semibold">项目比较</h1>
-        <p class="mt-1.5 text-muted">选择时间口径后比较活跃度、处理耗时与发布节奏</p>
-      </div>
-      <div v-if="canCompare" class="flex flex-wrap items-center gap-2">
+  <div class="stack app-page comparison-page">
+    <UiPageHeader title="项目比较" description="选择真实时间口径后比较活跃度、处理耗时与发布节奏。">
+      <template #actions><div v-if="canCompare" class="flex flex-wrap items-center gap-2">
         <GdSegmented :model-value="analysis.timeWindow" :options="windowOptions" aria-label="比较时间范围" data-testid="comparison-window" @update:model-value="setWindow" />
         <GdSegmented :model-value="comparisonMode" :options="comparisonModeOptions" size="md" aria-label="选择对比方式" data-testid="comparison-mode" @update:model-value="setComparisonMode" />
         <GdButton variant="outline" :disabled="exporting || loading" data-testid="export-comparison" @click="exportComparison"><Download :size="14" /> {{ exporting ? '正在导出…' : '导出报告数据' }}</GdButton>
-      </div>
-    </div>
+      </div></template>
+    </UiPageHeader>
 
-    <GdCard v-if="!canCompare">
+    <UiPanel v-if="!canCompare" as="section">
       <h3 class="m-0 text-[15.5px] font-semibold">先选择 2–5 个仓库</h3>
       <p class="mt-1 text-[12px] text-muted">去仓库列表勾选至少两个仓库后，可以选择同期或各自窗口进行对比。</p>
       <RouterLink to="/repositories" class="gd-link mt-3 inline-flex text-[12px]"><Plus :size="12" /> 选择仓库</RouterLink>
-    </GdCard>
+    </UiPanel>
 
     <template v-else>
 
@@ -383,7 +392,7 @@ async function exportComparison() {
       <span>{{ error ?? comparisonNotes.join(' ') }}</span>
     </div>
 
-    <GdCard data-testid="selection-report">
+    <UiPanel as="section" data-testid="selection-report">
       <section class="space-y-4">
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="space-y-1">
@@ -508,6 +517,7 @@ async function exportComparison() {
             <GdBadge v-if="selectionResultIsStale" variant="warn">上次结果</GdBadge>
             <GdBadge v-else :variant="selectionResult.status === 'available' ? 'default' : 'warn'">{{ selectionResult.status === 'available' ? '可比较' : '筛选未通过' }}</GdBadge>
           </div>
+          <ComparisonScoreChart v-if="selectionScoreRows.length" :rows="selectionScoreRows" :height="Math.max(180, selectionScoreRows.length * 44)" />
           <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">语言或许可证筛选后候选不足两个，请调整筛选条件。</p>
           <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" :data-testid="`selection-score-${row.id}`">
             <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
@@ -564,9 +574,9 @@ async function exportComparison() {
           </div>
         </div>
       </section>
-    </GdCard>
+    </UiPanel>
 
-    <GdCard>
+    <UiPanel as="section">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">开发活动对比</h3>
@@ -587,9 +597,9 @@ async function exportComparison() {
         <span>单位：次 · SHA 去重 · 各仓库均为默认分支</span>
         <span>曲线在某周中断表示该仓库的采集到此结束，不用 0 补齐</span>
       </div>
-    </GdCard>
+    </UiPanel>
 
-    <GdCard>
+    <UiPanel as="section">
       <div>
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
@@ -664,9 +674,9 @@ async function exportComparison() {
       <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warnfg">
         没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
       </p>
-    </GdCard>
+    </UiPanel>
 
-    <GdCard>
+    <UiPanel as="section">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">综合对照表</h3>
@@ -704,7 +714,7 @@ async function exportComparison() {
         </tbody>
       </table>
       </div>
-    </GdCard>
+    </UiPanel>
 
     </template>
   </div>

@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EChartsOption } from 'echarts'
-import { useUiStore } from '@/stores/ui'
-import EChart from './EChart.vue'
-import { comboTooltip, escapeHtml } from './comboHelpers'
-import { fontFamily, MONO, chartTheme } from './theme'
+import type { G2Spec } from '@antv/g2'
+import G2Chart from './G2Chart.vue'
 
 interface ReleaseCadencePoint {
   tag: string
@@ -15,66 +12,30 @@ interface ReleaseCadencePoint {
   commitCount: number | null
   reason: string | null
 }
-
 const props = withDefaults(defineProps<{ items: ReleaseCadencePoint[]; height?: number }>(), { height: 280 })
 const emit = defineEmits<{ select: [tag: string] }>()
-const ui = useUiStore()
-const sorted = computed(() => [...props.items].sort((a, b) => a.date.localeCompare(b.date)))
-const option = computed<EChartsOption>(() => {
-  const t = chartTheme(ui.isDark)
-  const start = sorted.value.length > 20 ? (sorted.value.length - 20) / sorted.value.length * 100 : 0
-  const hasCommitCounts = sorted.value.some((item) => item.commitCount !== null)
-  return {
-    animation: false,
-    grid: { left: 46, right: 48, top: 55, bottom: 48 },
-    legend: { top: 0, left: 0, data: hasCommitCounts ? ['发布间隔', '期间提交'] : ['发布间隔'], textStyle: { color: t.muted, fontSize: 10, fontFamily }, itemWidth: 10, itemHeight: 8 },
-    tooltip: { ...comboTooltip(t), trigger: 'axis', axisPointer: { type: 'shadow', shadowStyle: { color: t.dark ? 'rgba(255,255,255,.06)' : 'rgba(30,41,59,.06)' } }, formatter: (params: unknown) => {
-      const index = (params as { dataIndex: number }[])[0]?.dataIndex
-      const item = sorted.value[index]
-      if (!item) return ''
-      const transition = `${item.previousTag || item.previousDate || '—'} → ${item.tag}`
-      return `<div>${escapeHtml(transition)}</div><div>${escapeHtml(item.previousDate ?? '—')} → ${escapeHtml(item.date)}</div><div>发布间隔：<b>${item.days.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天</b></div><div>期间提交：<b>${item.commitCount ?? '—'}</b>${item.commitCount === null ? ` · ${escapeHtml(item.reason ?? '覆盖不完整；不代表 0')}` : ''}</div>`
-    } },
-    xAxis: {
-      type: 'category',
-      data: sorted.value.map((_, index) => index),
-      axisLine: { lineStyle: { color: t.border } },
-      axisTick: { show: false },
-      axisLabel: {
-        color: t.ink,
-        fontSize: 9.5,
-        fontFamily: MONO,
-        hideOverlap: true,
-        formatter: (value: string) => {
-          const item = sorted.value[Number(value)]
-          return item ? `${item.previousDate?.slice(5, 10) ?? '—'}→${item.date.slice(5, 10)}` : ''
-        },
-      },
-    },
-    yAxis: [
-      { type: 'value', min: 0, name: '间隔（天）', nameTextStyle: { color: t.muted, fontSize: 9.5 }, axisLabel: { color: t.muted, fontSize: 9.5 }, splitLine: { lineStyle: { color: t.grid } } },
-      { type: 'value', min: 0, minInterval: 1, name: '提交数', nameTextStyle: { color: t.muted, fontSize: 9.5 }, axisLabel: { color: t.muted, fontSize: 9.5 }, splitLine: { show: false } },
-    ],
-    dataZoom: sorted.value.length > 20 ? [
-      { type: 'inside', xAxisIndex: 0, start, end: 100 },
-      { type: 'slider', xAxisIndex: 0, start, end: 100, height: 12, bottom: 0, showDetail: false, showDataShadow: false, brushSelect: false, borderColor: t.border, backgroundColor: t.soft, fillerColor: t.dark ? 'rgba(242,148,194,.2)' : 'rgba(206,63,124,.16)' },
-    ] : undefined,
-    series: [
-      { name: '发布间隔', type: 'bar', data: sorted.value.map((item) => ({
-        value: item.days,
-        label: { show: sorted.value.length <= 12, position: 'top' as const, distance: 4, color: t.ink, fontSize: 10, fontFamily: MONO, formatter: `${item.days.toLocaleString('zh-CN', { maximumFractionDigits: 1 })}天` },
-      })), barMaxWidth: 38, itemStyle: { color: t.series[0], borderRadius: [3, 3, 0, 0] }, emphasis: { itemStyle: { borderColor: t.ink, borderWidth: 1 } } },
-      { name: '期间提交', type: 'line', yAxisIndex: 1, data: sorted.value.map((item) => item.commitCount), connectNulls: false, symbol: 'circle', symbolSize: 6, lineStyle: { color: t.series[3], width: 2 }, itemStyle: { color: t.series[3] }, z: 4 },
-    ],
-  }
+const sorted = computed(() => {
+  const items = [...props.items].sort((a, b) => a.date.localeCompare(b.date))
+  const years = new Set(items.map((item) => item.date.slice(0, 4)))
+  return items.map((item, dataIndex) => ({
+    ...item,
+    label: years.size > 1 ? item.date.slice(2, 10).replace(/-/g, '/') : item.date.slice(5, 10).replace('-', '/'),
+    dataIndex,
+    seriesName: '发布间隔',
+  }))
 })
+const spec = computed<G2Spec>(() => ({
+  type: 'interval', data: sorted.value,
+  encode: { x: 'label', y: 'days' },
+  style: { fill: '#4d819b', radiusTopLeft: 3, radiusTopRight: 3 },
+  axis: { x: { labelFontSize: 8, labelAutoRotate: false }, y: { title: '间隔（天）', gridLineDash: [3, 3] } },
+  tooltip: { title: 'label', items: [{ field: 'previousTag', name: '上一版本' }, { field: 'tag', name: '当前版本' }, { field: 'days', name: '发布间隔（天）' }, { field: 'commitCount', name: '期间 Commit' }, { field: 'reason', name: 'Commit 覆盖说明' }] },
+}))
 function select(payload: { dataIndex: number; seriesName: string }) {
-  if (payload.seriesName !== '发布间隔' && payload.seriesName !== '期间提交') return
+  if (payload.seriesName !== '发布间隔') return
   const item = sorted.value[payload.dataIndex]
   if (item) emit('select', item.tag)
 }
 </script>
 
-<template>
-  <EChart :option="option" :height="height" @select="select" />
-</template>
+<template><G2Chart :spec="spec" label="相邻正式 Release 间隔，单位天；点击查看版本" :height="height" @select="select" /></template>

@@ -7,7 +7,6 @@ export const useAnalysisStore = defineStore('analysis', () => {
   const preferenceKey = 'repovantage-analysis-window'
   const savedWindow = typeof localStorage === 'undefined' ? null : Number(localStorage.getItem(preferenceKey))
   const timeWindow = ref<TimeWindow>(savedWindow === 30 || savedWindow === 90 || savedWindow === 180 ? savedWindow : 90)
-  const collectionScope = ref<'quick' | 'window'>('quick')
   const compareIds = ref<string[]>([])
 
   function setWindow(value: TimeWindow) {
@@ -22,5 +21,5 @@ export const useAnalysisStore = defineStore('analysis', () => {
   function setCompare(ids: string[]) {
     compareIds.value = ids.slice(0, 5)
   }
-  return { timeWindow, collectionScope, compareIds, setWindow, toggleCompare, setCompare }
+  return { timeWindow, compareIds, setWindow, toggleCompare, setCompare }
 })

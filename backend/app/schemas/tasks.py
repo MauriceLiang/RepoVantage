@@ -63,3 +63,7 @@ class RetryResponse(DTO):
     task_id: str
     retry_of: str
     status: Literal["queued"]
+
+
+class TaskDeleteResponse(DTO):
+    deleted_count: int = Field(ge=0)

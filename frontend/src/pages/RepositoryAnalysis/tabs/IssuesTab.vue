@@ -80,7 +80,7 @@ async function exportCsv() {
     </div>
     <IssueTrendChart v-if="analysis.chartData" :series="analysis.issues.series" :coverage="analysis.issues.coverage.state" :window-start="analysis.issues.window.startUtc ?? analysis.issues.window.start" :window-end="analysis.issues.window.endUtc ?? analysis.issues.window.end" />
     <GroupedChart v-else :series="analysis.issues.series" :unit="analysis.issues.unit" :height="250" />
-    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周新增与关闭数，折线及浅色区域为两者差值；差值不等于待处理数量。半透明柱为已观察样本，差值仅在完整周显示。</p>
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周新增与关闭数，折线为完整周的两者差值；差值不等于待处理数量。已观察样本与完整覆盖状态分别显示。</p>
     <p v-else class="text-[11px] text-muted">当前数据未提供新增 Issue 趋势，显示已采集的关闭数量。</p>
   </GdCard>
 
@@ -94,7 +94,7 @@ async function exportCsv() {
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.issueDuration.sampleSize }}</span>
       </div>
       <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :cumulative-step="false" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
-      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">50% 虚线表示累计占比的一半；P50 标记所在区间即中位数落入的耗时范围。</p>
+      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">柱为各耗时区间的 Issue 数；P50 数值可用于判断中位数所在区间。</p>
       <div class="text-[11px] text-muted">P50 {{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.issueDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.issueDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
     </GdCard>

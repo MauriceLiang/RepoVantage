@@ -1,12 +1,18 @@
 import type {
   ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
-  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryStatus, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, RepositoryDashboardData, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
+  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 
 interface Envelope<T> { data: T; meta?: Record<string, unknown> }
 interface ApiError { error?: { code?: string; message?: string }; request_id?: string }
+
+interface ApiRepositoryGroup { id: number; name: string; repository_ids: number[] }
+
+function mapRepositoryGroup(group: ApiRepositoryGroup): RepositoryGroup {
+  return { id: String(group.id), name: group.name, repositoryIds: group.repository_ids.map(String) }
+}
 
 let csrfToken: string | null = null
 let sessionRequest: Promise<void> | null = null
@@ -596,6 +602,30 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       }
     }
     return items.map((item) => mapRepository(item))
+  }
+
+  async listRepositoryGroups(): Promise<RepositoryGroup[]> {
+    return (await data<ApiRepositoryGroup[]>('/library/groups')).map(mapRepositoryGroup)
+  }
+
+  async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>('/library/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name, repository_ids: repositoryIds.map(repositoryId) }),
+    }))
+  }
+
+  async addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>(`/library/groups/${encodeURIComponent(groupId)}/repositories`, {
+      method: 'POST',
+      body: JSON.stringify({ repository_ids: repositoryIds.map(repositoryId) }),
+    }))
+  }
+
+  async removeRepositoryFromGroup(groupId: string, id: string): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>(`/library/groups/${encodeURIComponent(groupId)}/repositories/${repositoryId(id)}`, {
+      method: 'DELETE',
+    }))
   }
 
   async getActivityTrend(id: string): Promise<ActivityTrend> {
@@ -1195,38 +1225,6 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return load(selected, requestedMode)
   }
 
-  async getOverviewDashboard(): Promise<RepositoryDashboardData> {
-    const params = new URLSearchParams({ dataset_id: 'course-research-300-v1' })
-    const result = await data<Record<string, any>>(`/research/dashboard?${params}`)
-    const summary = object(result.course_summary)
-    return {
-      id: String(result.dataset_id ?? 'course-research-300-v1'),
-      name: String(result.name ?? '默认仓库数据集（300 个仓库）'),
-      repositoryCount: Number(result.repository_count ?? 0),
-      courseSummary: {
-        dataAsOf: textOrNull(summary.data_as_of),
-        weeklyRecords: Number(summary.weekly_records ?? 0),
-        completeCommitRepositories: Number(summary.repositories_with_12_complete_commit_weeks ?? 0),
-      },
-      courseLanguageGroups: array(result.course_language_groups).map((group) => ({
-        language: String(group.language ?? '未知'),
-        repositoryCount: Number(group.repository_count ?? 0),
-        commitSampleCount: Number(group.commit_sample_count ?? 0),
-        weeklyCommitMean: numberOrNull(group.weekly_commit_mean),
-      })),
-      courseRepositories: array(result.course_repositories).map((repository) => ({
-        repositoryId: String(repository.repository_id ?? ''),
-        fullName: String(repository.full_name ?? ''),
-        language: String(repository.language ?? '未知'),
-        weeklyCommitMean: numberOrNull(repository.weekly_commit_mean),
-        activeWeeks: numberOrNull(repository.active_weeks),
-        stars: numberOrNull(repository.stars),
-        forks: numberOrNull(repository.forks),
-        createdAt: shortDate(repository.created_at),
-      })),
-    }
-  }
-
   async exportResearchStatistics(datasetId: string, mode: ResearchAnalysisMode): Promise<Blob> {
     const params = new URLSearchParams({ dataset_id: datasetId, analysis_mode: mode })
     return csv(`/exports/research-insights.csv?${params}`)
@@ -1288,6 +1286,15 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       headers: { 'Idempotency-Key': crypto.randomUUID() },
     })
     return String(result.task_id)
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await data<{ deleted_count: number }>(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async clearTaskHistory(): Promise<number> {
+    const result = await data<{ deleted_count: number }>('/tasks', { method: 'DELETE' })
+    return Number(result.deleted_count ?? 0)
   }
 
   exportInsights(id: string, windowDays: TimeWindow): Promise<Blob> {

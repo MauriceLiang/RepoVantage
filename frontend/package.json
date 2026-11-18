@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "RepoVantage frontend — Vue 3 + TypeScript + Vite + Tailwind 4 + ECharts",
+  "description": "RepoVantage frontend — Vue 3 + TypeScript + Vite + Tailwind 4 + AntV G2 5",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
@@ -26,7 +26,6 @@
   "dependencies": {
     "@antv/g2": "^5.4.8",
     "dompurify": "^3.4.17",
-    "echarts": "^5.5.1",
     "lucide-vue-next": "^0.468.0",
     "marked": "^18.1.1",
     "pinia": "^2.2.6",

@@ -4,10 +4,10 @@ import { storeToRefs } from 'pinia'
 import { ArrowUpRight, Info, Search } from 'lucide-vue-next'
 import { getBrowserApiData } from '@/services/httpRepositoryDataSource'
 import { useUiStore } from '@/stores/ui'
-import ChartPanel from '../components/ChartPanel.vue'
-import ResearchAtlasG2 from '../components/ResearchAtlasG2.vue'
-import type { AtlasBrushSelection, AtlasChartPoint, AtlasPoint, AtlasResponse, AtlasSelectionRange, AtlasViewMode } from '../data/researchTypes'
-import type { EChartsOption } from 'echarts'
+import G2Chart from '@/components/charts/G2Chart.vue'
+import ResearchAtlasG2 from '@/components/charts/ResearchAtlasG2.vue'
+import type { AtlasBrushSelection, AtlasChartPoint, AtlasPoint, AtlasResponse, AtlasSelectionRange, AtlasViewMode } from '@/data/researchTypes'
+import type { G2Spec } from '@antv/g2'
 
 const ui = useUiStore()
 const { theme } = storeToRefs(ui)
@@ -135,19 +135,24 @@ function clearBrush() {
   brushedRepositoryIds.value = null
   brushSelection.value = null
 }
-const trendOption = computed<EChartsOption>(() => {
+const trendSpec = computed<G2Spec>(() => {
   const trace = selectedPoint.value?.weekly_trace ?? []
+  const data = trace.flatMap((week) => [
+    { week: week.week_start.slice(5, 10), series: 'Commit', value: week.commits },
+    { week: week.week_start.slice(5, 10), series: '新开 PR', value: week.prs_opened },
+  ])
+  const axisColor = isDark.value ? '#bec8d0' : '#667480'
+  const gridColor = isDark.value ? '#303942' : '#e6ebef'
   return {
-    color: ['#55b7f3', '#53c998'],
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, textStyle: { color: isDark.value ? '#bec8d0' : '#667480' } },
-    grid: { top: 18, right: 15, bottom: 48, left: 44 },
-    xAxis: { type: 'category', data: trace.map((week) => week.week_start.slice(5, 10)), axisLabel: { color: isDark.value ? '#bec8d0' : '#667480', fontSize: 10 } },
-    yAxis: { type: 'value', minInterval: 1, axisLabel: { color: isDark.value ? '#bec8d0' : '#667480', fontSize: 10 }, splitLine: { lineStyle: { color: isDark.value ? '#303942' : '#e6ebef', type: 'dashed' } } },
-    series: [
-      { name: 'Commit', type: 'line', data: trace.map((week) => week.commits), smooth: 0.18, symbolSize: 5, lineStyle: { width: 2.5 } },
-      { name: '新开 PR', type: 'line', data: trace.map((week) => week.prs_opened), smooth: 0.18, symbolSize: 5, lineStyle: { width: 2.5 } },
-    ],
+    type: 'line', data, encode: { x: 'week', y: 'value', color: 'series' },
+    scale: { color: { domain: ['Commit', '新开 PR'], range: ['#55b7f3', '#53c998'] } },
+    style: { lineWidth: 2.5, lineJoin: 'round' },
+    axis: {
+      x: { labelFill: axisColor, labelFontSize: 10, lineStroke: gridColor },
+      y: { labelFill: axisColor, labelFontSize: 10, gridStroke: gridColor, gridLineDash: [3, 3] },
+    },
+    legend: { color: { position: 'bottom', itemLabelFill: axisColor } },
+    tooltip: { title: 'week', items: [{ field: 'series', name: '指标' }, { field: 'value', name: '周计数' }] },
   }
 })
 
@@ -189,21 +194,21 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 </script>
 
 <template>
-  <div class="optimized-page atlas-page">
+  <div class="app-page atlas-page">
     <header class="atlas-heading">
       <div>
-        <div class="atlas-kicker">FROZEN COURSE RESEARCH · DESCRIPTIVE VIEW</div>
         <h1 class="page-title">300 仓库研究图谱</h1>
         <p class="page-description">用固定的 12 周 Commit 与新开 PR 记录查看样本分布。它用于研究探索，不是跨功能技术排名。</p>
       </div>
       <div class="atlas-heading-actions">
         <span v-if="result" class="snapshot-label">数据截止 <strong>{{ result.data_as_of?.slice(0, 10) }}</strong></span>
+        <RouterLink class="button button--outline" to="/research/ml-data">机器学习数据</RouterLink>
         <RouterLink class="button button--primary" to="/selection">进入技术选型 <ArrowUpRight :size="14" /></RouterLink>
       </div>
     </header>
 
-    <div v-if="loading" class="panel atlas-state" role="status">正在读取冻结课程样本…</div>
-    <div v-else-if="error" class="panel atlas-state atlas-state--error" role="alert"><strong>研究图谱暂不可用</strong><span>{{ error }}</span><button class="button button--outline" @click="loadAtlas">重新加载</button></div>
+    <div v-if="loading" class="panel atlas-state" role="status" data-testid="research-atlas-loading">正在读取冻结课程样本…</div>
+    <div v-else-if="error" class="panel atlas-state atlas-state--error" role="alert" data-testid="research-atlas-error"><strong>研究图谱暂不可用</strong><span>{{ error }}</span><button class="button button--outline" @click="loadAtlas">重新加载</button></div>
     <template v-else-if="result">
       <div class="atlas-meta-row">
         <span><strong>{{ result.point_count }}</strong> 个真实节点</span>
@@ -255,7 +260,7 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 
           <article v-if="selectedPoint" class="panel atlas-trend-panel">
             <div class="atlas-panel-heading"><div><h2>12 周活动轨迹</h2><p>Commit 与新开 PR 每周计数</p></div></div>
-            <ChartPanel :option="trendOption" label="选中仓库 12 周 Commit 和新开 PR 趋势" :height="230" />
+            <G2Chart :spec="trendSpec" label="选中仓库 12 周 Commit 和新开 PR 趋势" :height="230" />
           </article>
 
           <article class="panel atlas-list-panel">
@@ -275,7 +280,6 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 <style scoped>
 .atlas-page { display: grid; gap: 14px; }
 .atlas-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; }
-.atlas-kicker { margin-bottom:7px; color:var(--primary-ink); font-size:10px; font-weight:700; letter-spacing:.11em; }
 .atlas-heading-actions { display:flex; align-items:center; gap:9px; flex:0 0 auto; }
 .atlas-meta-row { display:flex; flex-wrap:wrap; align-items:center; gap:8px 18px; color:var(--muted); font-size:11px; }
 .atlas-meta-row strong { color:var(--ink); font-size:14px; }

@@ -25,6 +25,8 @@ LATER_TABLES = {
     "selection_metric_snapshots",
     "selection_capability_evidence",
     "selection_snapshot_releases",
+    "repository_groups",
+    "repository_group_members",
 }
 
 

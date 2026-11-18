@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { EChartsOption } from 'echarts'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { G2Spec } from '@antv/g2'
 import { summarizeAuthorDistribution, type AuthorDistributionBucket } from '@/lib/authorConcentration'
 import type { AuthorContribution } from '@/services/types'
-import { useUiStore } from '@/stores/ui'
-import EChart from './EChart.vue'
-import { fontFamily, MONO, chartTheme } from './theme'
+import G2Chart from './G2Chart.vue'
 
 const props = defineProps<{
   authors: AuthorContribution[]
@@ -14,7 +12,9 @@ const props = defineProps<{
   unidentifiedCommitCount: number | null
 }>()
 const emit = defineEmits<{ 'select-author': [author: string] }>()
-const ui = useUiStore()
+const chartRegion = ref<HTMLDivElement | null>(null)
+const chartRegionSize = ref({ width: 0, height: 0 })
+let chartRegionObserver: ResizeObserver | null = null
 
 const distribution = computed(() => {
   if (props.distribution === null || props.unidentifiedCommitCount === null) return null
@@ -25,55 +25,45 @@ const distribution = computed(() => {
 })
 
 const stats = computed(() => distribution.value ? summarizeAuthorDistribution(distribution.value) : null)
+const chartHeight = computed(() => Math.max(170, Math.min(280, chartRegionSize.value.height - 48, chartRegionSize.value.width * 0.62)))
 
-const option = computed<EChartsOption>(() => {
-  const t = chartTheme(ui.isDark)
+onMounted(() => {
+  if (!chartRegion.value) return
+  const updateSize = (width: number, height: number) => {
+    chartRegionSize.value = { width: Math.round(width), height: Math.round(height) }
+  }
+  updateSize(chartRegion.value.clientWidth, chartRegion.value.clientHeight)
+  chartRegionObserver = new ResizeObserver(([entry]) => {
+    updateSize(entry.contentRect.width, entry.contentRect.height)
+  })
+  chartRegionObserver.observe(chartRegion.value)
+})
+
+onBeforeUnmount(() => chartRegionObserver?.disconnect())
+
+const spec = computed<G2Spec>(() => {
+  const points = stats.value?.points.map((point) => ({ x: point.value[0], y: point.value[1], authors: point.authors, commits: point.commits })) ?? []
   return {
-    animation: false,
-    grid: { left: 39, right: 14, top: 27, bottom: 37 },
-    tooltip: {
-      trigger: 'item', backgroundColor: t.panel, borderColor: t.border, borderWidth: 1, padding: [9, 11],
-      textStyle: { color: t.ink, fontSize: 11, fontFamily },
-      extraCssText: `border-radius:8px;box-shadow:${t.dark ? '0 8px 24px rgba(0,0,0,.5)' : '0 6px 18px rgba(0,0,0,.12)'};`,
-      formatter: (params: unknown) => {
-        const point = (params as { data?: { authors: number; commits: number; value: number[] } }).data
-        if (!point || !stats.value) return ''
-        return `<div>累计作者：<b>${point.authors} / ${stats.value.authors}</b>（${point.value[0].toFixed(1)}%）</div><div>累计提交：<b>${point.commits} / ${stats.value.commits}</b>（${point.value[1].toFixed(1)}%）</div>`
-      },
-    },
-    xAxis: {
-      type: 'value', min: 0, max: 100, interval: 50, name: '累计作者 %', nameLocation: 'middle', nameGap: 24,
-      nameTextStyle: { color: t.muted, fontSize: 10, fontFamily },
-      axisLine: { lineStyle: { color: t.border } }, axisTick: { show: false },
-      axisLabel: { color: t.muted, fontSize: 9, fontFamily: MONO, formatter: '{value}%' },
-      splitLine: { lineStyle: { color: t.grid } },
-    },
-    yAxis: {
-      type: 'value', min: 0, max: 100, interval: 50, name: '累计提交 %',
-      nameTextStyle: { color: t.muted, fontSize: 10, fontFamily },
-      axisLine: { show: false }, axisTick: { show: false },
-      axisLabel: { color: t.muted, fontSize: 9, fontFamily: MONO, formatter: '{value}%' },
-      splitLine: { lineStyle: { color: t.grid } },
-    },
-    series: [
-      { name: '均等参考', type: 'line', data: [[0, 0], [100, 100]], silent: true, symbol: 'none', z: 4, lineStyle: { color: t.muted, type: 'dashed', width: 1 } },
-      {
-        name: '实际分布', type: 'line', data: stats.value?.points ?? [], symbol: 'circle', symbolSize: 5, z: 3,
-        lineStyle: { color: t.series[3], width: 2.5 }, itemStyle: { color: t.series[3], borderColor: t.panel, borderWidth: 1 },
-      },
+    type: 'view', scale: { x: { domain: [0, 100] }, y: { domain: [0, 100] } },
+    axis: { x: { title: '累计作者 %' }, y: { title: '累计提交 %', gridLineDash: [3, 3] } },
+    children: [
+      { type: 'line', data: [{ x: 0, y: 0 }, { x: 100, y: 100 }], encode: { x: 'x', y: 'y' }, style: { stroke: '#77848e', lineDash: [4, 3], lineWidth: 1 } },
+      { type: 'line', data: points, encode: { x: 'x', y: 'y' }, style: { stroke: '#2e8fcb', lineWidth: 2.5 } },
     ],
+    interaction: { tooltip: { shared: true } },
+    tooltip: { items: [{ field: 'authors', name: '累计作者' }, { field: 'commits', name: '累计提交' }] },
   }
 })
 </script>
 
 <template>
   <div class="grid h-full min-h-0 grid-cols-[minmax(0,1fr)_minmax(138px,38%)] gap-3" data-testid="author-concentration">
-    <div class="flex min-h-0 min-w-0 flex-col">
+    <div ref="chartRegion" class="flex min-h-0 min-w-0 flex-col">
       <div class="flex items-center justify-between gap-2 text-[11px]">
         <span class="font-medium">洛伦兹曲线</span>
         <span class="text-muted">可识别作者</span>
       </div>
-      <EChart v-if="stats" :option="option" :height="205" />
+      <G2Chart v-if="stats" :spec="spec" label="作者贡献洛伦兹曲线；虚线为均等参考" :height="chartHeight" />
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-3 text-center text-[11px] leading-relaxed text-muted">
         {{ distribution === null ? '作者分布不可用，请刷新或重启后端。' : '没有可识别作者的提交，无法计算集中度。' }}
       </div>

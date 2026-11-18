@@ -1,6 +1,6 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
+  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositoryGroup, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
 } from './types'
 
 /**
@@ -14,6 +14,10 @@ export interface RepositoryDataSource {
   saveCollectionSettings(settings: CollectionSettings): Promise<CollectionSettings>
 
   listRepositories(): Promise<RepositorySummary[]>
+  listRepositoryGroups(): Promise<RepositoryGroup[]>
+  createRepositoryGroup(name: string, repositoryIds?: string[]): Promise<RepositoryGroup>
+  addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup>
+  removeRepositoryFromGroup(groupId: string, repositoryId: string): Promise<RepositoryGroup>
   getFeaturedDatasetStatus(): Promise<FeaturedDatasetStatus>
   importFeaturedDataset(): Promise<FeaturedDatasetImportResult>
   exportFeaturedDataset(): Promise<Blob>
@@ -53,10 +57,11 @@ export interface RepositoryDataSource {
   deleteSelectionFeedback(id: string): Promise<void>
 
   getResearchDataset(id?: string, mode?: ResearchAnalysisMode | 'auto'): Promise<ResearchDataset>
-  getOverviewDashboard(): Promise<RepositoryDashboardData>
 
   listTasks(): Promise<TaskItem[]>
   retryTask(id: string): Promise<string>
+  deleteTask(id: string): Promise<void>
+  clearTaskHistory(): Promise<number>
   exportInsights(id: string, windowDays: TimeWindow): Promise<Blob>
   exportComparison(ids: string[], windowDays: TimeWindow, mode: ComparisonMode): Promise<Blob>
   exportRepositories(scope: 'library' | 'research', datasetId?: string, mode?: ResearchAnalysisMode): Promise<Blob>

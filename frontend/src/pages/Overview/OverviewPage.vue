@@ -1,321 +1,329 @@
 <script setup lang="ts">
-import { Activity, ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, RefreshCw, Search } from 'lucide-vue-next'
+import { Activity, ArrowRight, Database, GitFork, RefreshCw, Star } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import GdBadge from '@/components/ui/GdBadge.vue'
-import GdButton from '@/components/ui/GdButton.vue'
-import GdCard from '@/components/ui/GdCard.vue'
-import GdInput from '@/components/ui/GdInput.vue'
-import RepositoryDashboard from './RepositoryDashboard.vue'
+import type { G2Spec } from '@antv/g2'
+import G2Chart from '@/components/charts/G2Chart.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import type { RepositorySummary, TaskItem } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
+const source = useDataSource()
 const router = useRouter()
 const ui = useUiStore()
-const source = useDataSource()
-
-const input = ref('')
-const invalid = ref(false)
-const submitting = ref(false)
-const submitError = ref<string | null>(null)
-const { data: repositories, loading, error, reload: reloadRepositories } = useAsyncData(() => source.listRepositories())
-const { data: tasks, loading: tasksLoading, error: tasksError, reload: reloadTasks } = useAsyncData(() => source.listTasks())
-const { data: overviewResearch, loading: researchLoading, error: researchError, reload: reloadResearch } = useAsyncData(() => source.getOverviewDashboard())
-
-const hasRepositories = computed(() => Boolean(repositories.value?.length))
-const showGettingStarted = computed(() => repositories.value !== null && repositories.value.length === 0 && !error.value)
-const overviewTitle = computed(() => overviewResearch.value?.repositoryCount ? '仓库数据看板' : error.value ? '仓库列表暂不可用' : hasRepositories.value ? '仓库数据看板' : '从一个仓库开始')
-const overviewDescription = computed(() => {
-  if (overviewResearch.value?.repositoryCount) return '查看默认 300 个仓库的技术栈、关注度和近期开发活动；也可以添加新的 GitHub 仓库。'
-  if (researchLoading.value) return '正在读取默认仓库数据看板；看板使用本地已采集数据，不会重新抓取 GitHub。'
-  if (error.value) return '可以在下方重试读取仓库列表，或直接输入公开仓库地址开始分析。'
-  return hasRepositories.value
-    ? '汇总默认 300 个仓库的技术栈、关注度和近期开发活动；也可以添加新的 GitHub 仓库。'
-    : '输入 GitHub 仓库地址，查看它的开发活动、协作效率和版本节奏。'
+const repositoryRequest = useAsyncData(() => source.listRepositories())
+const taskRequest = useAsyncData(() => source.listTasks())
+const repositories = computed(() => repositoryRequest.data.value ?? [])
+const languageGroups = computed(() => {
+  const counts = new Map<string, number>()
+  for (const repository of repositories.value) {
+    const language = repository.language || '未知语言'
+    counts.set(language, (counts.get(language) ?? 0) + 1)
+  }
+  return [...counts.entries()]
+    .map(([language, repositoryCount]) => ({ language, repositoryCount }))
+    .sort((left, right) => right.repositoryCount - left.repositoryCount || left.language.localeCompare(right.language))
 })
-
-const activeTasks = computed(() => (tasks.value ?? []).filter((task) => ['queued', 'running', 'analyzing'].includes(task.status)))
+const topLanguages = computed(() => languageGroups.value.slice(0, 8))
+const hasRepositoryData = computed(() => repositories.value.length > 0)
+const loading = computed(() => repositoryRequest.loading.value || taskRequest.loading.value)
+const repositoryError = computed(() => repositoryRequest.error.value)
+const totalStars = computed(() => repositories.value.reduce((total, repository) => total + (repository.stars ?? 0), 0))
+const starSampleCount = computed(() => repositories.value.filter((repository) => repository.stars !== null).length)
+const comparableRepositoryCount = computed(() => repositories.value.filter((repository) => repository.status === 'ready' || repository.status === 'partial').length)
+const activeTasks = computed(() => (taskRequest.data.value ?? []).filter((task) => ['queued', 'running', 'analyzing'].includes(task.status)))
+const taskModuleLabel: Record<string, string> = {
+  profile: '仓库概况', commits: 'Commit 采集', issues: 'Issue 采集', pulls: 'PR 采集', releases: 'Release 采集',
+  collect_repository: '仓库采集', repository: '仓库分析',
+}
+const taskStatusLabel: Record<string, string> = { queued: '排队中', running: '执行中', analyzing: '分析中' }
+const repositoryInput = ref('')
+const addingRepository = ref(false)
+const addError = ref('')
 const activityChanges = ref<{ repo: RepositorySummary; changePercent: number }[]>([])
 const changesLoading = ref(false)
-const changesError = ref<string | null>(null)
+const changesError = ref('')
 const changeCandidateCount = ref(0)
 let changesRequestId = 0
 let pollTimer: number | undefined
 
-watch([repositories, researchLoading], async ([items, dashboardLoading]) => {
+const createdYearRows = computed(() => {
+  const counts = new Map<number, number>()
+  for (const repository of repositories.value) {
+    const year = Number(repository.createdAt?.slice(0, 4))
+    if (Number.isInteger(year) && year >= 2000 && year <= 2100) counts.set(year, (counts.get(year) ?? 0) + 1)
+  }
+  const years = [...counts.keys()].sort((left, right) => left - right)
+  if (!years.length) return []
+  return Array.from({ length: years.at(-1)! - years[0] + 1 }, (_, index) => {
+    const year = years[0] + index
+    return { year: String(year), count: counts.get(year) ?? 0 }
+  })
+})
+const starBuckets = computed(() => {
+  const labels = ['< 1k', '1k–5k', '5k–10k', '10k–25k', '25k+']
+  const counts = [0, 0, 0, 0, 0]
+  for (const repository of repositories.value) {
+    if (repository.stars === null) continue
+    const index = repository.stars < 1_000 ? 0 : repository.stars < 5_000 ? 1 : repository.stars < 10_000 ? 2 : repository.stars < 25_000 ? 3 : 4
+    counts[index] += 1
+  }
+  return labels.map((label, index) => ({ label, count: counts[index] }))
+})
+const licenseRows = computed(() => {
+  const counts = new Map<string, number>()
+  for (const repository of repositories.value) {
+    const license = repository.license || '未标注'
+    counts.set(license, (counts.get(license) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([license, count]) => ({ license, count })).sort((left, right) => right.count - left.count).slice(0, 8)
+})
+const statusRows = computed(() => {
+  const labels = { ready: '已完成', partial: '部分数据', running: '正在更新', idle: '待采集', failed: '采集失败' } as const
+  const counts = new Map<string, number>()
+  for (const repository of repositories.value) {
+    const label = labels[repository.status]
+    counts.set(label, (counts.get(label) ?? 0) + 1)
+  }
+  return [...counts.entries()].map(([status, count]) => ({ status, count }))
+})
+const scatterRepositories = computed(() => repositories.value.filter((repository) => typeof repository.stars === 'number' && repository.stars > 0 && typeof repository.forks === 'number' && repository.forks > 0))
+const knownScatterLanguages = computed(() => new Set(topLanguages.value.map((group) => group.language)))
+const scatterData = computed(() => scatterRepositories.value.map((repository) => ({
+  fullName: repository.fullName,
+  language: repository.language && knownScatterLanguages.value.has(repository.language) ? repository.language : '其他',
+  stars: repository.stars!,
+  forks: repository.forks!,
+  status: repository.status,
+})))
+const palette = ['#68c63a', '#5d80de', '#eba33a', '#46b8a3', '#f0796b', '#a679d2', '#38a7c7', '#d86c9b', '#89939d']
+const languageDomain = computed(() => [...new Set(scatterData.value.map((row) => row.language))])
+const languageColors = computed(() => languageDomain.value.map((_, index) => palette[index % palette.length]))
+const axisColor = computed(() => ui.isDark ? '#a0a8b0' : '#6e7781')
+const gridColor = computed(() => ui.isDark ? '#2b3238' : '#e8ebed')
+const axisBase = computed(() => ({ labelFill: axisColor.value, labelFontSize: 9, lineStroke: gridColor.value, tickStroke: gridColor.value, titleFill: axisColor.value }))
+const gridStyle = computed(() => ({ stroke: gridColor.value, lineDash: [3, 3] }))
+const languageData = computed(() => ({
+  name: '仓库',
+  children: topLanguages.value.map((group) => ({ name: group.language, language: group.language, repositoryCount: group.repositoryCount })),
+}))
+const languageSpec = computed<G2Spec>(() => ({
+  type: 'treemap',
+  data: { value: languageData.value },
+  layout: { tile: 'treemapBinary', paddingInner: 2, ignoreParentValue: true },
+  encode: { value: 'repositoryCount', color: (datum: { path?: string[] }) => datum.path?.[1] ?? '其他' },
+  scale: { color: { domain: topLanguages.value.map((group) => group.language), range: topLanguages.value.map((_, index) => palette[index % palette.length]) } },
+  style: { stroke: ui.isDark ? '#15191d' : '#ffffff', lineWidth: 2, labelText: (datum: { data?: { language?: string; repositoryCount?: number } }) => `${datum.data?.language ?? ''}\n${formatNumber(datum.data?.repositoryCount)} 個`, labelFill: '#fff', labelFontSize: 10, labelFontWeight: 600 },
+  legend: false,
+  tooltip: { title: (datum: { language?: string }) => datum.language ?? '未知语言', items: [{ field: 'repositoryCount', name: '仓库数' }] },
+}))
+const starSpec = computed<G2Spec>(() => ({
+  type: 'interval',
+  data: starBuckets.value,
+  coordinate: { transform: [{ type: 'transpose' }] },
+  encode: { x: 'label', y: 'count', color: 'label' },
+  scale: { color: { domain: starBuckets.value.map((item) => item.label), range: palette } },
+  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
+  legend: false,
+  tooltip: { title: 'label', items: [{ field: 'count', name: '仓库数' }] },
+}))
+const scatterSpec = computed<G2Spec>(() => ({
+  type: 'point',
+  data: scatterData.value,
+  encode: { x: 'stars', y: 'forks', color: 'language', shape: 'point' },
+  scale: {
+    x: { type: 'log', base: 10 }, y: { type: 'log', base: 10 },
+    color: { domain: languageDomain.value, range: languageColors.value },
+  },
+  style: { fillOpacity: 0.72, stroke: ui.isDark ? '#20262b' : '#fff', lineWidth: 1 },
+  axis: { x: { ...axisBase.value, title: 'Stars（对数轴）', grid: false }, y: { ...axisBase.value, title: 'Forks（对数轴）', grid: gridStyle.value } },
+  legend: { color: { position: 'bottom', itemLabelFill: axisColor.value, itemLabelFontSize: 9 } },
+  tooltip: { title: 'fullName', items: [
+    { field: 'language', name: '主语言' }, { field: 'stars', name: 'Stars', valueFormatter: (value: number) => formatNumber(value) },
+    { field: 'forks', name: 'Forks', valueFormatter: (value: number) => formatNumber(value) }, { field: 'status', name: '本地数据状态' },
+  ] },
+  interaction: { brushHighlight: true, tooltip: { shared: false } },
+}))
+const createdSpec = computed<G2Spec>(() => ({
+  type: 'interval', data: createdYearRows.value, encode: { x: 'year', y: 'count' },
+  scale: { x: { padding: 0.2 } },
+  style: { fill: '#5d80de' },
+  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
+  tooltip: { title: 'year', items: [{ field: 'count', name: '仓库数' }] },
+}))
+const licenseSpec = computed<G2Spec>(() => ({
+  type: 'interval', data: licenseRows.value, coordinate: { transform: [{ type: 'transpose' }] },
+  encode: { x: 'license', y: 'count', color: 'license' },
+  scale: { color: { domain: licenseRows.value.map((item) => item.license), range: licenseRows.value.map((_, index) => palette[index % palette.length]) } },
+  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
+  legend: false,
+  tooltip: { title: 'license', items: [{ field: 'count', name: '仓库数' }] },
+}))
+const statusSpec = computed<G2Spec>(() => ({
+  type: 'interval', data: statusRows.value, coordinate: { transform: [{ type: 'transpose' }] },
+  encode: { x: 'status', y: 'count', color: 'status' },
+  scale: { color: { domain: statusRows.value.map((item) => item.status), range: palette } },
+  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
+  legend: false,
+  tooltip: { title: 'status', items: [{ field: 'count', name: '仓库数' }] },
+}))
+
+watch([repositories, () => repositoryRequest.loading.value], async ([items, repositoriesLoading]) => {
   const requestId = ++changesRequestId
   activityChanges.value = []
-  changesError.value = null
-  if (dashboardLoading) return
-  if (!items) {
-    changesLoading.value = false
-    return
-  }
-
-  // 只检查最近采集的五个可分析仓库，避免总览为全部仓库发起分析请求。
+  changesError.value = ''
+  if (repositoriesLoading) return
+  if (!items.length) { changesLoading.value = false; return }
   const candidates = items.filter((repo) => repo.status === 'ready' || repo.status === 'partial').slice(0, 5)
   changeCandidateCount.value = candidates.length
-  if (!candidates.length) {
-    changesLoading.value = false
-    return
-  }
-
+  if (!candidates.length) { changesLoading.value = false; return }
   changesLoading.value = true
   const results = await Promise.allSettled(candidates.map((repo) => source.getActivityTrend(repo.id)))
   if (requestId !== changesRequestId) return
-
   const available: { repo: RepositorySummary; changePercent: number }[] = []
   const failures: unknown[] = []
   for (const [index, result] of results.entries()) {
-    const repo = candidates[index]
     if (result.status === 'fulfilled') {
-      const trend = result.value
-      if (trend.changePercent !== null) available.push({ repo, changePercent: trend.changePercent })
-    } else {
-      failures.push(result.reason)
-    }
+      if (result.value.changePercent !== null) available.push({ repo: candidates[index], changePercent: result.value.changePercent })
+    } else failures.push(result.reason)
   }
   activityChanges.value = available.sort((left, right) => Math.abs(right.changePercent) - Math.abs(left.changePercent)).slice(0, 3)
-  if (failures.length === candidates.length) {
-    changesError.value = String(failures[0] instanceof Error ? failures[0].message : '趋势数据读取失败')
-  } else if (failures.length) {
-    changesError.value = `${failures.length} 个仓库的趋势暂时无法读取`
-  }
+  if (failures.length === candidates.length) changesError.value = String(failures[0] instanceof Error ? failures[0].message : '趋势数据读取失败')
+  else if (failures.length) changesError.value = `${failures.length} 个仓库的趋势暂时无法读取`
   changesLoading.value = false
 }, { immediate: true })
 
-const changes = computed(() => activityChanges.value.map(({ repo, changePercent }) => {
-  const roundedChange = Number(changePercent.toFixed(1))
-  return {
-    repo,
-    changePercent: roundedChange,
-    text: roundedChange === 0
-      ? '近 4 个完整周的 Commit 数与前 4 周基本持平。'
-      : `近 4 个完整周的 Commit 数较前 4 周${roundedChange < 0 ? '减少' : '增加'} ${Math.abs(roundedChange)}%。`,
-  }
-}))
-
-const taskStatusLabel: Record<string, string> = {
-  queued: '排队中', running: '执行中', analyzing: '分析中',
-}
-const taskModuleLabel: Record<string, string> = {
-  profile: '仓库概况', commits: 'Commit 采集', issues: 'Issue 采集', pulls: 'PR 采集', releases: 'Release 采集',
-  collect_repository: '仓库采集', repository: '仓库分析',
+function formatNumber(value: number | null | undefined) {
+  return value === null || value === undefined ? '—' : value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })
 }
 function taskProgress(task: TaskItem): number | null {
   const value = task.progressPercent
   if (task.progressKind !== 'stages' || typeof value !== 'number' || !Number.isFinite(value)) return null
   return Math.max(0, Math.min(100, value))
 }
-
-onMounted(() => {
-  pollTimer = window.setInterval(() => {
-    if (activeTasks.value.length) void reloadTasks()
-  }, 3000)
-})
-onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTimer) })
-
-async function submit() {
-  const raw = input.value.trim()
-  if (!raw) {
-    invalid.value = true
-    return
-  }
-  invalid.value = false
-  submitError.value = null
-  submitting.value = true
-  try {
-    const result = await source.addRepository(raw)
-    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
-    void router.push(`/repositories/${result.repositoryId}/overview`)
-  } catch (error) {
-    submitError.value = error instanceof Error ? error.message : '提交分析失败'
-  } finally {
-    submitting.value = false
-  }
+async function refresh() {
+  await Promise.all([repositoryRequest.reload(), taskRequest.reload()])
 }
+async function addRepository() {
+  const input = repositoryInput.value.trim()
+  if (!input || addingRepository.value) return
+  addingRepository.value = true
+  addError.value = ''
+  try {
+    const result = await source.addRepository(input)
+    repositoryInput.value = ''
+    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
+    await repositoryRequest.reload()
+    void router.push(`/repositories/${result.repositoryId}/overview`)
+  } catch (cause) {
+    addError.value = cause instanceof Error ? cause.message : '添加仓库失败'
+  } finally { addingRepository.value = false }
+}
+onMounted(() => {
+  pollTimer = window.setInterval(() => { if (activeTasks.value.length) void taskRequest.reload() }, 3000)
+})
+onBeforeUnmount(() => {
+  if (pollTimer !== undefined) window.clearInterval(pollTimer)
+  changesRequestId += 1
+})
 </script>
 
 <template>
-  <div class="flex flex-col gap-[18px] px-4 pb-8 pt-5 sm:px-7 sm:pt-[22px]">
-    <header>
-      <h1 class="m-0 text-[26px] font-semibold tracking-[-0.3px]">{{ overviewTitle }}</h1>
-      <p class="mt-1.5 text-muted">{{ overviewDescription }}</p>
-    </header>
+  <div class="stack app-page">
+    <UiPageHeader :title="hasRepositoryData ? '仓库概览' : '从一个仓库开始'" :description="hasRepositoryData ? `这里汇总你已加入的 ${formatNumber(repositories.length)} 个仓库及本地采集数据。` : '添加要使用或比较的仓库，概览会展示这些仓库的真实快照。'">
+      <template #actions>
+        <UiButton variant="quiet" :disabled="loading" aria-label="刷新总览数据" @click="refresh"><RefreshCw :size="13" />刷新</UiButton>
+        <UiButton variant="outline" @click="router.push('/repositories')">进入仓库 <ArrowRight :size="12" /></UiButton>
+      </template>
+    </UiPageHeader>
 
-    <GdCard padding="none" class="gap-3.5 p-4 sm:p-5">
-      <div class="flex flex-col gap-2 sm:flex-row sm:items-start">
-        <div class="min-w-0 flex-1">
-          <div class="flex min-w-0 items-center gap-2">
-            <GdInput v-model="input" class="min-w-0 flex-1" placeholder="owner/repo 或 GitHub 链接，例如 vuejs/core" :invalid="invalid" @enter="submit">
-              <template #icon><Search :size="16" class="text-muted" /></template>
-            </GdInput>
-            <GdButton class="h-11 px-4" :disabled="submitting" @click="submit">{{ submitting ? '正在提交…' : '开始分析' }}</GdButton>
-          </div>
-          <p v-if="invalid" class="mt-1.5 text-[12px] text-danger">请输入 owner/repo 或完整的 GitHub 仓库链接</p>
-          <p v-else-if="submitError" class="mt-1.5 text-[12px] text-danger" role="alert">{{ submitError }}</p>
-          <p v-else class="mt-2 text-[12px] text-muted">支持公开仓库。提交后会直接进入分析页面，采集进度可在任务中心查看。</p>
-        </div>
-      </div>
-    </GdCard>
+    <UiPanel as="section">
+      <form class="toolbar" @submit.prevent="addRepository">
+        <label class="search-field"><Database :size="14" /><UiInput v-model="repositoryInput" aria-label="添加 GitHub 仓库" placeholder="输入 owner/repo 或 GitHub 仓库链接" /></label>
+        <UiButton variant="primary" type="submit" :loading="addingRepository" :disabled="addingRepository || !repositoryInput.trim()">{{ addingRepository ? '正在添加…' : '添加并分析' }}</UiButton>
+        <RouterLink to="/tasks" class="small muted">查看任务</RouterLink>
+      </form>
+      <p v-if="addError" class="small" role="alert" style="margin:9px 0 0;color:var(--red)">{{ addError }}</p>
+    </UiPanel>
 
-    <RepositoryDashboard
-      v-if="overviewResearch?.repositoryCount"
-      :repositories="repositories ?? []"
-      :dashboard="overviewResearch"
-    />
-    <section v-else-if="researchLoading" class="flex flex-col gap-3.5" aria-label="正在加载仓库数据看板" aria-busy="true">
-      <div class="h-9 w-56 animate-pulse rounded bg-track/60" />
-      <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-        <div v-for="i in 4" :key="i" class="h-[76px] animate-pulse rounded-xl border border-line bg-panel" />
-      </div>
-      <div class="grid gap-3.5 md:grid-cols-2 2xl:grid-cols-3">
-        <div v-for="i in 6" :key="i" class="h-[310px] animate-pulse rounded-xl border border-line bg-panel" />
-      </div>
-    </section>
-    <div v-else-if="researchError" role="alert" class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-panel px-4 py-3 text-[12px] text-muted">
-      <span>看板数据暂时无法读取：{{ researchError }}</span>
-      <GdButton variant="outline" size="sm" @click="reloadResearch">重试</GdButton>
+    <div v-if="repositoryError" class="notice" role="alert">仓库数据加载失败：{{ repositoryError }}</div>
+    <div v-else-if="loading && !repositories.length" class="kpi-grid" aria-label="正在加载总览" aria-busy="true">
+      <div v-for="item in 4" :key="item" class="kpi"><span class="gd-skeleton-shimmer block h-3 w-20 rounded" /><span class="gd-skeleton-shimmer mt-3 block h-6 w-24 rounded" /></div>
     </div>
-
-    <section v-if="showGettingStarted" aria-labelledby="how-to-use-title" class="flex flex-col gap-3">
-      <div class="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 id="how-to-use-title" class="m-0 text-[18px] font-semibold tracking-[-0.2px]">使用流程</h2>
-          <p class="mt-1 text-[12px] text-muted">从仓库活动开始，按需深入协作和版本数据。</p>
-        </div>
-        <RouterLink to="/repositories" class="gd-link text-[12px]">浏览仓库 <ArrowRight :size="12" /></RouterLink>
+    <UiPanel v-else-if="!hasRepositoryData" as="section" class="onboarding-panel" aria-labelledby="onboarding-title">
+      <div class="onboarding-heading">
+        <div><h2 id="onboarding-title">从你正在使用或考虑采用的项目开始</h2><p>添加仓库后，这里会汇总 Stars、技术栈、许可证与采集状态。</p></div>
+        <UiButton variant="outline" @click="router.push({ name: 'repositories', query: { scope: 'discover' } })">发现仓库 <ArrowRight :size="12" /></UiButton>
       </div>
-
-      <ol class="gd-stagger m-0 grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-3">
-        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
-          <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">01</span>
-            <h3 class="m-0 text-[13.5px] font-semibold">输入仓库地址</h3>
-          </div>
-          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">输入 GitHub 的 <code class="rounded bg-soft px-1 py-0.5 font-mono text-[11px] text-ink">owner/repo</code> 或完整链接，开始采集公开数据。</p>
-        </li>
-        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
-          <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">02</span>
-            <h3 class="m-0 text-[13.5px] font-semibold">查看分析结果</h3>
-          </div>
-          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">在仓库详情查看活动、Issue、PR 和 Release；采集中的数据会标明当前进度与覆盖范围。</p>
-        </li>
-        <li class="min-w-0 rounded-xl border border-line bg-panel p-4 sm:p-4.5">
-          <div class="flex items-center gap-2.5">
-            <span aria-hidden="true" class="flex size-8 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold text-ink">03</span>
-            <h3 class="m-0 text-[13.5px] font-semibold">比较或开展研究</h3>
-          </div>
-          <p class="mb-0 mt-2.5 text-[12px] leading-[1.7] text-muted">在<RouterLink to="/repositories" class="gd-link">仓库页</RouterLink>选择 2–5 个仓库进行比较，或前往<RouterLink to="/research" class="gd-link">研究分析</RouterLink>查看分组与样本质量。</p>
-        </li>
+      <ol class="onboarding-steps">
+        <li><span>01</span><div><strong>添加仓库</strong><p>在上方输入 GitHub 地址，或在「发现」中搜索。</p></div></li>
+        <li><span>02</span><div><strong>查看采集进度</strong><p>任务完成后，仓库会显示可用的资料和活动数据。</p></div></li>
+        <li><span>03</span><div><strong>回到概览比较</strong><p>图表只汇总已加入仓库中实际采集到的字段。</p></div></li>
       </ol>
+    </UiPanel>
+    <template v-else>
+    <section class="kpi-grid" aria-label="仓库总览">
+      <UiMetricCard label="当前仓库" :value="formatNumber(repositories.length)" note="仅统计你主动加入的仓库" />
+      <UiMetricCard label="累计 Stars" :value="starSampleCount ? formatNumber(totalStars) : '—'" :note="starSampleCount ? `${formatNumber(starSampleCount)} 个仓库有 Stars 数据` : '暂无 Stars 快照'" />
+      <UiMetricCard label="技术栈数量" :value="formatNumber(languageGroups.length)" note="按仓库主语言统计" />
+      <UiMetricCard label="已有采集数据" :value="formatNumber(comparableRepositoryCount)" note="可进入仓库页查看或比较" />
     </section>
 
-    <div class="grid items-stretch gap-[18px] lg:grid-cols-[1.4fr_1fr]">
-      <GdCard class="h-[320px] min-h-0 overflow-hidden">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="m-0 text-[15.5px] font-semibold">近期值得关注的变化</h3>
-            <p class="mt-0.5 text-[12px] text-muted">最近 5 个已分析仓库 · 前后各 4 个完整自然周</p>
-          </div>
-          <GdButton variant="ghost" size="sm" class="-mr-2" :disabled="loading || changesLoading" aria-label="刷新近期变化" @click="reloadRepositories">
-            <RefreshCw :size="14" :class="changesLoading ? 'animate-spin' : ''" />
-          </GdButton>
-        </div>
-        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          <div v-if="loading || changesLoading" class="flex h-full items-center gap-2 text-[12px] text-muted">
-            <Activity :size="15" class="animate-pulse" /> 正在读取已保存的趋势分析…
-          </div>
-          <div v-else-if="error" class="flex h-full flex-col items-start justify-center gap-2 text-[12px] text-danger">
-            <p class="m-0">仓库列表加载失败：{{ error }}</p>
-            <GdButton variant="outline" size="sm" @click="reloadRepositories">重试</GdButton>
-          </div>
-          <div v-else-if="changesError && !changes.length" class="flex h-full flex-col items-start justify-center gap-2 text-[12px] text-danger">
-            <p class="m-0">趋势读取失败：{{ changesError }}</p>
-            <GdButton variant="outline" size="sm" @click="reloadRepositories">重试</GdButton>
-          </div>
-          <div v-else-if="changes.length" class="flex flex-col gap-3">
-            <p v-if="changesError" class="m-0 text-[11px] text-muted">{{ changesError }}，以下展示可用结果。</p>
-            <div v-for="item in changes" :key="item.repo.id" class="flex items-start gap-2.5 rounded-md border border-line px-3 py-2.5">
-              <ArrowDownRight v-if="item.changePercent < 0" :size="16" class="mt-0.5 shrink-0 text-s1" />
-              <ArrowUpRight v-else-if="item.changePercent > 0" :size="16" class="mt-0.5 shrink-0 text-s3" />
-              <Activity v-else :size="15" class="mt-0.5 shrink-0 text-muted" />
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                  <RouterLink :to="`/repositories/${item.repo.id}/activity`" class="truncate text-[12.5px] font-semibold hover:underline">{{ item.repo.fullName }}</RouterLink>
-                  <span class="shrink-0 font-mono text-[12px] font-semibold tabular-nums" :class="item.changePercent < 0 ? 'text-s1' : item.changePercent > 0 ? 'text-s3' : 'text-muted'">
-                    {{ item.changePercent > 0 ? '+' : '' }}{{ item.changePercent }}%
-                  </span>
-                </div>
-                <p class="mb-0 mt-1 text-[11.5px] leading-relaxed text-muted">{{ item.text }}</p>
-              </div>
-            </div>
-          </div>
-          <div v-else class="flex h-full flex-col items-start justify-center gap-2 text-[12px] text-muted">
-            <p v-if="repositories?.length && !changeCandidateCount" class="m-0">当前仓库尚无已分析的 Commit 趋势。完成采集后，这里会检查前后各 4 个完整自然周。</p>
-            <p v-else-if="repositories?.length" class="m-0">最近 5 个已分析仓库暂无可用趋势。Commit 覆盖需完整，且前后各有 4 个完整自然周；基期为 0 时不计算百分比。</p>
-            <p v-else class="m-0">添加并完成仓库分析后，这里会展示近期 Commit 趋势变化。</p>
-            <RouterLink to="/repositories" class="gd-link text-[11.5px]">查看仓库 <ArrowRight :size="12" /></RouterLink>
-          </div>
-        </div>
-      </GdCard>
+    <section class="chart-grid" aria-label="仓库数据分布图表">
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">编程语言构成</h2><p class="panel-description">按已加入仓库的主语言统计</p></div></div><G2Chart v-if="hasRepositoryData" :spec="languageSpec" label="当前仓库主语言矩形树图" :height="226" /><div v-else class="empty-state small">添加仓库后显示你的技术栈构成</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">Stars 关注度分布</h2><p class="panel-description">按仓库 Stars 区间比较数量，缺失 Stars 不计为零</p></div><Star :size="15" class="muted" /></div><G2Chart v-if="starSampleCount" :spec="starSpec" label="Stars 区间横向条形图" :height="226" /><div v-else class="empty-state small">暂无 Stars 快照</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">Stars 与 Forks</h2><p class="panel-description">当前仓库关注度与复刻数分布，使用对数坐标</p></div><GitFork :size="15" class="muted" /></div><G2Chart v-if="scatterData.length" :spec="scatterSpec" label="当前仓库 Stars 与 Forks 散点图；可框选高亮" :height="226" /><div v-else class="empty-state small">暂无 Stars 与 Forks 快照</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">仓库创建年份</h2><p class="panel-description">按 GitHub 创建年份展示数量</p></div></div><G2Chart v-if="createdYearRows.length" :spec="createdSpec" label="仓库创建年份频数图" :height="226" /><div v-else class="empty-state small">暂无创建日期快照</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">开源许可证分布</h2><p class="panel-description">按仓库快照中的 SPDX 许可证分类</p></div></div><G2Chart v-if="repositories.length" :spec="licenseSpec" label="当前仓库开源许可证横向分布图" :height="226" /><div v-else class="empty-state small">添加仓库后显示许可证分布</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">本地数据状态</h2><p class="panel-description">查看已加入仓库的采集进度</p></div><Activity :size="15" class="muted" /></div><G2Chart v-if="repositories.length" :spec="statusSpec" label="当前仓库本地采集状态分布" :height="226" /><div v-else class="empty-state small">添加仓库后显示采集状态</div></UiPanel>
+    </section>
 
-      <GdCard class="h-[320px] min-h-0 overflow-hidden">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="m-0 text-[15.5px] font-semibold">正在进行的分析</h3>
-            <p class="mt-1 flex flex-wrap items-center gap-x-2 text-[11.5px] text-muted">
-              <span class="inline-flex items-center gap-1.5"><span class="size-1.5 rounded-full bg-s3" />每 3 秒自动同步</span>
-              <span class="text-line">·</span>
-              <span>离开页面后任务仍在后台执行</span>
-            </p>
-          </div>
-          <GdButton variant="ghost" size="sm" class="-mr-2" :disabled="tasksLoading" aria-label="刷新分析任务" @click="reloadTasks">
-            <RefreshCw :size="14" :class="tasksLoading ? 'animate-spin' : ''" />
-          </GdButton>
+    <section class="detail-grid" aria-label="近期状态">
+      <UiPanel as="article">
+        <div class="panel-heading"><div><h2 class="panel-title">近期 Commit 变化</h2><p class="panel-description">检查最近采集的最多 5 个可分析仓库；比较最近 4 个完整周与前 4 周</p></div><ArrowRight :size="14" class="muted" /></div>
+        <p v-if="changesLoading" class="small muted">正在读取最近活动变化…</p>
+        <p v-else-if="changesError" class="small" role="status">部分趋势读取失败：{{ changesError }}</p>
+        <div v-if="activityChanges.length" class="details-list">
+          <RouterLink v-for="item in activityChanges" :key="item.repo.id" :to="`/repositories/${item.repo.id}/activity`" class="detail-line"><span>{{ item.repo.fullName }}</span><strong :class="item.changePercent < 0 ? 'trend-down' : 'trend-up'">{{ item.changePercent > 0 ? '+' : '' }}{{ item.changePercent.toFixed(1) }}%</strong></RouterLink>
         </div>
-        <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1">
-          <div v-if="tasksError" class="flex h-full flex-col items-start justify-center gap-2 text-[12px] text-danger">
-            <p class="m-0">任务加载失败：{{ tasksError }}</p>
-            <GdButton variant="outline" size="sm" @click="reloadTasks">重试</GdButton>
-          </div>
-          <div v-else-if="tasksLoading && !tasks" class="flex flex-col gap-3 py-1">
-            <div v-for="i in 3" :key="i" class="h-[54px] animate-pulse rounded bg-track/60" />
-          </div>
-          <div v-else-if="activeTasks.length" class="divide-y divide-line">
-            <RouterLink v-for="task in activeTasks" :key="task.id" to="/tasks" class="block py-2.5 hover:bg-soft/40">
-              <div class="flex items-center justify-between gap-3">
-                <span class="min-w-0 truncate text-[12px] font-semibold">{{ task.repository }}</span>
-                <GdBadge :variant="task.status === 'queued' ? 'plain' : 'default'">{{ taskStatusLabel[task.status] ?? '进行中' }}</GdBadge>
-              </div>
-              <div class="mt-1 flex items-center justify-between gap-3 text-[11px] text-muted">
-                <span class="min-w-0 truncate" :title="task.stage">{{ taskModuleLabel[task.module] ?? task.module }} · {{ task.stage }}</span>
-                <span class="shrink-0">{{ task.updatedAt }}</span>
-              </div>
-              <div v-if="taskProgress(task) !== null" class="mt-1.5 flex items-center gap-2">
-                <div class="h-1 min-w-0 flex-1 overflow-hidden rounded bg-track">
-                  <div class="h-full rounded bg-ink transition-[width] duration-500" :style="{ width: `${taskProgress(task)}%` }" />
-                </div>
-                <span class="shrink-0 font-mono text-[10.5px] tabular-nums text-muted">{{ Math.round(taskProgress(task)!) }}%</span>
-              </div>
-            </RouterLink>
-          </div>
-          <div v-else class="flex h-full flex-col items-center justify-center gap-1 text-center">
-            <p class="m-0 text-[12px] font-medium text-ink">当前没有执行中的分析</p>
-            <p class="m-0 text-[11px] text-muted">新提交仓库后的采集进度会显示在这里。</p>
-          </div>
+        <p v-else-if="!changesLoading && !changesError" class="small muted">{{ changeCandidateCount ? '最近窗口没有可比较的完整周 Commit 数据。' : '暂无已完成采集的仓库。' }}</p>
+      </UiPanel>
+      <UiPanel as="article">
+        <div class="panel-heading"><div><h2 class="panel-title">进行中的采集任务</h2><p class="panel-description">任务状态由本机数据服务返回</p></div><RouterLink to="/tasks" class="small">查看全部</RouterLink></div>
+        <div v-if="taskRequest.error.value" class="small" role="alert">任务加载失败：{{ taskRequest.error.value }}</div>
+        <div v-else-if="activeTasks.length" class="details-list">
+          <RouterLink v-for="task in activeTasks.slice(0, 4)" :key="task.id" :to="task.repositoryId ? `/repositories/${task.repositoryId}/overview` : '/tasks'" class="task-row">
+            <span class="task-row__main"><strong>{{ task.repository || '仓库任务' }}</strong><span class="small muted">{{ taskModuleLabel[task.module] ?? task.module }} · {{ taskStatusLabel[task.status] ?? task.status }}</span></span>
+            <span v-if="taskProgress(task) !== null" class="task-progress" :aria-label="`进度 ${taskProgress(task)}%`"><span :style="{ width: `${taskProgress(task)}%` }" /></span>
+          </RouterLink>
         </div>
-        <div class="mt-auto flex items-center justify-between border-t border-line pt-2.5">
-          <RouterLink to="/tasks" class="gd-link text-[12px]"><CalendarDays :size="13" /> 查看任务中心</RouterLink>
-          <GdBadge v-if="activeTasks.length" variant="plain">{{ activeTasks.length }} 项进行中</GdBadge>
-          <span v-else class="text-[11px] text-muted">查看近期任务状态</span>
-        </div>
-      </GdCard>
-    </div>
-
-
+        <p v-else class="small muted">当前没有排队或运行中的任务。</p>
+      </UiPanel>
+    </section>
+    <p class="helper-note"><Database :size="12" style="vertical-align:-2px" /> 图表只使用你已加入仓库的本地快照；未采集的字段不会补零。在「我的仓库」中可以勾选项目进行比较。</p>
+    </template>
   </div>
 </template>
+
+<style scoped>
+.onboarding-panel { display: grid; gap: 18px; }
+.onboarding-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.onboarding-heading h2 { margin: 0; font-size: 16px; }
+.onboarding-heading p { margin: 6px 0 0; max-width: 720px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.onboarding-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin: 0; padding: 0; list-style: none; }
+.onboarding-steps li { display: flex; align-items: flex-start; gap: 10px; padding-top: 13px; border-top: 1px solid var(--line); }
+.onboarding-steps li > span { color: var(--primary-ink); font-size: 11px; font-variant-numeric: tabular-nums; font-weight: 700; }
+.onboarding-steps strong { font-size: 11px; }
+.onboarding-steps p { margin: 4px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
+.trend-up { color: var(--green); }
+.trend-down { color: var(--red); }
+.task-row { display:flex; align-items:center; justify-content:space-between; gap:12px; color:inherit; text-decoration:none; }
+.task-row__main { display:grid; gap:3px; min-width:0; }
+.task-progress { width:64px; height:5px; flex:none; overflow:hidden; border-radius:9px; background:var(--surface-soft); }
+.task-progress span { display:block; height:100%; border-radius:inherit; background:var(--accent); }
+@media (max-width: 760px) {
+  .onboarding-heading { flex-direction: column; }
+  .onboarding-steps { grid-template-columns: 1fr; gap: 10px; }
+}
+</style>

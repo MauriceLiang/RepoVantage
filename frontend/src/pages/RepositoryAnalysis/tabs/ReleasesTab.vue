@@ -98,17 +98,17 @@ function openReleaseByTag(tag: string) {
 <template>
   <KpiStrip :metrics="analysis.metrics.metrics" />
 
-  <GdCard class="h-[360px] overflow-hidden">
-    <div class="flex flex-wrap items-start justify-between gap-3">
+  <GdCard class="h-[360px] overflow-hidden" padding="sm" :gap="false">
+    <div class="mb-1 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h3 class="m-0 text-[15.5px] font-semibold">发布时间线</h3>
-        <p class="mt-0.5 text-[12px] text-muted">提交活动面积与 Release 标记 · 默认显示最近 90 天 · 滑块浏览近 365 天</p>
+        <p class="mt-0.5 text-[12px] text-muted">提交趋势与 Release 日期分道显示 · 日期控件默认选择最近 90 天</p>
       </div>
-    <span class="text-[11.5px] text-muted">正式发布 {{ yearReleases.length }} 次</span>
+    <span class="text-[11.5px] text-muted">近365天正式发布 {{ yearReleases.length }} 次</span>
     </div>
     <TimelineChart :releases="yearReleases" :commits="commitPoints" :height="220" @select="openRelease" />
-    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>Release 显示近 365 天；标记纵向位置不代表提交数。提交仅显示当前分析窗口的周数据，空白不代表没有提交。</span>
+    <div class="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
+      <span>按日期控件筛选已采集的 Release 与当前分析窗口内的周提交；两条图分别使用自己的单位。空白不代表没有提交。</span>
       <span>点击圆点或下方记录查看 Release 详情</span>
     </div>
   </GdCard>
@@ -134,7 +134,7 @@ function openReleaseByTag(tag: string) {
       <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :height="235" @select="openReleaseByTag" />
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前范围暂未形成可计算的正式发布间隔。</div>
       <p v-if="cadenceItems.length && !hasCommitCounts" class="mb-0 mt-1 text-[10.5px] text-warnfg">当前没有 Commit 完整覆盖这些发布间隔的数据；提交数不可比较，不代表 0。</p>
-      <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">横轴为前版日期 → 新版日期；间隔按本地已采集记录计算，采集不完整时可能跨过遗漏版本。折线只显示 Commit 覆盖完整的区间，点击柱查看新版说明。</p>
+      <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">柱表示相邻正式发布的天数间隔；Commit 数和覆盖说明在悬浮信息中单独列出，不与天数共用坐标。采集不完整时区间可能跨过遗漏版本；点击柱查看新版说明。</p>
       <p class="mb-0 mt-1 text-[10px] text-muted">{{ releaseCoverageNote }}；“全部已采集”不代表 GitHub 全历史。</p>
     </GdCard>
 

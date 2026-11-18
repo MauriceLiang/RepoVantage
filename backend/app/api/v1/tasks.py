@@ -3,7 +3,7 @@ import json
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import desc, func, literal, select, union_all, update
+from sqlalchemy import delete, desc, func, literal, or_, select, union_all, update
 from sqlalchemy.orm import Session
 
 from backend.app.api.dependencies import get_session
@@ -13,13 +13,15 @@ from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import begin_immediate
 from backend.app.persistence.models import (
     CollectionTask,
+    CollectionCheckpoint,
+    CollectionLog,
     DatasetImportJob,
     DatasetImportStagingRecord,
     Repository,
     TaskModuleProgress,
 )
 from backend.app.schemas.common import SuccessEnvelope
-from backend.app.schemas.tasks import RetryResponse, TaskListResponse, TaskResponse
+from backend.app.schemas.tasks import RetryResponse, TaskDeleteResponse, TaskListResponse, TaskResponse
 from backend.app.services.dataset_import import _json_object
 from backend.app.services.repositories import add_idempotency_response, cached_idempotency_response
 
@@ -219,6 +221,90 @@ def get_task(task_id: str, request: Request, session: Session = Depends(get_sess
     modules = session.scalars(select(TaskModuleProgress).where(TaskModuleProgress.task_id == task_id)).all()
     repository = session.get(Repository, task.repository_id)
     return envelope(request, task_payload(task, modules, repository.full_name if repository else None))
+
+
+def _delete_task_records(session: Session, collection_ids: list[str], dataset_ids: list[str]) -> int:
+    task_ids = [*collection_ids, *dataset_ids]
+    if not task_ids:
+        session.commit()
+        return 0
+
+    if collection_ids:
+        session.execute(
+            update(CollectionTask)
+            .where(CollectionTask.retry_of.in_(collection_ids))
+            .values(retry_of=None)
+        )
+        session.execute(
+            update(CollectionCheckpoint)
+            .where(CollectionCheckpoint.task_id.in_(collection_ids))
+            .values(task_id=None)
+        )
+        session.execute(
+            delete(TaskModuleProgress)
+            .where(TaskModuleProgress.task_id.in_(collection_ids))
+        )
+    if dataset_ids:
+        session.execute(
+            update(DatasetImportJob)
+            .where(DatasetImportJob.retry_of.in_(dataset_ids))
+            .values(retry_of=None)
+        )
+        session.execute(
+            delete(DatasetImportStagingRecord)
+            .where(DatasetImportStagingRecord.task_id.in_(dataset_ids))
+        )
+
+    session.execute(
+        delete(CollectionLog).where(
+            or_(CollectionLog.task_id.in_(task_ids), CollectionLog.request_id.in_(task_ids))
+        )
+    )
+    collection_count = 0
+    dataset_count = 0
+    if collection_ids:
+        collection_count = session.execute(
+            delete(CollectionTask).where(CollectionTask.task_id.in_(collection_ids))
+        ).rowcount or 0
+    if dataset_ids:
+        dataset_count = session.execute(
+            delete(DatasetImportJob).where(DatasetImportJob.task_id.in_(dataset_ids))
+        ).rowcount or 0
+    session.commit()
+    return collection_count + dataset_count
+
+
+@router.delete("", response_model=SuccessEnvelope[TaskDeleteResponse])
+def clear_finished_tasks(request: Request, session: Session = Depends(get_session)):
+    begin_immediate(session)
+    active_statuses = ("queued", "running")
+    collection_ids = list(session.scalars(
+        select(CollectionTask.task_id).where(CollectionTask.status.not_in(active_statuses))
+    ).all())
+    dataset_ids = list(session.scalars(
+        select(DatasetImportJob.task_id).where(DatasetImportJob.status.not_in(active_statuses))
+    ).all())
+    deleted_count = _delete_task_records(session, collection_ids, dataset_ids)
+    return envelope(request, {"deleted_count": deleted_count})
+
+
+@router.delete("/{task_id}", response_model=SuccessEnvelope[TaskDeleteResponse])
+def delete_task(task_id: str, request: Request, session: Session = Depends(get_session)):
+    begin_immediate(session)
+    dataset_job = session.get(DatasetImportJob, task_id)
+    if dataset_job is not None:
+        if dataset_job.status in {"queued", "running"}:
+            raise AppError(409, "CONFLICTING_OPERATION", "排队或执行中的任务不能删除")
+        deleted_count = _delete_task_records(session, [], [task_id])
+        return envelope(request, {"deleted_count": deleted_count})
+
+    task = session.get(CollectionTask, task_id)
+    if task is None:
+        raise AppError(404, "RESOURCE_NOT_FOUND", "任务不存在")
+    if task.status in {"queued", "running"}:
+        raise AppError(409, "CONFLICTING_OPERATION", "排队或执行中的任务不能删除")
+    deleted_count = _delete_task_records(session, [task_id], [])
+    return envelope(request, {"deleted_count": deleted_count})
 
 
 @router.post("/{task_id}/retry", response_model=SuccessEnvelope[RetryResponse], status_code=202)

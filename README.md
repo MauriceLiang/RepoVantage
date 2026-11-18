@@ -38,7 +38,7 @@ VITE_DATA_MODE=mock npm run dev
 
 ## 活动与协作分析（insights-v1）
 
-在仓库详情点击“采集活动数据”。Worker 保存真实 Commit / Issue / PR / Release 事件，计算并固化分析结果；详情默认展示开发活跃度，另可查看 Issue 效率、PR 协作、发布节奏和数据来源。
+在仓库详情点击“采集活动数据”。Worker 保存真实 Commit / Issue / PR / Release 事件，计算并固化分析结果；概览展示开发活跃度与近期维护模式、趋势预测和异常信号，另可查看 Issue 效率、PR 协作、发布节奏和数据来源。
 
 - Commit：UTC 自然周趋势、最近四个完整周与前四周变化。
 - Issue / PR：关闭或合并耗时分布、中位数、样本门槛控制的 p75/p90。

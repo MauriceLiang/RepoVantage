@@ -1,108 +1,126 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Check, LoaderCircle, Save, Settings2 } from 'lucide-vue-next'
-import GdButton from '@/components/ui/GdButton.vue'
-import GdCard from '@/components/ui/GdCard.vue'
+import { Check, RefreshCw, Save } from 'lucide-vue-next'
 import { useDataSource } from '@/composables/useDataSource'
+import { useUiStore } from '@/stores/ui'
 
-const dataSource = useDataSource()
+const source = useDataSource()
+const ui = useUiStore()
 const pageLimit = ref<number | null>(10)
 const savedPageLimit = ref(10)
 const loading = ref(true)
 const saving = ref(false)
 const error = ref('')
 const saved = ref(false)
-
 const valid = computed(() => Number.isInteger(pageLimit.value) && (pageLimit.value ?? 0) >= 1 && (pageLimit.value ?? 0) <= 100)
 const dirty = computed(() => pageLimit.value !== savedPageLimit.value)
-const maxRecords = computed(() => valid.value && pageLimit.value ? pageLimit.value * 100 : 0)
+const maxRecords = computed(() => valid.value && pageLimit.value ? pageLimit.value * 100 : null)
+const fieldDescription = computed(() => valid.value
+  ? 'github-max-pages-help'
+  : 'github-max-pages-help github-max-pages-error')
 
 async function loadSettings() {
   loading.value = true
   error.value = ''
+  saved.value = false
   try {
-    const settings = await dataSource.getCollectionSettings()
+    const settings = await source.getCollectionSettings()
     pageLimit.value = settings.githubMaxPages
     savedPageLimit.value = settings.githubMaxPages
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '读取设置失败'
-  } finally {
-    loading.value = false
-  }
+  } finally { loading.value = false }
 }
 
 async function saveSettings() {
-  if (!valid.value || pageLimit.value === null) return
+  if (!valid.value || pageLimit.value === null || saving.value) return
   saving.value = true
   error.value = ''
   saved.value = false
   try {
-    const settings = await dataSource.saveCollectionSettings({ githubMaxPages: pageLimit.value })
+    const settings = await source.saveCollectionSettings({ githubMaxPages: pageLimit.value })
     pageLimit.value = settings.githubMaxPages
     savedPageLimit.value = settings.githubMaxPages
     saved.value = true
+    ui.toast('采集设置已保存')
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : '保存设置失败'
-  } finally {
-    saving.value = false
-  }
+  } finally { saving.value = false }
 }
-
-onMounted(loadSettings)
+onMounted(() => { void loadSettings() })
 </script>
 
 <template>
-  <main class="space-y-5 px-4 py-5 sm:px-7 sm:py-6">
-    <header>
-      <div class="flex items-center gap-2 text-[12px] text-muted"><Settings2 :size="14" /> 应用偏好</div>
-      <h1 class="mt-1 text-[22px] font-semibold tracking-tight">设置</h1>
-      <p class="mt-1 text-[13px] text-muted">调整采集范围，控制数据覆盖、耗时与 GitHub API 请求量。</p>
-    </header>
-
-    <GdCard>
-      <div class="flex items-start gap-3">
-        <span class="grid size-9 shrink-0 place-items-center rounded-lg bg-soft text-ink"><Settings2 :size="17" /></span>
-        <div>
-          <h2 class="text-[14px] font-semibold">GitHub 深度采集</h2>
-          <p class="mt-1 text-[12.5px] leading-5 text-muted">页数上限分别应用于 Commit、Issue、PR 和 Release 接口。</p>
-        </div>
-      </div>
-
-      <div class="mt-5 flex flex-col gap-4 border-t border-line pt-4 sm:flex-row sm:items-end sm:justify-between">
-        <div class="max-w-xl">
-          <label for="github-max-pages" class="block text-[13px] font-medium">每个接口最多采集页数</label>
-          <p id="github-max-pages-help" class="mt-1 text-[12px] leading-5 text-muted">
-            每页最多 100 条。当前上限对应每个接口最多约 {{ maxRecords.toLocaleString() }} 条；实际数量取决于仓库数据量。
+  <div class="stack app-page">
+    <UiPageHeader title="设置" description="调整采集范围，控制数据覆盖、耗时与 GitHub API 请求量。">
+      <template #actions><UiButton variant="quiet" :disabled="loading || saving" @click="loadSettings"><RefreshCw :size="13" />重新读取</UiButton></template>
+    </UiPageHeader>
+    <form class="settings-form" aria-labelledby="settings-collection-title" @submit.prevent="saveSettings">
+      <section class="settings-option">
+        <div class="settings-copy">
+          <label id="settings-collection-title" for="github-max-pages" class="settings-label">每个接口最多采集页数</label>
+          <p id="github-max-pages-help" class="settings-description">
+            应用于 Commit、Issue、PR 和 Release 接口。每页最多 100 条，当前上限约为
+            {{ maxRecords === null ? '—' : maxRecords.toLocaleString() }} 条 / 接口，实际数量取决于仓库数据量。
           </p>
-          <p class="mt-1 text-[12px] leading-5 text-muted">达到设定页数即按该标准完成；GitHub 请求失败或事件校验异常时仍会部分完成。提高上限会增加采集时间和 API 请求；保存后对新启动的任务生效。</p>
+          <p class="settings-description">
+            达到页数上限后按该标准完成。请求失败或事件校验异常时仍可能部分完成。提高上限会增加采集时间和 API 请求，保存后对新启动的任务生效。
+          </p>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="settings-control">
           <input
             id="github-max-pages"
             v-model.number="pageLimit"
+            class="field field--md settings-number"
             type="number"
             min="1"
             max="100"
             step="1"
             :disabled="loading || saving"
-            aria-describedby="github-max-pages-help"
-            class="h-9 w-24 rounded-[var(--gd-radius-control)] border border-line bg-panel px-3 text-[13px] outline-none transition-[border-color,box-shadow] duration-200 focus:border-ink/30 disabled:opacity-50"
+            :aria-invalid="!valid && !loading"
+            :aria-describedby="fieldDescription"
           >
-          <span class="text-[12px] text-muted">页 / 接口</span>
+          <span class="small muted">页 / 接口</span>
         </div>
+      </section>
+      <p v-if="!valid && !loading" id="github-max-pages-error" class="settings-error" role="alert">
+        请输入 1 到 100 之间的整数。
+      </p>
+      <div class="settings-footer">
+        <div class="settings-feedback" aria-live="polite">
+          <p v-if="error" class="settings-error" role="alert">{{ error }}</p>
+          <p v-else-if="saved" class="settings-success" role="status"><Check :size="14" />设置已保存</p>
+          <p v-else class="small muted">可设置 1–100 页，默认 10 页。</p>
+        </div>
+        <UiButton variant="primary" type="submit" :disabled="loading || saving || !dirty || !valid" :loading="loading || saving">
+          <Save v-if="!loading && !saving" :size="14" />{{ loading ? '读取中' : saving ? '保存中' : '保存设置' }}
+        </UiButton>
       </div>
-
-      <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-        <p v-if="error" role="alert" class="text-[12px] text-danger">{{ error }}</p>
-        <p v-else-if="saved" role="status" class="flex items-center gap-1 text-[12px] text-s4"><Check :size="14" /> 设置已保存</p>
-        <p v-else class="text-[12px] text-muted">可设置 1–100 页，默认 10 页。</p>
-        <GdButton :disabled="loading || saving || !dirty || !valid" @click="saveSettings">
-          <LoaderCircle v-if="saving || loading" :size="14" class="animate-spin" />
-          <Save v-else :size="14" />
-          {{ loading ? '读取中' : saving ? '保存中' : '保存设置' }}
-        </GdButton>
-      </div>
-      <p v-if="!valid && !loading" class="mt-2 text-[12px] text-danger">请输入 1 到 100 之间的整数。</p>
-    </GdCard>
-  </main>
+    </form>
+  </div>
 </template>
+
+<style scoped>
+.settings-form { width: min(100%, 980px); }
+.settings-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 32px;
+  padding: 22px 0;
+  border-block: 1px solid var(--line);
+}
+.settings-label { display: block; margin-bottom: 7px; font-size: 14px; font-weight: 650; }
+.settings-description { max-width: 690px; margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.settings-control { display: flex; align-items: center; gap: 9px; }
+.settings-number { width: 96px; min-height: 42px; font-size: 14px; }
+.settings-form > .settings-error { margin: 9px 0 0; }
+.settings-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-top: 14px; }
+.settings-footer p { margin: 0; }
+.settings-error { color: var(--red); font-size: 12px; }
+.settings-success { display: flex; align-items: center; gap: 5px; color: var(--green); font-size: 12px; }
+@media(max-width:640px) {
+  .settings-option { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 14px; padding: 18px 0; }
+  .settings-footer { align-items: flex-start; }
+}
+</style>

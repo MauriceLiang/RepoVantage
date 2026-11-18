@@ -2,13 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ArrowUpRight, Info } from 'lucide-vue-next'
-import type { EChartsOption } from 'echarts'
+import type { G2Spec } from '@antv/g2'
 import { getBrowserApiData } from '@/services/httpRepositoryDataSource'
 import { useUiStore } from '@/stores/ui'
-import ChartPanel from '../components/ChartPanel.vue'
-import DecisionScatterG2 from '../components/DecisionScatterG2.vue'
-import type { DecisionPoint } from '../components/DecisionScatterG2.vue'
-import type { CapabilityEvidence, MetricEvidence, ScenarioCandidate, ScenarioDetail, ScenarioSummary, ScenarioViz, SelectionWeek } from '../data/researchTypes'
+import G2Chart from '@/components/charts/G2Chart.vue'
+import DecisionScatterG2 from '@/components/charts/DecisionScatterG2.vue'
+import type { DecisionPoint } from '@/components/charts/DecisionScatterG2.vue'
+import type { CapabilityEvidence, MetricEvidence, ScenarioCandidate, ScenarioDetail, ScenarioSummary, ScenarioViz, SelectionWeek } from '@/data/researchTypes'
 
 interface CandidateDetailResponse {
   scenario: string
@@ -61,55 +61,51 @@ const metricDefinitions = [
   { key: 'release_interval_median_days', label: 'Release 间隔中位数', unit: '天' },
 ] as const
 
-const parallelOption = computed<EChartsOption>(() => {
-  const available = candidates.value.filter((candidate) => Object.values(candidate.metrics).some((metric) => metric.value !== null))
-  const axes = metricDefinitions.map((definition, index) => {
-    const values = available.map((candidate) => candidate.metrics[definition.key]?.value).filter((value): value is number => typeof value === 'number')
-    const maximum = Math.max(...values, 1)
-    return {
-      dim: index,
-      name: `${definition.label}（${definition.unit}）`,
-      type: 'value' as const,
-      min: 0,
-      max: maximum > 1 ? maximum * 1.08 : 1,
-      nameTextStyle: { color: isDark.value ? '#bec8d0' : '#667480', fontSize: 10 },
-      axisLabel: { color: isDark.value ? '#aeb8c0' : '#77848e', fontSize: 9 },
-      axisLine: { lineStyle: { color: isDark.value ? '#46515a' : '#dce3e8' } },
-      splitLine: { lineStyle: { color: isDark.value ? '#2c353d' : '#e8edf0', type: 'dashed' as const } },
-    }
-  })
+const parallelDimensions = metricDefinitions.map((metric) => metric.key)
+const parallelRows = computed(() => candidates.value.flatMap((candidate) => {
+  const values = parallelDimensions.map((key) => candidate.metrics[key]?.value ?? null)
+  if (values.some((value) => value === null)) return []
+  return [{
+    full_name: candidate.full_name,
+    weekly_commit_mean: values[0]!,
+    weekly_pr_open_mean: values[1]!,
+    issue_closed_median_days: values[2]!,
+    pr_merged_median_days: values[3]!,
+    release_interval_median_days: values[4]!,
+  }]
+}))
+const parallelExcludedCount = computed(() => candidates.value.length - parallelRows.value.length)
+const parallelSpec = computed<G2Spec>(() => {
+  const color = isDark.value ? '#bec8d0' : '#667480'
   return {
-    tooltip: { trigger: 'item', formatter: (parameter: unknown) => {
-      const item = parameter as { seriesName?: string; data?: Array<number | null> }
-      const lines = metricDefinitions.map((definition, index) => `${definition.label}：${item.data?.[index] ?? '—'} ${definition.unit}`)
-      return `<strong>${item.seriesName ?? '候选'}</strong><br/>${lines.join('<br/>')}`
-    } },
-    parallel: { left: 50, right: 24, top: 32, bottom: 34, parallelAxisDefault: { type: 'value', nameLocation: 'end', nameGap: 10, splitNumber: 3 } },
-    parallelAxis: axes,
-    series: available.map((candidate, index) => ({
-      name: candidate.full_name,
-      type: 'parallel' as const,
-      lineStyle: { color: candidate.repository_id === selectedId.value ? palette[index % palette.length] : palette[index % palette.length], width: candidate.repository_id === selectedId.value ? 3 : 1.4, opacity: candidate.repository_id === selectedId.value ? 0.95 : 0.48 },
-      emphasis: { lineStyle: { width: 4, opacity: 1 } },
-      data: [metricDefinitions.map((definition) => candidate.metrics[definition.key]?.value ?? null)],
-    })),
+    type: 'line', coordinate: { type: 'parallel' }, data: parallelRows.value,
+    encode: { position: parallelDimensions, color: 'full_name' },
+    style: { lineWidth: 1.5, strokeOpacity: 0.52 },
+    scale: { color: { range: palette } },
+    axis: Object.fromEntries(['position', 'position1', 'position2', 'position3', 'position4'].map((key, index) => [key, {
+      zIndex: 1, labelFill: color, labelFontSize: 9,
+      title: `${metricDefinitions[index].label}（${metricDefinitions[index].unit}）`, titleFill: color, titleFontSize: 10,
+    }])),
+    legend: { color: { position: 'bottom', itemLabelFill: color, itemLabelFontSize: 9 } },
+    interaction: { brushHighlight: true, tooltip: { series: false } },
+    tooltip: { title: 'full_name', items: metricDefinitions.map((metric) => ({ field: metric.key, name: `${metric.label}（${metric.unit}）` })) },
   }
 })
-
-const activityOption = computed<EChartsOption>(() => {
+const activitySpec = computed<G2Spec>(() => {
   const weeks: SelectionWeek[] = selectedViz.value?.weekly_activity ?? []
-  const axis = { color: isDark.value ? '#bec8d0' : '#667480', fontSize: 9 }
+  const data = weeks.flatMap((week) => [
+    { week: week.week_start.slice(5, 10), series: 'Commit', value: week.commits },
+    { week: week.week_start.slice(5, 10), series: '新开 PR', value: week.prs_opened },
+  ])
+  const color = isDark.value ? '#bec8d0' : '#667480'
+  const gridColor = isDark.value ? '#303942' : '#e6ebef'
   return {
-    color: ['#55b7f3', '#53c998'],
-    tooltip: { trigger: 'axis' },
-    legend: { bottom: 0, textStyle: { color: axis.color }, itemWidth: 12, itemHeight: 8 },
-    grid: { top: 12, right: 14, bottom: 44, left: 42 },
-    xAxis: { type: 'category', data: weeks.map((week) => week.week_start.slice(5, 10)), axisLabel: axis, axisLine: { lineStyle: { color: isDark.value ? '#46515a' : '#dce3e8' } } },
-    yAxis: { type: 'value', minInterval: 1, axisLabel: axis, splitLine: { lineStyle: { color: isDark.value ? '#303942' : '#e6ebef', type: 'dashed' } } },
-    series: [
-      { name: 'Commit', type: 'line', data: weeks.map((week) => week.commits), smooth: 0.16, symbolSize: 5, lineStyle: { width: 2.5 } },
-      { name: '新开 PR', type: 'line', data: weeks.map((week) => week.prs_opened), smooth: 0.16, symbolSize: 5, lineStyle: { width: 2.5 } },
-    ],
+    type: 'line', data, encode: { x: 'week', y: 'value', color: 'series' },
+    scale: { color: { domain: ['Commit', '新开 PR'], range: ['#55b7f3', '#53c998'] } },
+    style: { lineWidth: 2.5, lineJoin: 'round' },
+    axis: { x: { labelFill: color, labelFontSize: 9, lineStroke: gridColor }, y: { labelFill: color, labelFontSize: 9, gridStroke: gridColor, gridLineDash: [3, 3] } },
+    legend: { color: { position: 'bottom', itemLabelFill: color } },
+    tooltip: { title: 'week', items: [{ field: 'series', name: '指标' }, { field: 'value', name: '周计数' }] },
   }
 })
 
@@ -193,14 +189,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="optimized-page selection-page">
+  <div class="app-page selection-page">
     <header class="selection-heading">
       <div>
-        <div class="selection-kicker">SAME-SCENARIO · VERSIONED EVIDENCE</div>
         <h1 class="page-title">技术选型工作台</h1>
         <p class="page-description">先按项目场景和硬约束缩小范围，再并排查看同窗维护证据。页面不生成 GitHub 总分或默认冠军。</p>
       </div>
-      <RouterLink class="button button--outline" to="/research">查看 300 仓库研究图谱 <ArrowUpRight :size="14" /></RouterLink>
+      <div class="selection-heading-actions">
+        <RouterLink class="button button--outline" to="/selection/candidates">浏览 20 个同类仓库 <ArrowUpRight :size="14" /></RouterLink>
+      </div>
     </header>
 
     <div class="scenario-tabs" role="tablist" aria-label="技术选型场景">
@@ -275,13 +272,13 @@ onMounted(async () => {
 
       <section class="selection-lower-grid">
         <article class="panel parallel-panel">
-          <div class="selection-panel-heading"><div><h3>多维证据并列</h3><p>各轴使用各自原始单位；空白维度保持断开，不作总分归一化。Release 间隔不设默认方向。</p></div></div>
-          <ChartPanel :option="parallelOption" label="同类候选多指标平行坐标图，缺失值保持空白" :height="335" />
-          <div class="parallel-note">Issue / PR 耗时 n&lt;5 为证据不足；5–9 为探索性；n≥10 才满足描述性比较门槛，且仍须查看覆盖状态。</div>
+          <div class="selection-panel-heading"><div><h3>多维证据并列</h3><p>各轴保留自身原始单位；只有五项指标均有值的候选进入图表，其他候选仍显示在右侧原始证据表。Release 间隔不设默认优劣方向。</p></div></div>
+          <G2Chart :spec="parallelSpec" label="完整指标候选的平行坐标；缺失指标候选保留在证据表中，不补零" :height="335" />
+          <div class="parallel-note">{{ parallelExcludedCount }} 个候选因指标缺失未绘入平行坐标，仍保留原始证据。Issue / PR 耗时 n&lt;5 为证据不足；5–9 为探索性；n≥10 才满足描述性比较门槛，且仍须查看覆盖状态。</div>
         </article>
         <article class="panel activity-panel">
           <div class="selection-panel-heading"><div><h3>维护活动轨迹</h3><p>{{ selectedCandidate?.full_name ?? '选择一个候选' }} · 完整 12 周 UTC 记录</p></div></div>
-          <ChartPanel v-if="selectedViz?.weekly_activity?.length" :option="activityOption" label="选中候选的 12 周 Commit 与新开 PR 趋势" :height="288" />
+          <G2Chart v-if="selectedViz?.weekly_activity?.length" :spec="activitySpec" label="选中候选的 12 周 Commit 与新开 PR 趋势" :height="288" />
           <div v-else class="selection-empty selection-empty--trend">{{ selectedCandidate?.metric_collection_status === 'pending_collection' ? '该候选尚未采集指标，时间轨迹留空。' : '此候选没有可用的完整 12 周活动轨迹。' }}</div>
         </article>
       </section>
@@ -292,8 +289,7 @@ onMounted(async () => {
 <style scoped>
 .selection-page { display:grid; gap:14px; }
 .selection-heading { display:flex; align-items:flex-end; justify-content:space-between; gap:18px; }
-.selection-kicker { margin-bottom:7px; color:var(--primary-ink); font-size:10px; font-weight:700; letter-spacing:.11em; }
-.selection-heading > .button { flex:0 0 auto; }
+.selection-heading-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:8px; }
 .scenario-tabs { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:7px; }
 .scenario-tab { display:grid; gap:5px; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:8px; color:var(--muted); background:var(--surface); text-align:left; cursor:pointer; }
 .scenario-tab[aria-selected="true"] { border-color:color-mix(in srgb,var(--primary) 52%,var(--line)); color:var(--ink); background:var(--primary-soft); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--primary) 12%,transparent); }

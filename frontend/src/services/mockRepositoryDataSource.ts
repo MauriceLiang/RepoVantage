@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
-  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositorySummary,
-  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
+  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositorySummary,
+  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
@@ -333,8 +333,10 @@ const sha = (n: number) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(
 const COMMIT_TITLES = ['feat: 周聚合改为事件日期', 'fix: 排除 PR 类型的 Issue', 'chore: 升级解析依赖', 'docs: 补充指标定义', 'refactor: 统一时间口径', 'test: 增加部分采集用例', 'perf: 聚合查询缓存']
 
 export class MockRepositoryDataSource implements RepositoryDataSource {
+  private repositoryGroups: RepositoryGroup[] = []
   private requestedScopeTask: TaskItem | null = null
   private retryTasks: TaskItem[] = []
+  private deletedTaskIds = new Set<string>()
 
   private githubMaxPages = 10
   private featuredImport: { taskId: string; startedAt: number; retryOf: string | null } | null = null
@@ -461,6 +463,40 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
 
   async listRepositories(): Promise<RepositorySummary[]> {
     return REPOSITORIES.map(summaryOf)
+  }
+
+  async listRepositoryGroups(): Promise<RepositoryGroup[]> {
+    return this.repositoryGroups.map((group) => ({ ...group, repositoryIds: [...group.repositoryIds] }))
+  }
+
+  async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
+    const normalized = name.trim()
+    if (!normalized || normalized.length > 80) throw new Error('分组名称须为 1–80 个字符')
+    if (this.repositoryGroups.some((group) => group.name === normalized)) throw new Error('已有同名分组')
+    this.requireLibraryRepositories(repositoryIds)
+    const group = { id: String(this.repositoryGroups.length + 1), name: normalized, repositoryIds: [...new Set(repositoryIds)] }
+    this.repositoryGroups.push(group)
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  async addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup> {
+    const group = this.repositoryGroups.find((item) => item.id === groupId)
+    if (!group) throw new Error('分组不存在')
+    this.requireLibraryRepositories(repositoryIds)
+    group.repositoryIds = [...new Set([...group.repositoryIds, ...repositoryIds])]
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  async removeRepositoryFromGroup(groupId: string, repositoryId: string): Promise<RepositoryGroup> {
+    const group = this.repositoryGroups.find((item) => item.id === groupId)
+    if (!group) throw new Error('分组不存在')
+    group.repositoryIds = group.repositoryIds.filter((id) => id !== repositoryId)
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  private requireLibraryRepositories(repositoryIds: string[]) {
+    const libraryIds = new Set(REPOSITORIES.map((repo) => repo.id))
+    if (repositoryIds.some((id) => !libraryIds.has(id))) throw new Error('请先将仓库添加到我的仓库')
   }
 
   async getFeaturedDatasetStatus() {
@@ -1004,20 +1040,9 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getOverviewDashboard(): Promise<RepositoryDashboardData> {
-    return {
-      id: 'course-research-300-v1',
-      name: '默认仓库数据集（300 个仓库）',
-      repositoryCount: 0,
-      courseSummary: { dataAsOf: null, weeklyRecords: 0, completeCommitRepositories: 0 },
-      courseLanguageGroups: [],
-      courseRepositories: [],
-    }
-  }
-
   async listTasks(): Promise<TaskItem[]> {
     const demoImport = this.featuredTaskItem()
-    return [
+    const tasks: TaskItem[] = [
       { id: 't1', repository: 'demo-labs/queue-demo', module: 'commits', status: 'running', stage: '分页拉取 · 已处理 1,200 / 6,800 条', processed: 1200, total: 6800, updatedAt: '刚刚' },
       { id: 't2', repository: 'demo-labs/docs-site', module: 'issues', status: 'queued', stage: '等待前序任务', processed: 0, total: 2400, updatedAt: '刚刚' },
       { id: 't3', repository: 'demo-labs/sparse-kit', module: 'pullRequests', status: 'partial', stage: '已获取 412 条，第 4 页后截断', processed: 412, total: 610, updatedAt: '14 分钟前' },
@@ -1028,6 +1053,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       ...this.retryTasks,
       ...(demoImport ? [demoImport] : []),
     ]
+    return tasks.filter((task) => !this.deletedTaskIds.has(task.id))
   }
 
   async retryTask(id: string): Promise<string> {
@@ -1053,6 +1079,22 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     })
     return retryId
   }
+
+  async deleteTask(id: string): Promise<void> {
+    const task = (await this.listTasks()).find((item) => item.id === id)
+    if (!task) throw new Error('任务不存在')
+    if (task.status === 'queued' || task.status === 'running' || task.status === 'analyzing') {
+      throw new Error('排队或执行中的任务不能删除')
+    }
+    this.deletedTaskIds.add(id)
+  }
+
+  async clearTaskHistory(): Promise<number> {
+    const finishedTasks = (await this.listTasks()).filter((task) => !['queued', 'running', 'analyzing'].includes(task.status))
+    finishedTasks.forEach((task) => this.deletedTaskIds.add(task.id))
+    return finishedTasks.length
+  }
+
   async exportInsights(_id: string, _windowDays: TimeWindow): Promise<Blob> { return new Blob(['demo export'], { type: 'text/csv' }) }
   async exportComparison(ids: string[], windowDays: TimeWindow, mode: ComparisonMode): Promise<Blob> {
     const { entries } = await this.getComparison(ids, windowDays, mode)

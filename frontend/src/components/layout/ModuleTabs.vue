@@ -14,7 +14,6 @@ const tabs = [
   { key: 'issues', label: 'Issue' },
   { key: 'prs', label: 'PR' },
   { key: 'releases', label: '版本发布' },
-  { key: 'analysis', label: '仓库分析' },
 ]
 
 async function positionIndicator() {
@@ -40,7 +39,7 @@ onBeforeUnmount(() => observer?.disconnect())
 
 <template>
   <div class="sticky top-14 z-20 flex h-11 items-center justify-between gap-3 border-b border-line bg-bg px-4 sm:px-7">
-    <nav ref="nav" class="module-tabs-nav relative flex h-11 min-w-0 gap-5 overflow-x-auto sm:gap-[22px]" aria-label="仓库分析模块">
+    <nav ref="nav" class="module-tabs-nav relative flex h-11 min-w-0 gap-5 overflow-x-auto sm:gap-[22px]" aria-label="仓库页面导航">
       <span
         class="module-tabs-indicator absolute bottom-0 left-0 h-0.5 rounded-full bg-ink"
         :class="indicator.visible ? 'opacity-100' : 'opacity-0'"

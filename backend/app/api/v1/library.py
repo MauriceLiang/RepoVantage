@@ -1,22 +1,30 @@
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from sqlalchemy import case, desc, func, select
+from sqlalchemy import case, delete, desc, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, load_only
 
 from backend.app.api.dependencies import get_github_client, get_session
 from backend.app.api.helpers import envelope, pagination
 from backend.app.core.exceptions import AppError
 from backend.app.integrations.github.client import GitHubClient, validate_full_name
-from backend.app.persistence.models import DatasetRepository, Repository, RepositorySnapshot
+from backend.app.persistence.db import begin_immediate
+from backend.app.persistence.models import DatasetRepository, Repository, RepositoryGroup, RepositoryGroupMember, RepositorySnapshot
 from backend.app.schemas.analytics import RepositoryListResponse
 from backend.app.schemas.common import SuccessEnvelope
-from backend.app.schemas.repositories import AddRepositoryRequest, AddRepositoryResponse
+from backend.app.schemas.repositories import (
+    AddRepositoryGroupMembersRequest,
+    AddRepositoryRequest,
+    AddRepositoryResponse,
+    CreateRepositoryGroupRequest,
+    RepositoryGroupResponse,
+)
 from backend.app.services.repositories import LIBRARY_ID, add_idempotency_response, cached_idempotency_response, enqueue_add, summaries
 
 
-router = APIRouter(prefix="/library/repositories", tags=["library"])
+router = APIRouter(prefix="/library", tags=["library"])
 
 
-@router.post("", response_model=SuccessEnvelope[AddRepositoryResponse], status_code=201, responses={200: {"model": SuccessEnvelope[AddRepositoryResponse]}})
+@router.post("/repositories", response_model=SuccessEnvelope[AddRepositoryResponse], status_code=201, responses={200: {"model": SuccessEnvelope[AddRepositoryResponse]}})
 def add_repository(
     request: Request,
     body: AddRepositoryRequest,
@@ -39,7 +47,7 @@ def add_repository(
     return envelope(request, data)
 
 
-@router.get("", response_model=SuccessEnvelope[RepositoryListResponse])
+@router.get("/repositories", response_model=SuccessEnvelope[RepositoryListResponse])
 def list_repositories(
     request: Request,
     q: str | None = Query(default=None, max_length=100),
@@ -51,7 +59,9 @@ def list_repositories(
     per_page: int = Query(default=20, ge=1, le=100),
     session: Session = Depends(get_session),
 ):
-    filters = [DatasetRepository.dataset_id == LIBRARY_ID]
+    # Imported research/featured samples remain available in their own datasets.
+    # The personal repository screen contains only repositories explicitly added by the user.
+    filters = [DatasetRepository.dataset_id == LIBRARY_ID, DatasetRepository.selection_source.is_(None)]
     if q:
         filters.append(Repository.full_name.ilike(f"%{q}%") | Repository.description.ilike(f"%{q}%"))
     if language:
@@ -102,13 +112,116 @@ def list_repositories(
     return envelope(request, {"items": items}, pagination=pagination(page, per_page, total))
 
 
-@router.delete("/{repository_id}", status_code=204)
+@router.delete("/repositories/{repository_id}", status_code=204)
 def remove_repository(repository_id: int, session: Session = Depends(get_session)):
     repo = session.get(Repository, repository_id)
     if repo is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
     membership = session.get(DatasetRepository, (LIBRARY_ID, repository_id))
-    if membership:
+    if membership and membership.selection_source is None:
         session.delete(membership)
         session.commit()
     return Response(status_code=204)
+
+
+def group_repository_ids(session: Session, group_id: int) -> list[int]:
+    return list(session.scalars(
+        select(RepositoryGroupMember.repository_id)
+        .where(RepositoryGroupMember.group_id == group_id)
+        .order_by(RepositoryGroupMember.repository_id)
+    ))
+
+
+def lock_group(session: Session, group_id: int) -> RepositoryGroup:
+    begin_immediate(session)
+    group = session.get(RepositoryGroup, group_id, with_for_update=True)
+    if group is None:
+        raise AppError(404, "RESOURCE_NOT_FOUND", "分组不存在")
+    return group
+
+
+def require_library_repositories(session: Session, repository_ids: set[int]) -> None:
+    if not repository_ids:
+        return
+    library_ids = set(session.scalars(
+        select(DatasetRepository.repository_id)
+        .where(
+            DatasetRepository.dataset_id == LIBRARY_ID,
+            DatasetRepository.selection_source.is_(None),
+            DatasetRepository.repository_id.in_(repository_ids),
+        )
+        .order_by(DatasetRepository.repository_id)
+        .with_for_update()
+    ))
+    if library_ids != repository_ids:
+        raise AppError(409, "REPOSITORY_NOT_IN_LIBRARY", "请先将仓库添加到我的仓库")
+
+
+@router.get("/groups", response_model=SuccessEnvelope[list[RepositoryGroupResponse]])
+def list_groups(request: Request, session: Session = Depends(get_session)):
+    rows = session.execute(
+        select(RepositoryGroup.id, RepositoryGroup.name, RepositoryGroupMember.repository_id)
+        .outerjoin(RepositoryGroupMember)
+        .order_by(RepositoryGroup.id, RepositoryGroupMember.repository_id)
+    )
+    groups: dict[int, RepositoryGroupResponse] = {}
+    for group_id, name, repository_id in rows:
+        if group_id not in groups:
+            groups[group_id] = RepositoryGroupResponse(id=group_id, name=name, repository_ids=[])
+        if repository_id is not None:
+            groups[group_id].repository_ids.append(repository_id)
+    return envelope(request, list(groups.values()))
+
+
+@router.post("/groups", response_model=SuccessEnvelope[RepositoryGroupResponse], status_code=201)
+def create_group(request: Request, body: CreateRepositoryGroupRequest, session: Session = Depends(get_session)):
+    begin_immediate(session)
+    requested = set(body.repository_ids)
+    require_library_repositories(session, requested)
+    group = RepositoryGroup(name=body.name)
+    session.add(group)
+    try:
+        session.flush()
+        session.add_all(
+            RepositoryGroupMember(group_id=group.id, repository_id=repository_id, dataset_id=LIBRARY_ID)
+            for repository_id in requested
+        )
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        if session.scalar(select(RepositoryGroup.id).where(RepositoryGroup.name == body.name)) is not None:
+            raise AppError(409, "GROUP_NAME_IN_USE", "已有同名分组")
+        raise
+    return envelope(request, RepositoryGroupResponse(id=group.id, name=group.name, repository_ids=sorted(requested)))
+
+
+@router.post("/groups/{group_id}/repositories", response_model=SuccessEnvelope[RepositoryGroupResponse])
+def add_group_repositories(
+    request: Request,
+    group_id: int,
+    body: AddRepositoryGroupMembersRequest,
+    session: Session = Depends(get_session),
+):
+    group = lock_group(session, group_id)
+    requested = set(body.repository_ids)
+    require_library_repositories(session, requested)
+
+    existing = set(group_repository_ids(session, group_id))
+    session.add_all(
+        RepositoryGroupMember(group_id=group_id, repository_id=repository_id, dataset_id=LIBRARY_ID)
+        for repository_id in requested - existing
+    )
+    session.commit()
+    return envelope(request, RepositoryGroupResponse(id=group.id, name=group.name, repository_ids=sorted(existing | requested)))
+
+
+@router.delete("/groups/{group_id}/repositories/{repository_id}", response_model=SuccessEnvelope[RepositoryGroupResponse])
+def remove_group_repository(request: Request, group_id: int, repository_id: int, session: Session = Depends(get_session)):
+    group = lock_group(session, group_id)
+    session.execute(delete(RepositoryGroupMember).where(
+        RepositoryGroupMember.group_id == group_id,
+        RepositoryGroupMember.repository_id == repository_id,
+    ))
+    result = RepositoryGroupResponse(id=group.id, name=group.name, repository_ids=group_repository_ids(session, group_id))
+    session.commit()
+    return envelope(request, result)

@@ -91,6 +91,12 @@ export interface ActivityTrend {
   comparisonReason: string | null
 }
 
+export interface RepositoryGroup {
+  id: string
+  name: string
+  repositoryIds: string[]
+}
+
 export interface RepositorySummary {
   /** 路由使用的后端仓库编号。 */
   id: string
@@ -285,7 +291,7 @@ export interface PrDurationPeriod {
 }
 
 export interface RepositoryChartData {
-  /** 所选窗口内按提交量排序的前五个可识别 GitHub 账号标识。 */
+  /** 所选窗口内按提交量排序的前五个 GitHub 账号显示名。 */
   commitAccounts: string[]
   /** 按周观察到的数量；complete=false 时不能视为完整一周的总量。 */
   commitWeekly: { start: string; complete: boolean; observedCommits: number; activeAuthors: number | null; contributors: number[]; otherCommits: number; unidentifiedCommits: number }[]
@@ -586,19 +592,6 @@ export interface ResearchDataset {
   courseLanguageGroups?: { language: string; repositoryCount: number; commitSampleCount: number; weeklyCommitMean: number | null }[]
   courseRepositories?: { repositoryId: string; fullName: string; language: string; sampleRole: 'train' | 'test'; weeklyCommitMean: number | null; activeWeeks: number | null; stars?: number | null; forks?: number | null; createdAt?: string | null }[]
   limitations: string[]
-}
-
-export interface RepositoryDashboardData {
-  id: string
-  name: string
-  repositoryCount: number
-  courseSummary: {
-    dataAsOf: string | null
-    weeklyRecords: number
-    completeCommitRepositories: number
-  }
-  courseLanguageGroups: { language: string; repositoryCount: number; commitSampleCount: number; weeklyCommitMean: number | null }[]
-  courseRepositories: { repositoryId: string; fullName: string; language: string; weeklyCommitMean: number | null; activeWeeks: number | null; stars: number | null; forks: number | null; createdAt: string | null }[]
 }
 
 export type TaskStatus = 'queued' | 'running' | 'analyzing' | 'done' | 'partial' | 'failed' | 'cancelled'

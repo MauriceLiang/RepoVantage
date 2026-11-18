@@ -127,16 +127,16 @@ async function exportCsv() {
     </div>
     <PrMergeTrendChart v-if="analysis.chartData" :points="analysis.pullRequests.series.find((series) => series.key === 'merged')?.points ?? []" :data="analysis.chartData" :duration-p90="analysis.prDuration.percentiles.p90" :height="270" />
     <GroupedChart v-else :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#2E8FCB']" :height="250" />
-    <p v-if="analysis.chartData" class="text-[11px] text-muted">柱为每周合并数，圆点为单条 PR 耗时，折线为每周中位耗时；耗时轴随当前时间窗口缩放，超过全窗口 P90 的长尾以三角标记，悬浮仍显示真实耗时。窗口只筛选显示范围，柱和中位数仍按 UTC 自然周聚合。覆盖不完整时仅显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；P90 阈值和周中位数使用全部有效样本。</template></p>
+    <p v-if="analysis.chartData" class="text-[11px] text-muted">合并数量、单条 PR 耗时和每周中位耗时分图显示，避免混用单位；日期控件筛选展示范围，周汇总仍按 UTC 自然周计算。超过全窗口 P90 的长尾以三角标记，悬浮仍显示真实耗时。覆盖不完整时只显示已观察样本。<template v-if="analysis.chartData.prSamplesTruncated"> 散点展示 {{ analysis.chartData.prSamples.length }} / {{ analysis.chartData.prSampleTotal }} 条；P90 阈值和周中位数使用全部有效样本。</template></p>
     <p v-else class="text-[11px] text-muted">当前数据未提供逐条耗时，显示已采集的每周合并数量。</p>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
-    <GdCard class="h-[420px] min-h-0 overflow-hidden">
+    <GdCard class="h-[460px] min-h-0 min-w-0 overflow-hidden max-[680px]:h-[800px]">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? `${durationGrainLabel}合并耗时分布` : '合并耗时分布' }}</h3>
-          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '堆叠柱为各耗时区间样本数 · 折线为区间中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
+          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '左图为各耗时区间样本数 · 右图为每时段中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
         </div>
         <div class="flex flex-wrap items-center justify-end gap-2">
           <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
@@ -145,13 +145,13 @@ async function exportCsv() {
           </div>
         </div>
       </div>
-      <PrMonthlyDurationChart v-if="analysis.chartData" :periods="durationPeriods" :grain="durationGrain" :selected-period-start="selectedPeriod?.start" :height="200" class="min-h-[200px] flex-1 w-full" @select="selectDurationPeriod" />
-      <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="200" class="min-h-[200px] flex-1 w-full" />
+      <PrMonthlyDurationChart v-if="analysis.chartData" :periods="durationPeriods" :grain="durationGrain" :selected-period-start="selectedPeriod?.start" :height="280" class="min-h-[280px] flex-1 w-full" @select="selectDurationPeriod" />
+      <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="280" class="min-h-[280px] flex-1 w-full" />
       <div class="text-[11px] text-muted"><template v-if="analysis.chartData">柱体始终使用实色；柱顶 n 为该时段样本数，* 表示覆盖不完整。点击柱体可按该时段筛选 PR 记录。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
     </GdCard>
 
-    <GdCard class="h-[420px] min-h-0 overflow-hidden">
+    <GdCard class="h-[460px] min-h-0 min-w-0 overflow-hidden max-[680px]:h-[500px]">
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex min-w-0 items-center gap-2">
           <h3 class="m-0 text-[15.5px] font-semibold">PR 逐条记录</h3>

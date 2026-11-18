@@ -298,7 +298,8 @@ def preview(payload: dict[str, Any], already_in_library: bool) -> dict[str, Any]
 
 
 def membership_exists(session: Session, repository_id: int) -> bool:
-    return session.get(DatasetRepository, (LIBRARY_ID, repository_id)) is not None
+    membership = session.get(DatasetRepository, (LIBRARY_ID, repository_id))
+    return membership is not None and membership.selection_source is None
 
 
 def enqueue_add(session: Session, github_payload: dict[str, Any], auto_analyze: bool, depth: str, idempotency_key: str | None) -> tuple[dict[str, Any], int]:
@@ -306,9 +307,13 @@ def enqueue_add(session: Session, github_payload: dict[str, Any], auto_analyze: 
     repo = repository_from_github(session, github_payload)
     session.flush()
     membership = session.get(DatasetRepository, (LIBRARY_ID, repo.repository_id))
-    created = membership is None
-    if created:
+    created = membership is None or membership.selection_source is not None
+    if membership is None:
         session.add(DatasetRepository(dataset_id=LIBRARY_ID, repository_id=repo.repository_id))
+    elif membership.selection_source is not None:
+        # Adding an imported sample from the UI is an explicit choice to make it a personal repository.
+        membership.selection_source = None
+        membership.added_at = utc_now()
     task = None
     if auto_analyze and (created or latest_analysis(session, repo.repository_id) is None):
         task = make_task(session, repo.repository_id, depth, idempotency_key=idempotency_key)

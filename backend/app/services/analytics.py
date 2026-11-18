@@ -24,7 +24,10 @@ def _dataset(session: Session, dataset_id: str, expected_type: str = "research")
 
 
 def dataset_rows(session: Session, dataset_id: str, language: str | None = None) -> list[dict[str, Any]]:
-    memberships = session.scalars(select(DatasetRepository).where(DatasetRepository.dataset_id == dataset_id).order_by(DatasetRepository.repository_id)).all()
+    statement = select(DatasetRepository).where(DatasetRepository.dataset_id == dataset_id)
+    if dataset_id == LIBRARY_ID:
+        statement = statement.where(DatasetRepository.selection_source.is_(None))
+    memberships = session.scalars(statement.order_by(DatasetRepository.repository_id)).all()
     rows: list[dict[str, Any]] = []
     for membership in memberships:
         repo = session.get(Repository, membership.repository_id)

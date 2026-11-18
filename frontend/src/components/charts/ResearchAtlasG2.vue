@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Chart } from '@antv/g2'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { AtlasBrushSelection, AtlasChartPoint, AtlasPoint, AtlasSelectionRange } from '../data/researchTypes'
+import type { AtlasBrushSelection, AtlasChartPoint, AtlasPoint, AtlasSelectionRange } from '@/data/researchTypes'
 
 interface ChartPoint extends AtlasChartPoint {
   star_size: number

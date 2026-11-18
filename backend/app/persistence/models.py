@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
+from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, ForeignKey, ForeignKeyConstraint, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.core.clock import utc_now
@@ -54,6 +54,30 @@ class DatasetRepository(Base):
     selection_source: Mapped[str | None] = mapped_column(String(200))
     repository: Mapped[Repository] = relationship(back_populates="memberships")
     dataset: Mapped[Dataset] = relationship(back_populates="memberships")
+
+
+class RepositoryGroup(Base):
+    __tablename__ = "repository_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(80), unique=True)
+
+
+class RepositoryGroupMember(Base):
+    __tablename__ = "repository_group_members"
+    __table_args__ = (
+        CheckConstraint("dataset_id = 'library-default'", name="ck_repository_group_library"),
+        ForeignKeyConstraint(
+            ["dataset_id", "repository_id"],
+            ["dataset_repositories.dataset_id", "dataset_repositories.repository_id"],
+            ondelete="CASCADE",
+        ),
+        Index("ix_repository_group_member_library", "dataset_id", "repository_id"),
+    )
+
+    group_id: Mapped[int] = mapped_column(ForeignKey("repository_groups.id", ondelete="CASCADE"), primary_key=True)
+    repository_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    dataset_id: Mapped[str] = mapped_column(String(100))
 
 
 class DatasetImportJob(Base):
