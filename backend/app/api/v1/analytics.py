@@ -7,7 +7,7 @@ from backend.app.api.dependencies import get_session
 from backend.app.api.helpers import envelope
 from backend.app.schemas.analytics import ComparisonResponse, DataQualityResponse, OverviewResponse, StatisticsResponse
 from backend.app.schemas.common import SuccessEnvelope
-from backend.app.schemas.ml_evaluation import ModelDecisions, SelectionFeedback, SelectionFeedbackCreate, SelectionRequest, SelectionResult
+from backend.app.schemas.ml_evaluation import CourseMachineLearningEvaluation, ModelDecisions, SelectionFeedback, SelectionFeedbackCreate, SelectionRequest, SelectionResult
 from backend.app.schemas.repositories import ComparisonRequest, InsightsComparisonRequest
 from backend.app.services.analytics import compare_repositories, data_quality, overview, research_statistics
 
@@ -47,6 +47,12 @@ def get_research_dashboard(request: Request, dataset_id: str = "course-research-
 def get_research_atlas(request: Request, dataset_id: str = "course-research-300-v1", session: Session = Depends(get_session)):
     from backend.app.services.course_research_dataset import course_research_atlas
     return envelope(request, course_research_atlas(session, dataset_id))
+
+
+@router.get("/research/course-ml-evaluation", response_model=SuccessEnvelope[CourseMachineLearningEvaluation])
+def get_course_ml_evaluation(request: Request):
+    from backend.app.services.course_ml_dashboard import course_machine_learning_evaluation
+    return envelope(request, course_machine_learning_evaluation())
 
 
 @router.get("/selection/scenarios")

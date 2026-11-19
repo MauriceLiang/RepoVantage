@@ -6,9 +6,13 @@ import type { G2Spec } from '@antv/g2'
 import { getBrowserApiData } from '@/services/httpRepositoryDataSource'
 import { useUiStore } from '@/stores/ui'
 import G2Chart from '@/components/charts/G2Chart.vue'
+import RadarChart from '@/components/charts/RadarChart.vue'
+import FunnelChart from '@/components/charts/FunnelChart.vue'
+import SankeyChart from '@/components/charts/SankeyChart.vue'
 import DecisionScatterG2 from '@/components/charts/DecisionScatterG2.vue'
 import type { DecisionPoint } from '@/components/charts/DecisionScatterG2.vue'
 import type { CapabilityEvidence, MetricEvidence, ScenarioCandidate, ScenarioDetail, ScenarioSummary, ScenarioViz, SelectionWeek } from '@/data/researchTypes'
+import { normalizeMetrics } from '@/lib/chartAnalytics'
 
 interface CandidateDetailResponse {
   scenario: string
@@ -75,6 +79,63 @@ const parallelRows = computed(() => candidates.value.flatMap((candidate) => {
   }]
 }))
 const parallelExcludedCount = computed(() => candidates.value.length - parallelRows.value.length)
+const radarRows = computed(() => {
+  const raw = candidates.value.flatMap((candidate) => {
+    const values = metricDefinitions.map((definition) => candidate.metrics[definition.key]?.value ?? null)
+    const samples = metricDefinitions.map((definition) => candidate.metrics[definition.key]?.sample_count ?? 0)
+    if (values.some((value) => value === null) || samples.some((sample) => sample < 5)) return []
+    return [{
+      full_name: candidate.full_name,
+      weekly_commit_mean: values[0]!, weekly_pr_open_mean: values[1]!,
+      issue_closed_median_days: values[2]!, pr_merged_median_days: values[3]!, release_interval_median_days: values[4]!,
+      issue_sample: samples[2], pr_sample: samples[3], release_sample: samples[4],
+    }]
+  })
+  return normalizeMetrics(raw, metricDefinitions.map((metric, index) => ({ key: metric.key, direction: index < 2 ? 'higher' as const : 'lower' as const })))
+})
+const radarDimensions = metricDefinitions.map((metric) => `${metric.key}Score`)
+const radarHeatRows = computed(() => radarRows.value.flatMap((row) => metricDefinitions.map((metric) => ({
+  full_name: String(row.full_name), metric: metric.label,
+  score: typeof row[`${metric.key}Score`] === 'number' ? row[`${metric.key}Score`] : null,
+  rawValue: row[metric.key],
+  sampleSize: metric.key === 'issue_closed_median_days' ? row.issue_sample : metric.key === 'pr_merged_median_days' ? row.pr_sample : metric.key === 'release_interval_median_days' ? row.release_sample : null,
+}))))
+const radarHeatSpec = computed<G2Spec>(() => ({
+  type: 'cell', data: radarHeatRows.value.filter((row) => row.score !== null),
+  encode: { x: 'metric', y: 'full_name', color: 'score' },
+  scale: { color: { domain: [0, 100], range: ['#e7edf1', '#59778b'] }, x: { padding: 0.08 }, y: { padding: 0.08 } },
+  axis: { x: { labelFontSize: 9 }, y: { labelFontSize: 9 } },
+  legend: { color: { position: 'bottom', title: '归一值（0–100）' } },
+  style: { inset: 1, radius: 3 },
+  tooltip: { title: (datum: { full_name: string; metric: string }) => `${datum.full_name} · ${datum.metric}`, items: [{ field: 'rawValue', name: '原始值' }, { field: 'score', name: '归一值（0–100）' }, { field: 'sampleSize', name: '样本数' }] },
+}))
+const selectionSankeyLinks = computed(() => {
+  const counts = new Map<string, { source: string; target: string; value: number }>()
+  const label = (candidate: ScenarioCandidate) => ({
+    language: `语言 · ${candidate.language?.trim() || '未知'}`,
+    license: `许可证 · ${candidate.license_spdx?.trim() || '未声明'}`,
+    eligibility: `资格 · ${candidate.eligibility === 'eligible' ? '可纳入' : candidate.eligibility === 'conditional' ? '有条件' : candidate.eligibility === 'ineligible' ? '不满足' : '待核验'}`,
+  })
+  for (const candidate of candidates.value) {
+    if (!candidate.language?.trim() || !candidate.license_spdx?.trim() || !candidate.eligibility) continue
+    const names = label(candidate)
+    for (const [source, target] of [[names.language, names.license], [names.license, names.eligibility]]) {
+      const key = `${source}\u0000${target}`
+      const current = counts.get(key)
+      counts.set(key, { source, target, value: (current?.value ?? 0) + 1 })
+    }
+  }
+  return [...counts.values()]
+})
+const sankeyExcludedCount = computed(() => candidates.value.filter((candidate) => !candidate.language?.trim() || !candidate.license_spdx?.trim() || !candidate.eligibility).length)
+const candidateFunnelRows = computed(() => {
+  const knownEligibility = candidates.value.filter((candidate) => candidate.eligibility !== 'unknown')
+  return [
+    { stage: '同场景候选', value: candidates.value.length, definition: '当前已加载快照中 role=compare 或 supplement 的候选仓库' },
+    { stage: '资格已判断', value: knownEligibility.length, definition: 'eligibility 不为 unknown；与上一阶段为同一场景快照子集' },
+    { stage: '可纳入候选', value: candidates.value.filter((candidate) => candidate.eligibility === 'eligible').length, definition: 'eligibility=eligible，为上一阶段的子集' },
+  ]
+})
 const parallelSpec = computed<G2Spec>(() => {
   const color = isDark.value ? '#bec8d0' : '#667480'
   return {
@@ -222,6 +283,34 @@ onMounted(async () => {
 
       <div class="selection-note"><Info :size="14" /><span>当前快照来自 <strong>{{ scenario.source_datasets.join('、') }}</strong>。活动窗口 {{ scenario.window_policy.activity?.start.slice(0, 10) }} – {{ scenario.window_policy.activity?.end_exclusive.slice(0, 10) }} UTC；Release 单独观察 365 天。指标描述活动，不推断性能、质量或安全。</span></div>
 
+      <section class="selection-diverse-grid" aria-label="候选结构与筛选流向">
+        <article class="panel selection-diverse-panel selection-diverse-panel--wide">
+          <div class="selection-panel-heading"><div><h3>语言 → 许可证 → 资格流向</h3><p>仅统计同一场景快照中同时具有语言、SPDX 许可证和资格状态的候选；不完整记录不推断关系。</p></div><span class="data-count">{{ selectionSankeyLinks.length }} 条聚合流</span></div>
+          <SankeyChart v-if="selectionSankeyLinks.length" :links="selectionSankeyLinks" label="候选仓库主语言到 SPDX 许可证再到资格状态的真实流向图" :height="360" />
+          <div v-else class="selection-empty">没有具备完整语言、SPDX 许可证和资格字段的候选，暂不绘制流向图。</div>
+          <p class="parallel-note">纳入 {{ candidates.length - sankeyExcludedCount }} / {{ candidates.length }} 个候选；缺字段排除 {{ sankeyExcludedCount }} 个。流量单位：候选仓库数。</p>
+        </article>
+        <article class="panel selection-diverse-panel">
+          <div class="selection-panel-heading"><div><h3>候选资格筛选漏斗</h3><p>同一快照中的逐级子集计数</p></div></div>
+          <FunnelChart :rows="candidateFunnelRows" label="同一技术选型场景快照中的候选资格筛选漏斗" :height="330" />
+          <p class="parallel-note">阶段定义：全部候选 → 资格非未知 → eligibility=eligible。每阶段都是上一阶段子集。</p>
+        </article>
+      </section>
+
+      <section class="selection-diverse-grid" aria-label="归一化候选指标">
+        <article class="panel selection-diverse-panel">
+          <div class="selection-panel-heading"><div><h3>候选指标雷达图</h3><p>按当前有完整五项数值的候选集 min–max 归一到 0–100；耗时与发布间隔反向。</p></div><span class="data-count">{{ radarRows.length }} 个候选</span></div>
+          <RadarChart v-if="radarRows.length" :rows="radarRows" :dimensions="radarDimensions" :dimension-labels="metricDefinitions.map((metric) => metric.label)" series-field="full_name" label="同一技术选型场景候选的五项归一化指标雷达图" :height="360" />
+          <div v-else class="selection-empty">当前没有至少五条有效样本且同时具备五项指标的候选；不将缺失值补零。</div>
+          <p class="parallel-note">仅将每项样本数不少于 5 的候选纳入 {{ radarRows.length }} / {{ candidates.length }}；PR 数量轴表示活动量级，不作为团队质量判断。</p>
+        </article>
+        <article class="panel selection-diverse-panel">
+          <div class="selection-panel-heading"><div><h3>候选 × 指标热力矩阵</h3><p>每格显示相同候选子集中的归一值，悬停可查看原始单位与样本数。</p></div></div>
+          <G2Chart v-if="radarRows.length" :spec="radarHeatSpec" label="技术选型候选与指标归一值热力矩阵" :height="360" />
+          <div v-else class="selection-empty">候选指标样本不足，热力矩阵暂不可用。</div>
+        </article>
+      </section>
+
       <section class="selection-main-grid">
         <article class="panel selection-canvas-panel">
           <div class="selection-panel-heading"><div><h3>同场景活动对照</h3><p>X/Y 为同一个 12 周 UTC 窗口的周均 Commit 与新开 PR，坐标使用 log1p；点位只画有真实窗口值的候选。</p></div><span class="data-count">{{ chartPoints.length }} 个有效节点</span></div>
@@ -310,6 +399,9 @@ onMounted(async () => {
 .selection-note svg { flex:0 0 auto; margin-top:1px; color:var(--primary-ink); }
 .selection-note strong { color:var(--ink); }
 .selection-main-grid { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(280px,.85fr); gap:14px; align-items:start; }
+.selection-diverse-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:stretch; }
+.selection-diverse-panel { min-width:0; }
+.selection-diverse-panel--wide { grid-column:span 2; }
 .selection-canvas-panel,.candidate-evidence-panel { min-width:0; }
 .selection-detail-column { display:grid; gap:10px; }
 .selection-panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:10px; }
@@ -370,6 +462,6 @@ onMounted(async () => {
 .selection-state--error strong { color:var(--ink); }
 .detail-loading { padding:38px 12px; color:var(--muted); font-size:10px; text-align:center; }
 @media (max-width:1120px) { .selection-main-grid { grid-template-columns:minmax(0,1.15fr) minmax(260px,.85fr); } }
-@media (max-width:850px) { .selection-heading { align-items:flex-start; flex-direction:column; } .scenario-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); } .selection-main-grid,.selection-lower-grid { grid-template-columns:minmax(0,1fr); } .selection-toolbar { align-items:flex-start; flex-direction:column; } .decision-chart { height:320px; } }
+@media (max-width:850px) { .selection-heading { align-items:flex-start; flex-direction:column; } .scenario-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); } .selection-main-grid,.selection-lower-grid,.selection-diverse-grid { grid-template-columns:minmax(0,1fr); } .selection-diverse-panel--wide { grid-column:span 1; } .selection-toolbar { align-items:flex-start; flex-direction:column; } .decision-chart { height:320px; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; } }
 </style>

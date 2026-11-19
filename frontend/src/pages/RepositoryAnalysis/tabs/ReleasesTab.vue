@@ -2,11 +2,16 @@
 import { computed, ref } from 'vue'
 import ReleaseCadenceChart from '@/components/charts/ReleaseCadenceChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
+import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
+import G2Chart from '@/components/charts/G2Chart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import type { RepositoryAnalysis } from '@/services/types'
+import type { G2Spec } from '@antv/g2'
+import { histogram } from '@/lib/chartAnalytics'
 import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -79,6 +84,22 @@ const releaseCoverageNote = computed(() => {
   return '仅展示当前本地可读取的 Release'
 })
 const hasCommitCounts = computed(() => cadenceItems.value.some((item) => item.commitCount !== null))
+const releaseTypeRows = computed(() => [
+  ...(yearReleases.value.filter((release) => !release.prerelease).length ? [{ label: '正式版', value: yearReleases.value.filter((release) => !release.prerelease).length }] : []),
+  ...(yearReleases.value.filter((release) => release.prerelease).length ? [{ label: '预发布版', value: yearReleases.value.filter((release) => release.prerelease).length }] : []),
+])
+const releaseIntervalHistogram = computed(() => histogram(cadenceValues.value, [
+  { label: '≤ 7 天', max: 7 }, { label: '8–30 天', max: 30 }, { label: '31–90 天', max: 90 },
+  { label: '91–180 天', max: 180 }, { label: '181–365 天', max: 365 }, { label: '> 365 天', max: Number.POSITIVE_INFINITY },
+]))
+const releaseIntervalSamples = computed(() => cadenceItems.value.map((item) => ({ group: '正式版间隔', value: item.days })))
+const releaseHistogramSpec = computed<G2Spec>(() => ({
+  type: 'interval', data: releaseIntervalHistogram.value,
+  encode: { x: 'label', y: 'count' },
+  style: { fill: '#5c8b91', fillOpacity: 0.82 },
+  axis: { x: { labelFontSize: 9 }, y: { title: '间隔数量', gridLineDash: [3, 3] } },
+  tooltip: { title: 'label', items: [{ field: 'count', name: '发布间隔数' }] },
+}))
 
 function openReleaseByTag(tag: string) {
   const release = yearReleases.value.find((item) => item.tag === tag)
@@ -167,6 +188,27 @@ function openReleaseByTag(tag: string) {
           </tbody>
         </table>
       </div>
+    </GdCard>
+  </div>
+
+  <div class="grid gap-4 xl:grid-cols-3">
+    <GdCard class="min-w-0" data-testid="release-type-donut-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">正式版与预发布版</h3><p class="mt-0.5 text-[12px] text-muted">当前本地可读取的 Release 类型构成</p></div>
+      <DonutChart v-if="releaseTypeRows.length" :rows="releaseTypeRows" :total="yearReleases.length.toLocaleString('zh-CN')" center-label="Release" label="正式版与预发布版构成环形图" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-[12px] text-muted">暂无 Release 类型样本</div>
+      <p class="m-0 text-[10.5px] text-muted">正式 {{ yearReleases.filter((release) => !release.prerelease).length }} 条 · 预发布 {{ yearReleases.filter((release) => release.prerelease).length }} 条 · {{ releaseCoverageNote }}</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="release-interval-histogram-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">发布间隔分布</h3><p class="mt-0.5 text-[12px] text-muted">相邻正式 Release 的间隔天数，按区间统计</p></div>
+      <G2Chart v-if="cadenceValues.length" :spec="releaseHistogramSpec" label="正式 Release 间隔天数直方图" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-[12px] text-muted">暂无可计算的正式版间隔</div>
+      <p class="m-0 text-[10.5px] text-muted">有效间隔 n={{ cadenceValues.length }} · P50 {{ median?.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) ?? '—' }} 天。</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="release-interval-boxplot-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">发布间隔箱线图</h3><p class="mt-0.5 text-[12px] text-muted">整体正式版间隔分布；样本少于 5 时保留表格和统计值</p></div>
+      <BoxPlotChart v-if="releaseIntervalSamples.length >= 5" :samples="releaseIntervalSamples" label="正式 Release 间隔箱线图" unit="间隔（天）" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-center text-[12px] text-muted">当前只有 {{ releaseIntervalSamples.length }} 个有效间隔；至少 5 个样本后显示箱线图。</div>
+      <p class="m-0 text-[10.5px] text-muted">仅纳入有相邻发布时间的正式版间隔；未覆盖的版本间隔可能不完整。</p>
     </GdCard>
   </div>
 </template>

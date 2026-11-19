@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test:author-concentration": "node scripts/test-author-concentration.mjs",
+    "test:chart-analytics": "node scripts/test-chart-analytics.mjs",
     "test:commit-activity": "node scripts/test-commit-activity.mjs",
     "test:duration-histogram": "node scripts/test-duration-histogram.mjs",
     "test:issue-trend": "node scripts/test-issue-trend.mjs",

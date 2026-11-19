@@ -33,7 +33,7 @@ const spec = computed<G2Spec>(() => ({
   axis: { x: { labelFontSize: 9, labelAutoRotate: true }, y: { title: '提交 / 周', gridLineDash: [3, 3] } },
   legend: false,
   children: [
-    { type: 'interval', data: rows.value, transform: [{ type: 'stackY' }], encode: { x: 'date', y: 'value', color: 'series' } },
+    { type: 'area', data: rows.value, transform: [{ type: 'stackY' }], encode: { x: 'date', y: 'value', color: 'series' }, style: { fillOpacity: 0.74, strokeOpacity: 0.2 } },
     { type: 'line', data: averages.value, encode: { x: 'date', y: 'value' }, style: { stroke: ui.isDark ? '#f0f1f2' : '#252c32', lineWidth: 2.1 } },
   ],
   interaction: { tooltip: { shared: true } },
@@ -43,7 +43,7 @@ const spec = computed<G2Spec>(() => ({
 
 <template>
   <div class="commit-author-stack">
-    <G2Chart :spec="spec" label="按作者堆叠的每周 Commit 数与四周均值" :height="height" @select="emit('select', $event.dataIndex)" />
+    <G2Chart :spec="spec" label="按作者堆叠的每周 Commit 面积图与四周均值" :height="height" @select="emit('select', $event.dataIndex)" />
     <div class="commit-author-stack__legend" role="list" aria-label="Commit 作者分组图例">
       <span v-for="(label, index) in labels" :key="`${label}-${index}`" class="commit-author-stack__legend-item" role="listitem" :title="label">
         <i class="commit-author-stack__legend-swatch" :style="{ backgroundColor: colors[index] }" aria-hidden="true" />

@@ -3,17 +3,40 @@ import { computed } from 'vue'
 import type { G2Spec } from '@antv/g2'
 import type { HistogramBucket } from '@/services/types'
 import G2Chart from './G2Chart.vue'
-import { buildHistogramRows } from '@/lib/durationHistogram'
 
 const props = withDefaults(defineProps<{
-  buckets: HistogramBucket[]; color?: string; unit?: string; height?: number; cumulativeStep?: boolean; medianDays?: number | null; showMedianReference?: boolean
-}>(), { color: '#e5a03a', unit: '条记录', height: 200, cumulativeStep: true, medianDays: null, showMedianReference: false })
-const rows = computed(() => buildHistogramRows(props.buckets, props.cumulativeStep))
+  buckets: HistogramBucket[]; color?: string; unit?: string; height?: number; medianDays?: number | null; showMedianReference?: boolean
+}>(), { color: '#e5a03a', unit: '条记录', height: 200, medianDays: null, showMedianReference: false })
+const rows = computed(() => {
+  const total = props.buckets.reduce((sum, bucket) => sum + bucket.count, 0)
+  let cumulative = 0
+  return props.buckets.map((bucket) => {
+    cumulative += bucket.count
+    const cumulativePercent = total ? cumulative / total * 100 : null
+    return { ...bucket, cumulativePercent }
+  })
+})
 const spec = computed<G2Spec>(() => ({
-  type: props.cumulativeStep ? 'line' : 'interval', data: rows.value,
-  encode: { x: 'label', y: 'plotted' }, style: { stroke: props.color, fill: props.color, lineWidth: 2.2 },
-  axis: { x: { labelFontSize: 9, labelAutoRotate: true }, y: { title: props.cumulativeStep ? '累计数量' : props.unit, gridLineDash: [3, 3] } },
-  tooltip: { title: 'label', items: [{ field: 'count', name: '该区间数量' }, { field: 'plotted', name: props.cumulativeStep ? '累计数量' : props.unit }] },
+  type: 'view', data: rows.value,
+  children: [
+    {
+      type: 'interval',
+      encode: { x: 'label', y: 'count' },
+      scale: { y: { domainMin: 0 } },
+      axis: { y: { title: '区间样本数', gridLineDash: [3, 3] } },
+      style: { fill: props.color, fillOpacity: 0.82 },
+    },
+    {
+      type: 'line',
+      encode: { x: 'label', y: 'cumulativePercent' },
+      scale: { y: { independent: true, domain: [0, 100] } },
+      axis: { y: { position: 'right', title: '累计占比', labelFormatter: (value: number) => `${value}%`, grid: null } },
+      style: { stroke: '#4d819b', lineWidth: 2.2, lineDash: [4, 2] },
+    },
+  ],
+  axis: { x: { labelFontSize: 9, labelAutoRotate: true } },
+  legend: false,
+  tooltip: { title: 'label', items: [{ field: 'count', name: '该区间数量' }, { field: 'cumulativePercent', name: '累计占比', valueFormatter: (value: number | null) => value === null ? '—' : `${value.toFixed(1)}%` }] },
 }))
 </script>
 

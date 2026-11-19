@@ -12,7 +12,7 @@ interface CalendarCell {
   intensity: number
   state: 'missing' | 'partial' | 'zero' | 'complete'
 }
-const props = withDefaults(defineProps<{ points: TimePoint[]; windowStart?: string | null; windowEnd?: string | null; height?: number }>(), { height: 200 })
+const props = withDefaults(defineProps<{ points: TimePoint[]; windowStart?: string | null; windowEnd?: string | null; height?: number; metricLabel?: string }>(), { height: 200, metricLabel: 'Commit' })
 const ui = useUiStore()
 const calendar = computed(() => {
   const validDates = props.points.map((point) => point.date).filter((date) => Number.isFinite(Date.parse(`${date.slice(0, 10)}T00:00:00Z`))).sort()
@@ -102,10 +102,10 @@ function cellStyle(cell: CalendarCell) {
 }
 function cellLabel(cell: CalendarCell) {
   const point = cell.point
-  const filteredLabel = isFilteredOut(cell) ? '，低于或高于当前 Commit 数范围' : ''
+  const filteredLabel = isFilteredOut(cell) ? `，低于或高于当前 ${props.metricLabel} 数范围` : ''
   if (!point) return `${cell.date}：未采集${filteredLabel}`
-  if (point.value !== null) return `${cell.date}：${point.value} 次${point.quality ? `，${point.quality}` : ''}${filteredLabel}`
-  if (point.observedValue !== null && point.observedValue !== undefined) return `${cell.date}：已观察 ${point.observedValue} 次，覆盖不完整${filteredLabel}`
+  if (point.value !== null) return `${cell.date}：${point.value} 个${point.quality ? `，${point.quality}` : ''}${filteredLabel}`
+  if (point.observedValue !== null && point.observedValue !== undefined) return `${cell.date}：已观察 ${point.observedValue} 个，覆盖不完整${filteredLabel}`
   return `${cell.date}：${point.quality ?? '数据缺失'}${filteredLabel}`
 }
 </script>
@@ -114,16 +114,16 @@ function cellLabel(cell: CalendarCell) {
   <div v-if="calendar.weeks" class="calendar-heatmap">
     <div class="calendar-filter">
       <div class="calendar-filter__summary">
-        <strong>Commit 数 {{ selectedRange.min }}–{{ selectedRange.max }} 次</strong>
-        <span>匹配 {{ matchingDays }} / {{ archivedDays }} 个有归档 Commit 的日期</span>
+        <strong>{{ metricLabel }}数 {{ selectedRange.min }}–{{ selectedRange.max }} 个</strong>
+        <span>匹配 {{ matchingDays }} / {{ archivedDays }} 个有数据的日期</span>
         <button v-if="selectedRange.min > 0 || selectedRange.max < maxCommitCount" type="button" @click="resetCommitRange">重置</button>
       </div>
       <div class="calendar-filter__sliders">
-        <label><span>最少 {{ minimumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="minimumCommitCount" aria-label="最少每日 Commit 数" @input="setMinimumCommitCount" /></label>
-        <label><span>最多 {{ maximumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="maximumCommitCount" aria-label="最多每日 Commit 数" @input="setMaximumCommitCount" /></label>
+        <label><span>最少 {{ minimumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="minimumCommitCount" :aria-label="`最少每日 ${metricLabel} 数`" @input="setMinimumCommitCount" /></label>
+        <label><span>最多 {{ maximumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="maximumCommitCount" :aria-label="`最多每日 ${metricLabel} 数`" @input="setMaximumCommitCount" /></label>
       </div>
     </div>
-    <div class="calendar-scroll" role="grid" :aria-label="`UTC 日历热力图，筛选 ${selectedRange.min} 到 ${selectedRange.max} 次每日 Commit；颜色深浅表示提交数量，虚线框表示部分覆盖`" :style="{ maxHeight: `${height}px`, '--calendar-cell-size': `${cellSize}px` }">
+    <div class="calendar-scroll" role="grid" :aria-label="`UTC 日历热力图，筛选 ${selectedRange.min} 到 ${selectedRange.max} 个每日 ${metricLabel}；颜色深浅表示数量，虚线框表示部分覆盖`" :style="{ maxHeight: `${height}px`, '--calendar-cell-size': `${cellSize}px` }">
       <div class="calendar-weekdays" aria-hidden="true"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>
       <div class="calendar-body" :style="{ gridTemplateColumns: `repeat(${calendar.weeks}, var(--calendar-cell-size))`, minWidth: `${calendar.weeks * cellSize + (calendar.weeks - 1) * 3}px` }">
         <span v-for="month in calendar.months" :key="month.week" class="calendar-month" :style="{ gridColumn: month.week + 1 }">{{ month.label }}</span>

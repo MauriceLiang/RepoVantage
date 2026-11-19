@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import IssueTrendChart from '@/components/charts/IssueTrendChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
+import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
+import CalendarHeatmap from '@/components/charts/CalendarHeatmap.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
@@ -12,6 +14,7 @@ import { useDataSource } from '@/composables/useDataSource'
 import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
 import { formatDate, formatDuration, formatTime } from '@/lib/format'
+import { dailyCoveragePoints, groupByMonth } from '@/lib/chartAnalytics'
 import type { IssueRecord, IssueRecordPage, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
@@ -25,8 +28,52 @@ const { page, searchInput, appliedSearch, records, loading, loadError, pageCount
   () => props.analysis.windowAvailability.requestedDays,
 )
 const exporting = ref(false)
+const issueViz = ref<{ items: IssueRecord[]; total: number; complete: boolean; available: boolean; note: string; windowStart: string | null; windowEnd: string | null; coverage: IssueRecordPage['coverage'] } | null>(null)
+const issueVizLoading = ref(false)
+const issueVizError = ref('')
 let issueDetailRequest = 0
 watch(() => props.analysis.windowAvailability.requestedDays, () => { page.value = 1 }, { flush: 'sync' })
+
+const issueBoxSamples = computed(() => groupByMonth((issueViz.value?.items ?? []).map((item) => ({ date: item.closedAt, value: item.durationDays }))))
+const issueClosedDaily = computed(() => {
+  const counts = new Map<string, number>()
+  for (const item of issueViz.value?.items ?? []) {
+    const date = item.closedAt.slice(0, 10)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) counts.set(date, (counts.get(date) ?? 0) + 1)
+  }
+  return dailyCoveragePoints(
+    [...counts.entries()].map(([date, count]) => ({ date, count })),
+    issueViz.value?.windowStart,
+    issueViz.value?.windowEnd,
+    issueViz.value?.complete === true && issueViz.value.coverage.state === 'complete',
+  )
+})
+
+async function loadIssueVisualData() {
+  const repositoryId = props.analysis.repository.id
+  const windowDays = props.analysis.windowAvailability.requestedDays
+  issueVizLoading.value = true
+  issueVizError.value = ''
+  issueViz.value = null
+  try {
+    const first = await source.getIssueRecords(repositoryId, 1, 100, '', windowDays)
+    if (!first.available) {
+      issueViz.value = { ...first, items: [], total: first.total, complete: false }
+      return
+    }
+    const requestedPages = Math.min(10, Math.ceil(first.total / 100))
+    const rest = requestedPages > 1
+      ? await Promise.all(Array.from({ length: requestedPages - 1 }, (_, index) => source.getIssueRecords(repositoryId, index + 2, 100, '', windowDays)))
+      : []
+    const items = [first, ...rest].flatMap((result) => result.items)
+    issueViz.value = { ...first, items, total: first.total, complete: items.length >= first.total }
+  } catch (cause) {
+    issueVizError.value = cause instanceof Error ? cause.message : 'Issue 图表样本加载失败'
+  } finally {
+    issueVizLoading.value = false
+  }
+}
+watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays], () => { void loadIssueVisualData() }, { immediate: true })
 
 async function openIssue(item: IssueRecord) {
   const requestId = ++issueDetailRequest
@@ -93,8 +140,8 @@ async function exportCsv() {
         </div>
         <span class="font-mono text-[11.5px] text-muted">n={{ analysis.issueDuration.sampleSize }}</span>
       </div>
-      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :cumulative-step="false" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
-      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">柱为各耗时区间的 Issue 数；P50 数值可用于判断中位数所在区间。</p>
+      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
+      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">柱为耗时区间数量；折线表示累计占比，Tooltip 给出准确百分比。中位数以 P50 标示。</p>
       <div class="text-[11px] text-muted">P50 {{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.issueDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</div>
       <p v-if="analysis.issueDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
     </GdCard>
@@ -162,6 +209,25 @@ async function exportCsv() {
           <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
         </div>
       </div>
+    </GdCard>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    <GdCard class="min-w-0" data-testid="issue-duration-boxplot-card">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">按月关闭耗时箱线图</h3><p class="mt-0.5 text-[12px] text-muted">按 closed_at 月份分组，仅显示每组至少 5 条的月份</p></div><GdCoverageNote v-if="issueViz" :coverage="issueViz.coverage" compact /></div>
+      <div v-if="issueVizLoading" class="flex h-[280px] items-center justify-center text-[12px] text-muted" role="status">正在汇总 Issue 关闭样本…</div>
+      <div v-else-if="issueVizError" class="flex h-[280px] items-center justify-center text-center text-[12px] text-danger" role="alert">{{ issueVizError }}</div>
+      <BoxPlotChart v-else-if="issueBoxSamples.length" :samples="issueBoxSamples" label="Issue 每月关闭耗时箱线图" unit="关闭耗时（天）" :height="260" />
+      <div v-else class="flex h-[280px] items-center justify-center text-center text-[12px] text-muted">当前数据中没有样本量达到 5 的月份；已加载 {{ issueViz?.items.length ?? 0 }} / {{ issueViz?.total ?? 0 }} 条。</div>
+      <p v-if="issueViz && !issueViz.complete" class="m-0 text-[10.5px] text-muted">图表最多读取前 1,000 条可用记录（{{ issueViz.items.length }} / {{ issueViz.total }}）；月度分布仅代表已加载样本。</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="issue-close-heatmap-card">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">Issue 关闭日历</h3><p class="mt-0.5 text-[12px] text-muted">每天关闭的 Issue 数；空白表示该日没有已归档记录或当前未覆盖</p></div><span class="text-[11px] text-muted">{{ issueViz?.complete && issueViz.coverage.state === 'complete' ? `${issueClosedDaily.length} 个窗口日期桶` : `${issueClosedDaily.length} 个有观察的日期` }}</span></div>
+      <div v-if="issueVizLoading" class="flex h-[260px] items-center justify-center text-[12px] text-muted" role="status">正在读取关闭日期…</div>
+      <div v-else-if="issueVizError" class="flex h-[260px] items-center justify-center text-[12px] text-danger" role="alert">{{ issueVizError }}</div>
+      <CalendarHeatmap v-else-if="issueViz?.available && issueClosedDaily.length" :points="issueClosedDaily" :window-start="issueViz.windowStart" :window-end="issueViz.windowEnd" :height="250" metric-label="关闭 Issue" />
+      <div v-else class="flex h-[260px] items-center justify-center text-center text-[12px] text-muted">暂无可用的 Issue 关闭日期样本</div>
+      <p v-if="issueViz" class="m-0 text-[10.5px] text-muted">{{ issueViz.coverage.label }} · 已加载 {{ issueViz.items.length }} / {{ issueViz.total }} 条{{ issueViz.complete ? '' : '，日历仅覆盖当前样本' }}</p>
     </GdCard>
   </div>
 </template>

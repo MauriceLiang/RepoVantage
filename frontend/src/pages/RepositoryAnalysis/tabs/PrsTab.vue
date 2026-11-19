@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import type { G2Spec } from '@antv/g2'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
 import HistogramChart from '@/components/charts/HistogramChart.vue'
 import PrMergeTrendChart from '@/components/charts/PrMergeTrendChart.vue'
 import PrMonthlyDurationChart, { type PrDurationGrain } from '@/components/charts/PrMonthlyDurationChart.vue'
+import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
+import G2Chart from '@/components/charts/G2Chart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -13,6 +17,7 @@ import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
 import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
+import { groupByMonth } from '@/lib/chartAnalytics'
 import { formatDate, formatDuration, formatTime } from '@/lib/format'
 import type { PrDurationPeriod, PullRequestActivityPage, PullRequestActivityRecord, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
@@ -58,7 +63,55 @@ const { page, searchInput, appliedSearch, records, loading, loadError, pageCount
   () => `${props.analysis.windowAvailability.requestedDays}:${selectedPeriodKey.value}`,
 )
 const exporting = ref(false)
+const prViz = ref<{ items: PullRequestActivityRecord[]; total: number; complete: boolean; available: boolean; note: string; windowStart: string | null; windowEnd: string | null; coverage: PullRequestActivityPage['coverage'] } | null>(null)
+const prVizLoading = ref(false)
+const prVizError = ref('')
 let detailRequest = 0
+
+const prBoxSamples = computed(() => groupByMonth((prViz.value?.items ?? []).filter((item) => item.state === 'merged').map((item) => ({ date: item.mergedAt, value: item.durationDays }))))
+const prScatterRows = computed(() => (prViz.value?.items ?? []).flatMap((item) => item.commentsCount === null || item.durationDays === null ? [] : [{
+  number: item.number, title: item.title, comments: item.commentsCount, durationDays: item.durationDays, state: item.state,
+}]))
+const prStatusRows = computed(() => {
+  const merged = prViz.value?.items.filter((item) => item.state === 'merged').length ?? 0
+  const closed = prViz.value?.items.filter((item) => item.state === 'closed').length ?? 0
+  return [...(merged ? [{ label: '已合并', value: merged }] : []), ...(closed ? [{ label: '关闭未合并', value: closed }] : [])]
+})
+const prScatterSpec = computed<G2Spec>(() => ({
+  type: 'point', data: prScatterRows.value, encode: { x: 'comments', y: 'durationDays', color: 'state' },
+  scale: { color: { domain: ['merged', 'closed'], range: ['#4d819b', '#c27a4a'] } },
+  axis: { x: { title: '评论数', labelFontSize: 9 }, y: { title: '耗时（天）', labelFontSize: 9, gridLineDash: [3, 3] } },
+  style: { fillOpacity: 0.7, stroke: 'var(--surface, #fff)', lineWidth: 1 },
+  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
+  tooltip: { title: (datum: { number: number; title: string }) => `#${datum.number} ${datum.title}`, items: [{ field: 'comments', name: '评论数' }, { field: 'durationDays', name: '合并 / 关闭耗时（天）' }, { field: 'state', name: '状态' }] },
+  interaction: { brushHighlight: true, tooltip: { shared: false } },
+}))
+
+async function loadPrVisualData() {
+  const repositoryId = props.analysis.repository.id
+  const windowDays = props.analysis.windowAvailability.requestedDays
+  prVizLoading.value = true
+  prVizError.value = ''
+  prViz.value = null
+  try {
+    const first = await source.getPullRequestRecords(repositoryId, 1, 100, '', undefined, undefined, windowDays)
+    if (!first.available) {
+      prViz.value = { ...first, items: [], total: first.total, complete: false }
+      return
+    }
+    const requestedPages = Math.min(10, Math.ceil(first.total / 100))
+    const rest = requestedPages > 1
+      ? await Promise.all(Array.from({ length: requestedPages - 1 }, (_, index) => source.getPullRequestRecords(repositoryId, index + 2, 100, '', undefined, undefined, windowDays)))
+      : []
+    const items = [first, ...rest].flatMap((result) => result.items)
+    prViz.value = { ...first, items, total: first.total, complete: items.length >= first.total }
+  } catch (cause) {
+    prVizError.value = cause instanceof Error ? cause.message : 'PR 可视化样本加载失败'
+  } finally {
+    prVizLoading.value = false
+  }
+}
+watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays], () => { void loadPrVisualData() }, { immediate: true })
 
 watch(durationGrain, () => { selectedPeriod.value = null })
 watch(() => props.analysis.repository.id, () => { selectedPeriod.value = null; page.value = 1 })
@@ -215,6 +268,32 @@ async function exportCsv() {
           <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
         </div>
       </div>
+    </GdCard>
+  </div>
+
+  <div class="grid gap-4 xl:grid-cols-[1fr_1.2fr_1fr]">
+    <GdCard class="min-w-0" data-testid="pr-duration-boxplot-card">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">按月合并耗时箱线图</h3><p class="mt-0.5 text-[12px] text-muted">按 merged_at 月份分组，每组至少 5 条</p></div><GdCoverageNote v-if="prViz" :coverage="prViz.coverage" compact /></div>
+      <div v-if="prVizLoading" class="flex h-[280px] items-center justify-center text-[12px] text-muted" role="status">正在汇总 PR 样本…</div>
+      <div v-else-if="prVizError" class="flex h-[280px] items-center justify-center text-center text-[12px] text-danger" role="alert">{{ prVizError }}</div>
+      <BoxPlotChart v-else-if="prBoxSamples.length" :samples="prBoxSamples" label="每月已合并 PR 耗时箱线图" unit="合并耗时（天）" :height="260" />
+      <div v-else class="flex h-[280px] items-center justify-center text-center text-[12px] text-muted">当前没有样本量达到 5 的月份；已加载 {{ prViz?.items.length ?? 0 }} / {{ prViz?.total ?? 0 }} 条。</div>
+      <p v-if="prViz && !prViz.complete" class="m-0 text-[10.5px] text-muted">图表最多读取前 1,000 条，月度分布仅代表已加载样本。</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="pr-comments-duration-card">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">评论数与处理耗时</h3><p class="mt-0.5 text-[12px] text-muted">评论数 × 实际合并或关闭耗时；颜色区分是否合并</p></div><span class="text-[11px] text-muted">有效样本 n={{ prScatterRows.length }}</span></div>
+      <div v-if="prVizLoading" class="flex h-[280px] items-center justify-center text-[12px] text-muted" role="status">正在读取评论与耗时记录…</div>
+      <div v-else-if="prVizError" class="flex h-[280px] items-center justify-center text-[12px] text-danger" role="alert">{{ prVizError }}</div>
+      <G2Chart v-else-if="prScatterRows.length" :spec="prScatterSpec" label="PR 评论数与合并或关闭耗时散点图，可框选" :height="280" />
+      <div v-else class="flex h-[280px] items-center justify-center text-center text-[12px] text-muted">没有同时具有评论数与耗时的 PR 样本。</div>
+      <p v-if="prViz" class="m-0 text-[10.5px] text-muted">显示 {{ prScatterRows.length }} 条具备完整字段的记录 / {{ prViz.total }} 条已关闭 PR。</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="pr-merge-state-card">
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">已关闭 PR 状态构成</h3><p class="mt-0.5 text-[12px] text-muted">仅统计已关闭记录中的已合并与关闭未合并</p></div></div>
+      <DonutChart v-if="prStatusRows.length" :rows="prStatusRows" :total="(prViz?.items.length ?? 0).toLocaleString('zh-CN')" center-label="已关闭 PR" label="已关闭 PR 的合并状态构成环形图" :height="280" />
+      <div v-else class="flex h-[280px] items-center justify-center text-[12px] text-muted">{{ prVizLoading ? '正在读取 PR 状态…' : '暂无已关闭 PR 状态样本' }}</div>
+      <p v-if="prViz && !prViz.complete" class="m-0 text-[10.5px] text-muted">状态比例基于已读取的 {{ prViz.items.length }} / {{ prViz.total }} 条 PR。</p>
+      <p class="m-0 text-[10.5px] text-muted">生命周期漏斗暂不显示：当前接口只返回已关闭 PR，无法确认同一创建 cohort 中仍开放的 PR。</p>
     </GdCard>
   </div>
 </template>

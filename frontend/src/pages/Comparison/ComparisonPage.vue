@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
 import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
+import G2Chart from '@/components/charts/G2Chart.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
@@ -11,6 +12,8 @@ import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
 import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, MaintenancePattern, RecentActivityChange, SelectionMetric, SelectionRequest, SelectionResult, TimeWindow } from '@/services/types'
+import type { G2Spec } from '@antv/g2'
+import { normalizeMetrics } from '@/lib/chartAnalytics'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
@@ -81,6 +84,66 @@ const durationItems = computed(() => entries.value.map((entry) => ({
   prSample: entry.prSample,
   prQuality: entry.prQuality,
 })))
+const radarAxes = [
+  { key: 'commitsWeekly', label: '每周 Commit', direction: 'higher' as const },
+  { key: 'issueP50Days', label: 'Issue P50', direction: 'lower' as const },
+  { key: 'prP50Days', label: 'PR P50', direction: 'lower' as const },
+  { key: 'releaseIntervalDays', label: 'Release 间隔', direction: 'lower' as const },
+  { key: 'activeWeekRatio', label: '有效周占比', direction: 'higher' as const },
+]
+const comparisonRadarRows = computed(() => {
+  const raw = selectionBasisEntries.value.flatMap((entry) => {
+    const validWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
+    if (!validWeeks.length || entry.issueP50 === null || entry.prP50 === null || entry.releaseMedianDays === null) return []
+    return [{
+      repository: entry.label,
+      commitsWeekly: validWeeks.reduce((sum, value) => sum + value, 0) / validWeeks.length,
+      issueP50Days: entry.issueP50,
+      prP50Days: entry.prP50,
+      releaseIntervalDays: entry.releaseMedianDays,
+      activeWeekRatio: entry.points.length ? validWeeks.length / entry.points.length * 100 : null,
+      commitWeekSamples: validWeeks.length,
+      issueSamples: entry.issueSample,
+      prSamples: entry.prSample,
+      coverage: entry.coverage.label,
+    }]
+  })
+  return normalizeMetrics(raw, radarAxes.map((axis) => ({ key: axis.key, direction: axis.direction })))
+})
+const comparisonRadarFields = radarAxes.map((axis) => `${axis.key}Score`)
+const comparisonRadarSpec = computed<G2Spec>(() => ({
+  type: 'line', coordinate: { type: 'radar' }, data: comparisonRadarRows.value,
+  encode: { position: comparisonRadarFields, color: 'repository' },
+  scale: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, { domain: [0, 100], nice: false }])),
+  axis: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, { label: true, labelFontSize: 9, titleFontSize: 9, line: true, grid: true }])),
+  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
+  style: { lineWidth: 1.8, strokeOpacity: 0.74 },
+  interaction: { tooltip: { series: false } },
+  tooltip: { title: 'repository', items: radarAxes.map((axis) => ({ field: `${axis.key}Score`, name: `${axis.label}归一值（0–100）` })) },
+}))
+const comparisonHeatRows = computed(() => comparisonRadarRows.value.flatMap((row) => radarAxes.map((axis) => ({
+  repository: String(row.repository), metric: axis.label,
+  normalized: typeof row[`${axis.key}Score`] === 'number' ? row[`${axis.key}Score`] : null,
+  rawValue: row[axis.key],
+  sampleSize: axis.key === 'commitsWeekly' ? row.commitWeekSamples : axis.key === 'issueP50Days' ? row.issueSamples : axis.key === 'prP50Days' ? row.prSamples : null,
+}))))
+const comparisonHeatSpec = computed<G2Spec>(() => ({
+  type: 'cell', data: comparisonHeatRows.value.filter((row) => row.normalized !== null),
+  encode: { x: 'metric', y: 'repository', color: 'normalized' },
+  scale: { color: { domain: [0, 100], range: ['#e7edf1', '#59778b'] }, x: { padding: 0.08 }, y: { padding: 0.08 } },
+  axis: { x: { labelFontSize: 9 }, y: { labelFontSize: 9 } },
+  legend: { color: { position: 'bottom', title: '归一值（0–100）' } },
+  style: { inset: 1, radius: 3 },
+  tooltip: { title: (datum: { repository: string; metric: string }) => `${datum.repository} · ${datum.metric}`, items: [{ field: 'rawValue', name: '原始值' }, { field: 'normalized', name: '归一值（0–100）' }, { field: 'sampleSize', name: '有效样本数' }] },
+}))
+const comparisonParallelSpec = computed<G2Spec>(() => ({
+  type: 'line', coordinate: { type: 'parallel' }, data: comparisonRadarRows.value,
+  encode: { position: comparisonRadarFields, color: 'repository' },
+  scale: Object.fromEntries(comparisonRadarFields.map((field) => [field, { domain: [0, 100], nice: false }])),
+  style: { lineWidth: 1.4, strokeOpacity: 0.56 },
+  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
+  tooltip: { title: 'repository', items: radarAxes.map((axis) => ({ field: `${axis.key}Score`, name: `${axis.label}归一值（0–100）` })) },
+}))
 const missingReason = (quality: string) => ({
   partial: '覆盖不完整',
   insufficient_samples: '样本不足',
@@ -397,7 +460,7 @@ async function exportComparison() {
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="space-y-1">
             <h3 class="m-0 text-[15.5px] font-semibold">权重与综合分</h3>
-            <p class="m-0 text-[12px] leading-relaxed text-muted">拖动指标权重，系统会按已采集数据自动计算候选排名。</p>
+            <p class="m-0 text-[12px] leading-relaxed text-muted">拖动指标权重，系统会按已采集数据计算当前所选仓库的相对得分。</p>
           </div>
         </header>
 
@@ -482,8 +545,8 @@ async function exportComparison() {
 
         <section class="space-y-2 rounded-md border border-line px-3 py-2.5" data-testid="selection-scoring-explanation">
           <h4 class="m-0 text-[11.5px] font-medium">评分说明</h4>
-          <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前候选中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
-          <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。某仓库缺少有效样本时该项按中性 50 分计入，避免把未知数据误算成 0 分或删除仓库；此分只为让候选保持可比较，不代表实际表现。部分覆盖按已观察样本计算。</p>
+          <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前所选仓库中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
+          <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。某仓库缺少有效样本时该项按中性 50 分计入，避免把未知数据误算成 0 分或删除仓库；此分只用于并列查看所选仓库，不代表实际表现。部分覆盖按已观察样本计算。</p>
         </section>
 
         <div v-if="selectionResult || selectionLoading" class="space-y-3 border-t border-line pt-4 text-[12px]" :aria-busy="selectionLoading" data-testid="selection-result">
@@ -518,14 +581,14 @@ async function exportComparison() {
             <GdBadge v-else :variant="selectionResult.status === 'available' ? 'default' : 'warn'">{{ selectionResult.status === 'available' ? '可比较' : '筛选未通过' }}</GdBadge>
           </div>
           <ComparisonScoreChart v-if="selectionScoreRows.length" :rows="selectionScoreRows" :height="Math.max(180, selectionScoreRows.length * 44)" />
-          <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">语言或许可证筛选后候选不足两个，请调整筛选条件。</p>
+          <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">当前所选仓库中符合语言或许可证条件的不足两个，请调整筛选条件。</p>
           <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" :data-testid="`selection-score-${row.id}`">
             <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div class="flex min-w-0 items-start gap-2.5">
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold">{{ index + 1 }}</span>
                 <div class="min-w-0">
                   <h5 class="m-0 break-all text-[13px] font-semibold">{{ row.name }}</h5>
-                  <p class="mb-0 mt-1 text-[10.5px] text-muted">{{ row.evidence.length }} 项指标参与 · 当前候选中的相对分</p>
+                  <p class="mb-0 mt-1 text-[10.5px] text-muted">{{ row.evidence.length }} 项指标参与 · 所选仓库中的相对分</p>
                 </div>
               </div>
               <div class="shrink-0 text-right">
@@ -597,6 +660,16 @@ async function exportComparison() {
         <span>单位：次 · SHA 去重 · 各仓库均为默认分支</span>
         <span>曲线在某周中断表示该仓库的采集到此结束，不用 0 补齐</span>
       </div>
+    </UiPanel>
+
+    <UiPanel as="section" data-testid="comparison-diverse-charts">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标结构</h3><p class="mt-0.5 text-[12px] text-muted">同一可用子集内按 min–max 归一到 0–100；耗时和发布间隔反向，Commit 与有效周占比正向。此图仅作相对比较，不代表健康评分。</p></div>
+      <div v-if="comparisonRadarRows.length" class="mt-3 grid gap-4 xl:grid-cols-2">
+        <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><G2Chart :spec="comparisonRadarSpec" label="当前共同可用仓库的归一化指标雷达图" :height="340" /><p class="m-0 text-[10.5px] text-muted">纳入 {{ comparisonRadarRows.length }} / {{ selectionBasisEntries.length }} 个仓库；缺失任一轴的仓库不会补零。样本量与原始单位见下方对照表。</p></div>
+        <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库 × 指标热力矩阵</h4><G2Chart :spec="comparisonHeatSpec" label="仓库与比较指标的归一值热力矩阵，悬停查看原值与样本" :height="340" /></div>
+        <div class="min-w-0 xl:col-span-2"><h4 class="m-0 text-[12px] font-semibold">平行坐标</h4><G2Chart :spec="comparisonParallelSpec" label="归一化仓库指标平行坐标图" :height="300" /></div>
+      </div>
+      <p v-else class="mt-3 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前仓库缺少完整的周均 Commit、Issue P50、PR P50 或 Release 间隔数据，无法构造同轴多维比较；下方表格保留各指标各自的有效值与样本说明。</p>
     </UiPanel>
 
     <UiPanel as="section">

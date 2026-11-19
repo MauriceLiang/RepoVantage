@@ -6,9 +6,13 @@ import { getBrowserApiData } from '@/services/httpRepositoryDataSource'
 import { useUiStore } from '@/stores/ui'
 import G2Chart from '@/components/charts/G2Chart.vue'
 import ResearchAtlasG2 from '@/components/charts/ResearchAtlasG2.vue'
+import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
 import type { AtlasBrushSelection, AtlasChartPoint, AtlasPoint, AtlasResponse, AtlasSelectionRange, AtlasViewMode } from '@/data/researchTypes'
 import type { G2Spec } from '@antv/g2'
+import { correlationMatrix, countBy, linearSlope, populationStandardDeviation } from '@/lib/chartAnalytics'
 
+const props = withDefaults(defineProps<{ embedded?: boolean }>(), { embedded: false })
 const ui = useUiStore()
 const { theme } = storeToRefs(ui)
 const isDark = computed(() => theme.value === 'dark')
@@ -104,31 +108,68 @@ const selectedPoint = computed(() => displayedPoints.value.find((point) => point
   ?? null)
 const selectedChartPoint = computed(() => chartPoints.value.find((point) => point.repository_id === selectedPoint.value?.repository_id) ?? null)
 const viewHasThreshold = computed(() => minimumCommit.value !== null || minimumPr.value !== null)
+type ResearchFeature = AtlasPoint & {
+  commitVolatility: number
+  prVolatility: number
+  commitActiveWeekRatio: number
+  prActiveWeekRatio: number
+}
+const researchFeatures = computed<ResearchFeature[]>(() => visiblePoints.value.map((point) => {
+  const commits = point.weekly_trace.map((week) => week.commits)
+  const prs = point.weekly_trace.map((week) => week.prs_opened)
+  return {
+    ...point,
+    commitVolatility: populationStandardDeviation(commits),
+    prVolatility: populationStandardDeviation(prs),
+    commitActiveWeekRatio: commits.length ? commits.filter((value) => value > 0).length / commits.length : 0,
+    prActiveWeekRatio: prs.length ? prs.filter((value) => value > 0).length / prs.length : 0,
+  }
+}))
+const researchCorrelationDimensions: Array<{ key: keyof ResearchFeature; label: string }> = [
+  { key: 'weekly_commit_mean', label: '周均 Commit' },
+  { key: 'weekly_pr_open_mean', label: '周均新开 PR' },
+  { key: 'commitVolatility', label: 'Commit 波动 σ' },
+  { key: 'prVolatility', label: 'PR 波动 σ' },
+  { key: 'commitActiveWeekRatio', label: 'Commit 活跃周占比' },
+  { key: 'stars', label: 'Stars' },
+]
+const correlationCells = computed(() => correlationMatrix(researchFeatures.value, researchCorrelationDimensions))
+const drawableCorrelationCells = computed(() => correlationCells.value.flatMap((cell) => cell.correlation === null ? [] : [{ ...cell, correlation: cell.correlation }]))
+const correlationSpec = computed<G2Spec>(() => ({
+  type: 'cell',
+  data: drawableCorrelationCells.value,
+  encode: { x: 'x', y: 'y', color: 'correlation' },
+  scale: {
+    x: { domain: researchCorrelationDimensions.map((dimension) => dimension.label) },
+    y: { domain: researchCorrelationDimensions.map((dimension) => dimension.label).reverse() },
+    color: { domain: [-1, 0, 1], range: ['#b96d55', '#f2f1ec', '#4b829d'] },
+  },
+  axis: { x: { labelFontSize: 9, labelAutoRotate: true }, y: { labelFontSize: 9 } },
+  legend: { color: { title: 'Pearson r', position: 'bottom' } },
+  style: { inset: 1, stroke: 'var(--surface, #fff)', lineWidth: 1 },
+  tooltip: { title: 'x', items: [
+    { field: 'y', name: '变量' },
+    { field: 'correlation', name: 'Pearson r', valueFormatter: (value: number) => value.toFixed(3) },
+    { field: 'sampleSize', name: '共同有效仓库 n' },
+  ] },
+}))
+const roleRows = computed(() => countBy(researchFeatures.value, (point) => point.sample_role === 'train'
+  ? '训练组'
+  : point.sample_role === 'test' ? '测试组' : '未知角色'))
+const languageSampleCounts = computed(() => countBy(researchFeatures.value, (point) => point.language || '未知'))
+const plotLanguages = computed(() => languageSampleCounts.value.filter((row) => row.value >= 5).slice(0, 6).map((row) => row.label))
+const languageCommitSamples = computed(() => researchFeatures.value
+  .filter((point) => plotLanguages.value.includes(point.language || '未知'))
+  .map((point) => ({ group: point.language || '未知', value: point.weekly_commit_mean })))
+const violinLanguages = computed(() => languageSampleCounts.value
+  .filter((row) => plotLanguages.value.includes(row.label) && row.value >= 20)
+  .map((row) => row.label))
+const languageViolinSamples = computed(() => languageCommitSamples.value.filter((sample) => violinLanguages.value.includes(sample.group)))
 
 function parseThreshold(value: string | number): number | null {
   if (typeof value === 'string' && !value.trim()) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
-}
-
-function populationStandardDeviation(values: number[]): number {
-  if (values.length === 0) return 0
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
-  return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length)
-}
-
-function linearSlope(values: number[]): number {
-  if (values.length < 2) return 0
-  const xMean = (values.length - 1) / 2
-  const yMean = values.reduce((sum, value) => sum + value, 0) / values.length
-  let covariance = 0
-  let variance = 0
-  values.forEach((value, index) => {
-    const delta = index - xMean
-    covariance += delta * (value - yMean)
-    variance += delta ** 2
-  })
-  return variance === 0 ? 0 : covariance / variance
 }
 
 function clearBrush() {
@@ -194,7 +235,7 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 </script>
 
 <template>
-  <div class="app-page atlas-page">
+  <div :class="['atlas-page', { 'app-page': !props.embedded }]">
     <header class="atlas-heading">
       <div>
         <h1 class="page-title">300 仓库研究图谱</h1>
@@ -202,8 +243,7 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
       </div>
       <div class="atlas-heading-actions">
         <span v-if="result" class="snapshot-label">数据截止 <strong>{{ result.data_as_of?.slice(0, 10) }}</strong></span>
-        <RouterLink class="button button--outline" to="/research/ml-data">机器学习数据</RouterLink>
-        <RouterLink class="button button--primary" to="/selection">进入技术选型 <ArrowUpRight :size="14" /></RouterLink>
+        <RouterLink class="button button--primary" to="/repositories">前往仓库选择比较对象 <ArrowUpRight :size="14" /></RouterLink>
       </div>
     </header>
 
@@ -220,7 +260,7 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
       <section class="atlas-layout" aria-label="300 仓库分布与联动详情">
         <article class="panel atlas-main-panel">
           <div class="atlas-panel-heading">
-            <div><h2>12 周活动分布</h2><p>每个点对应一个样本仓库；颜色区分主要语言{{ visiblePoints.every((point) => point.stars !== null) ? '，点大小表示 Stars 快照' : '' }}。</p></div>
+            <div><h2>12 周活动分布</h2><p>每个点对应一个样本仓库；颜色区分主要语言。Stars 已知时用于点大小，缺失值不补入编码。</p></div>
             <span class="atlas-count">{{ displayedPoints.length }} / {{ result.repository_count }}</span>
           </div>
           <div class="atlas-filters">
@@ -273,6 +313,28 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
           </article>
         </aside>
       </section>
+
+      <section class="atlas-insights-grid" aria-label="研究样本相关性与语言分布">
+        <article class="panel atlas-insight-panel atlas-insight-panel--wide">
+          <div class="atlas-panel-heading"><div><h2>活动指标相关性</h2><p>Pearson 相关系数；每一对变量只使用双方均有值的仓库，Stars 缺失不补零。</p></div><span class="atlas-count">{{ visiblePoints.length }} 个筛选样本</span></div>
+          <G2Chart v-if="drawableCorrelationCells.length" :spec="correlationSpec" label="仓库活动指标 Pearson 相关系数热力图" :height="330" />
+          <div v-else class="atlas-chart-empty">样本不足以计算有效相关系数（每对至少需要 3 个共同样本）。</div>
+        </article>
+        <article class="panel atlas-insight-panel">
+          <div class="atlas-panel-heading"><div><h2>训练 / 测试样本构成</h2><p>只呈现数据集中的实际角色；其他或缺失角色单独标为未知。</p></div></div>
+          <DonutChart :rows="roleRows" :total="String(visiblePoints.length)" center-label="筛选样本" label="训练、测试与未知角色的样本构成环形图" :height="280" />
+        </article>
+        <article class="panel atlas-insight-panel">
+          <div class="atlas-panel-heading"><div><h2>按语言分组的周均 Commit</h2><p>仅显示有效样本数不少于 5 的前六种语言；下方标出每组 n、P50 和 P90。</p></div></div>
+          <BoxPlotChart v-if="languageCommitSamples.length" :samples="languageCommitSamples" label="不同主语言仓库的周均 Commit 箱线图" unit="Commit 次 / 周" :height="280" />
+          <div v-else class="atlas-chart-empty">当前筛选下没有样本数不少于 5 的语言组。</div>
+        </article>
+        <article class="panel atlas-insight-panel atlas-insight-panel--wide">
+          <div class="atlas-panel-heading"><div><h2>语言活动分布密度</h2><p>小提琴形状仅纳入样本数至少 20 的语言组；不满足条件的组留在上方箱线图。</p></div><span class="atlas-count">{{ violinLanguages.length }} 个合格语言组</span></div>
+          <BoxPlotChart v-if="languageViolinSamples.length" :samples="languageViolinSamples" shape="violin" label="每组至少 20 个仓库的周均 Commit 小提琴图" unit="Commit 次 / 周" :height="300" />
+          <div v-else class="atlas-chart-empty">当前筛选下没有达到每组 20 个样本的小提琴图数据。</div>
+        </article>
+      </section>
     </template>
   </div>
 </template>
@@ -285,6 +347,10 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 .atlas-meta-row strong { color:var(--ink); font-size:14px; }
 .atlas-excluded { display:inline-flex; align-items:center; gap:5px; color:var(--amber); }
 .atlas-layout { display:grid; grid-template-columns:minmax(0, 2.15fr) minmax(280px, .85fr); gap:14px; align-items:start; }
+.atlas-insights-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; align-items:stretch; }
+.atlas-insight-panel { min-width:0; }
+.atlas-insight-panel--wide { grid-column:span 2; }
+.atlas-chart-empty { display:grid; min-height:240px; place-items:center; padding:20px; color:var(--muted); font-size:11px; text-align:center; }
 .atlas-main-panel { min-height:680px; }
 .atlas-side-column { display:grid; gap:14px; }
 .atlas-panel-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:12px; }
@@ -327,6 +393,6 @@ watch([viewMode, language, sampleRole, query, minimumCommitInput, minimumPrInput
 .atlas-state--error strong { color:var(--ink); }
 @media (max-width:1100px) { .atlas-layout { grid-template-columns:minmax(0,1.6fr) minmax(250px,1fr); } }
 @media (max-width:1250px) { .atlas-filters { flex-wrap:wrap; } .atlas-search { min-width:200px; flex-basis:100%; } }
-@media (max-width:850px) { .atlas-heading { align-items:flex-start; flex-direction:column; } .atlas-layout { grid-template-columns:minmax(0,1fr); } .atlas-main-panel { min-height:560px; } .atlas-chart-wrap { min-height:410px; height:55vh; } }
+@media (max-width:850px) { .atlas-heading { align-items:flex-start; flex-direction:column; } .atlas-layout,.atlas-insights-grid { grid-template-columns:minmax(0,1fr); } .atlas-insight-panel--wide { grid-column:span 1; } .atlas-main-panel { min-height:560px; } .atlas-chart-wrap { min-height:410px; height:55vh; } }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto !important; transition-duration:.01ms !important; animation-duration:.01ms !important; } }
 </style>

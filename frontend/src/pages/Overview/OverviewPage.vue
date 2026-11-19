@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import type { G2Spec } from '@antv/g2'
 import G2Chart from '@/components/charts/G2Chart.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import type { RepositorySummary, TaskItem } from '@/services/types'
@@ -25,7 +26,7 @@ const languageGroups = computed(() => {
     .map(([language, repositoryCount]) => ({ language, repositoryCount }))
     .sort((left, right) => right.repositoryCount - left.repositoryCount || left.language.localeCompare(right.language))
 })
-const topLanguages = computed(() => languageGroups.value.slice(0, 8))
+const topLanguages = computed(() => languageGroups.value.filter((group) => group.language !== '未知语言').slice(0, 5))
 const hasRepositoryData = computed(() => repositories.value.length > 0)
 const loading = computed(() => repositoryRequest.loading.value || taskRequest.loading.value)
 const repositoryError = computed(() => repositoryRequest.error.value)
@@ -62,22 +63,39 @@ const createdYearRows = computed(() => {
   })
 })
 const starBuckets = computed(() => {
-  const labels = ['< 1k', '1k–5k', '5k–10k', '10k–25k', '25k+']
-  const counts = [0, 0, 0, 0, 0]
+  const labels = ['0', '1–10', '11–100', '101–1k', '1k–10k', '10k+']
+  const counts = labels.map(() => 0)
   for (const repository of repositories.value) {
     if (repository.stars === null) continue
-    const index = repository.stars < 1_000 ? 0 : repository.stars < 5_000 ? 1 : repository.stars < 10_000 ? 2 : repository.stars < 25_000 ? 3 : 4
+    const index = repository.stars === 0 ? 0 : repository.stars <= 10 ? 1 : repository.stars <= 100 ? 2 : repository.stars <= 1_000 ? 3 : repository.stars <= 10_000 ? 4 : 5
     counts[index] += 1
   }
   return labels.map((label, index) => ({ label, count: counts[index] }))
 })
-const licenseRows = computed(() => {
-  const counts = new Map<string, number>()
+const languageDonutRows = computed(() => {
+  const known = languageGroups.value.filter((group) => group.language !== '未知语言')
+  const unknownCount = languageGroups.value.find((group) => group.language === '未知语言')?.repositoryCount ?? 0
+  const head = known.slice(0, 5).map((group) => ({ label: group.language, value: group.repositoryCount }))
+  const otherCount = known.slice(5).reduce((sum, group) => sum + group.repositoryCount, 0)
+  if (otherCount) head.push({ label: '其他', value: otherCount })
+  if (unknownCount) head.push({ label: '未知语言', value: unknownCount })
+  return head
+})
+const sunburstTree = computed(() => {
+  const byLanguage = new Map<string, Map<string, number>>()
   for (const repository of repositories.value) {
-    const license = repository.license || '未标注'
-    counts.set(license, (counts.get(license) ?? 0) + 1)
+    const language = repository.language?.trim() || '未知语言'
+    const license = repository.license?.trim() || '未声明'
+    const licenses = byLanguage.get(language) ?? new Map<string, number>()
+    licenses.set(license, (licenses.get(license) ?? 0) + 1)
+    byLanguage.set(language, licenses)
   }
-  return [...counts.entries()].map(([license, count]) => ({ license, count })).sort((left, right) => right.count - left.count).slice(0, 8)
+  const children = [...byLanguage.entries()].map(([language, licenses]) => ({
+    name: language,
+    value: [...licenses.values()].reduce((sum, value) => sum + value, 0),
+    children: [...licenses.entries()].map(([name, value]) => ({ name, value })),
+  })).sort((left, right) => right.value - left.value)
+  return [{ name: '仓库', value: repositories.value.length, children }]
 })
 const statusRows = computed(() => {
   const labels = { ready: '已完成', partial: '部分数据', running: '正在更新', idle: '待采集', failed: '采集失败' } as const
@@ -88,15 +106,18 @@ const statusRows = computed(() => {
   }
   return [...counts.entries()].map(([status, count]) => ({ status, count }))
 })
-const scatterRepositories = computed(() => repositories.value.filter((repository) => typeof repository.stars === 'number' && repository.stars > 0 && typeof repository.forks === 'number' && repository.forks > 0))
+const scatterRepositories = computed(() => repositories.value.filter((repository) => typeof repository.stars === 'number' && repository.stars >= 0 && typeof repository.forks === 'number' && repository.forks >= 0))
 const knownScatterLanguages = computed(() => new Set(topLanguages.value.map((group) => group.language)))
 const scatterData = computed(() => scatterRepositories.value.map((repository) => ({
   fullName: repository.fullName,
-  language: repository.language && knownScatterLanguages.value.has(repository.language) ? repository.language : '其他',
-  stars: repository.stars!,
-  forks: repository.forks!,
+  language: !repository.language ? '未知语言' : knownScatterLanguages.value.has(repository.language) ? repository.language : '其他',
+  stars: repository.stars!, forks: repository.forks!,
+  starsPlot: Math.max(1, repository.stars!), forksPlot: Math.max(1, repository.forks!),
+  sizeKb: repository.sizeKb,
   status: repository.status,
 })))
+const sizedScatterRows = computed(() => scatterData.value.filter((row) => row.sizeKb !== null && row.sizeKb !== undefined))
+const unsizedScatterRows = computed(() => scatterData.value.filter((row) => row.sizeKb === null || row.sizeKb === undefined))
 const palette = ['#68c63a', '#5d80de', '#eba33a', '#46b8a3', '#f0796b', '#a679d2', '#38a7c7', '#d86c9b', '#89939d']
 const languageDomain = computed(() => [...new Set(scatterData.value.map((row) => row.language))])
 const languageColors = computed(() => languageDomain.value.map((_, index) => palette[index % palette.length]))
@@ -104,44 +125,58 @@ const axisColor = computed(() => ui.isDark ? '#a0a8b0' : '#6e7781')
 const gridColor = computed(() => ui.isDark ? '#2b3238' : '#e8ebed')
 const axisBase = computed(() => ({ labelFill: axisColor.value, labelFontSize: 9, lineStroke: gridColor.value, tickStroke: gridColor.value, titleFill: axisColor.value }))
 const gridStyle = computed(() => ({ stroke: gridColor.value, lineDash: [3, 3] }))
-const languageData = computed(() => ({
-  name: '仓库',
-  children: topLanguages.value.map((group) => ({ name: group.language, language: group.language, repositoryCount: group.repositoryCount })),
-}))
-const languageSpec = computed<G2Spec>(() => ({
-  type: 'treemap',
-  data: { value: languageData.value },
-  layout: { tile: 'treemapBinary', paddingInner: 2, ignoreParentValue: true },
-  encode: { value: 'repositoryCount', color: (datum: { path?: string[] }) => datum.path?.[1] ?? '其他' },
-  scale: { color: { domain: topLanguages.value.map((group) => group.language), range: topLanguages.value.map((_, index) => palette[index % palette.length]) } },
-  style: { stroke: ui.isDark ? '#15191d' : '#ffffff', lineWidth: 2, labelText: (datum: { data?: { language?: string; repositoryCount?: number } }) => `${datum.data?.language ?? ''}\n${formatNumber(datum.data?.repositoryCount)} 個`, labelFill: '#fff', labelFontSize: 10, labelFontWeight: 600 },
+const sunburstSpec = computed<G2Spec>(() => ({
+  type: 'partition',
+  data: sunburstTree.value,
+  coordinate: { type: 'polar', innerRadius: 0.18 },
+  encode: { name: 'name', value: 'value', color: 'name' },
+  style: { stroke: ui.isDark ? '#15191d' : '#ffffff', lineWidth: 1.5 },
+  labels: [],
+  axis: false,
   legend: false,
-  tooltip: { title: (datum: { language?: string }) => datum.language ?? '未知语言', items: [{ field: 'repositoryCount', name: '仓库数' }] },
+  tooltip: {
+    title: (datum: { name?: string; path?: string | string[] }) => typeof datum.path === 'string'
+      ? datum.path
+      : Array.isArray(datum.path) ? datum.path.join(' / ') : datum.name || '仓库',
+    items: [{ field: 'value', name: '仓库数' }],
+  },
 }))
 const starSpec = computed<G2Spec>(() => ({
   type: 'interval',
   data: starBuckets.value,
   coordinate: { transform: [{ type: 'transpose' }] },
-  encode: { x: 'label', y: 'count', color: 'label' },
+  encode: { x: 'label', y: 'count' },
   scale: { color: { domain: starBuckets.value.map((item) => item.label), range: palette } },
   axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
   legend: false,
   tooltip: { title: 'label', items: [{ field: 'count', name: '仓库数' }] },
 }))
 const scatterSpec = computed<G2Spec>(() => ({
-  type: 'point',
-  data: scatterData.value,
-  encode: { x: 'stars', y: 'forks', color: 'language', shape: 'point' },
+  type: 'view',
   scale: {
     x: { type: 'log', base: 10 }, y: { type: 'log', base: 10 },
     color: { domain: languageDomain.value, range: languageColors.value },
   },
-  style: { fillOpacity: 0.72, stroke: ui.isDark ? '#20262b' : '#fff', lineWidth: 1 },
-  axis: { x: { ...axisBase.value, title: 'Stars（对数轴）', grid: false }, y: { ...axisBase.value, title: 'Forks（对数轴）', grid: gridStyle.value } },
+  children: [
+    ...(unsizedScatterRows.value.length ? [{
+      type: 'point' as const,
+      data: unsizedScatterRows.value,
+      encode: { x: 'starsPlot', y: 'forksPlot', color: 'language', shape: 'point' as const },
+      style: { r: 5, fillOpacity: 0.72, stroke: ui.isDark ? '#20262b' : '#fff', lineWidth: 1 },
+    }] : []),
+    ...(sizedScatterRows.value.length ? [{
+      type: 'point' as const,
+      data: sizedScatterRows.value,
+      encode: { x: 'starsPlot', y: 'forksPlot', color: 'language', size: 'sizeKb', shape: 'point' as const },
+      scale: { size: { type: 'sqrt' as const, range: [4, 18] } },
+      style: { fillOpacity: 0.72, stroke: ui.isDark ? '#20262b' : '#fff', lineWidth: 1 },
+    }] : []),
+  ],
+  axis: { x: { ...axisBase.value, title: 'Stars（对数轴；0 按 1 显示）', grid: false }, y: { ...axisBase.value, title: 'Forks（对数轴；0 按 1 显示）', grid: gridStyle.value } },
   legend: { color: { position: 'bottom', itemLabelFill: axisColor.value, itemLabelFontSize: 9 } },
   tooltip: { title: 'fullName', items: [
     { field: 'language', name: '主语言' }, { field: 'stars', name: 'Stars', valueFormatter: (value: number) => formatNumber(value) },
-    { field: 'forks', name: 'Forks', valueFormatter: (value: number) => formatNumber(value) }, { field: 'status', name: '本地数据状态' },
+    { field: 'forks', name: 'Forks', valueFormatter: (value: number) => formatNumber(value) }, { field: 'sizeKb', name: '仓库大小（KB）' }, { field: 'status', name: '本地数据状态' },
   ] },
   interaction: { brushHighlight: true, tooltip: { shared: false } },
 }))
@@ -151,14 +186,6 @@ const createdSpec = computed<G2Spec>(() => ({
   style: { fill: '#5d80de' },
   axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
   tooltip: { title: 'year', items: [{ field: 'count', name: '仓库数' }] },
-}))
-const licenseSpec = computed<G2Spec>(() => ({
-  type: 'interval', data: licenseRows.value, coordinate: { transform: [{ type: 'transpose' }] },
-  encode: { x: 'license', y: 'count', color: 'license' },
-  scale: { color: { domain: licenseRows.value.map((item) => item.license), range: licenseRows.value.map((_, index) => palette[index % palette.length]) } },
-  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
-  legend: false,
-  tooltip: { title: 'license', items: [{ field: 'count', name: '仓库数' }] },
 }))
 const statusSpec = computed<G2Spec>(() => ({
   type: 'interval', data: statusRows.value, coordinate: { transform: [{ type: 'transpose' }] },
@@ -270,13 +297,13 @@ onBeforeUnmount(() => {
       <UiMetricCard label="已有采集数据" :value="formatNumber(comparableRepositoryCount)" note="可进入仓库页查看或比较" />
     </section>
 
-    <section class="chart-grid" aria-label="仓库数据分布图表">
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">编程语言构成</h2><p class="panel-description">按已加入仓库的主语言统计</p></div></div><G2Chart v-if="hasRepositoryData" :spec="languageSpec" label="当前仓库主语言矩形树图" :height="226" /><div v-else class="empty-state small">添加仓库后显示你的技术栈构成</div></UiPanel>
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">Stars 关注度分布</h2><p class="panel-description">按仓库 Stars 区间比较数量，缺失 Stars 不计为零</p></div><Star :size="15" class="muted" /></div><G2Chart v-if="starSampleCount" :spec="starSpec" label="Stars 区间横向条形图" :height="226" /><div v-else class="empty-state small">暂无 Stars 快照</div></UiPanel>
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">Stars 与 Forks</h2><p class="panel-description">当前仓库关注度与复刻数分布，使用对数坐标</p></div><GitFork :size="15" class="muted" /></div><G2Chart v-if="scatterData.length" :spec="scatterSpec" label="当前仓库 Stars 与 Forks 散点图；可框选高亮" :height="226" /><div v-else class="empty-state small">暂无 Stars 与 Forks 快照</div></UiPanel>
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">仓库创建年份</h2><p class="panel-description">按 GitHub 创建年份展示数量</p></div></div><G2Chart v-if="createdYearRows.length" :spec="createdSpec" label="仓库创建年份频数图" :height="226" /><div v-else class="empty-state small">暂无创建日期快照</div></UiPanel>
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">开源许可证分布</h2><p class="panel-description">按仓库快照中的 SPDX 许可证分类</p></div></div><G2Chart v-if="repositories.length" :spec="licenseSpec" label="当前仓库开源许可证横向分布图" :height="226" /><div v-else class="empty-state small">添加仓库后显示许可证分布</div></UiPanel>
-      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">本地数据状态</h2><p class="panel-description">查看已加入仓库的采集进度</p></div><Activity :size="15" class="muted" /></div><G2Chart v-if="repositories.length" :spec="statusSpec" label="当前仓库本地采集状态分布" :height="226" /><div v-else class="empty-state small">添加仓库后显示采集状态</div></UiPanel>
+    <section class="overview-chart-grid" aria-label="仓库数据分布图表">
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">编程语言构成</h2><p class="panel-description">前五种语言、其他与未知语言 · 总量 {{ repositories.length }}</p></div></div><DonutChart v-if="hasRepositoryData" :rows="languageDonutRows" :total="formatNumber(repositories.length)" center-label="仓库" label="仓库主语言构成环形图" :height="250" /><div v-else class="empty-state small">添加仓库后显示你的技术栈构成</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">语言与许可证</h2><p class="panel-description">内圈为主语言，外圈为许可证；未声明许可证单独统计</p></div></div><G2Chart v-if="hasRepositoryData" :spec="sunburstSpec" label="按主语言与许可证层级展示的仓库旭日图" :height="250" /><div v-else class="empty-state small">添加仓库后显示层级构成</div></UiPanel>
+      <UiPanel as="article" class="chart-panel overview-chart-panel--wide"><div class="panel-heading"><div><h2 class="panel-title">Stars 与 Forks 关系</h2><p class="panel-description">点大小映射 GitHub 仓库体积（KB）；对数轴将 0 按 1 定位，Tooltip 保留原始值</p></div><GitFork :size="15" class="muted" /></div><G2Chart v-if="scatterData.length" :spec="scatterSpec" label="仓库 Stars 与 Forks 气泡散点图，可框选高亮" :height="300" /><div v-else class="empty-state small">暂无同时具有 Stars 与 Forks 快照的数据</div><p class="small muted overview-chart-note">可绘制 {{ scatterData.length }} / {{ repositories.length }} 个仓库；{{ scatterData.filter((row) => row.sizeKb == null).length }} 个仓库大小未知，不参与气泡尺寸编码。</p></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">Stars 分布</h2><p class="panel-description">按数量区间统计；缺失值不计为零</p></div><Star :size="15" class="muted" /></div><G2Chart v-if="starSampleCount" :spec="starSpec" label="Stars 区间直方图" :height="250" /><div v-else class="empty-state small">暂无 Stars 快照</div><p class="small muted overview-chart-note">有效样本 {{ starSampleCount }} / {{ repositories.length }}；缺失 {{ repositories.length - starSampleCount }}。</p></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">仓库创建年份</h2><p class="panel-description">按 GitHub 创建年份展示数量</p></div></div><G2Chart v-if="createdYearRows.length" :spec="createdSpec" label="仓库创建年份频数图" :height="250" /><div v-else class="empty-state small">暂无创建日期快照</div></UiPanel>
+      <UiPanel as="article" class="chart-panel"><div class="panel-heading"><div><h2 class="panel-title">本地数据状态</h2><p class="panel-description">查看已加入仓库的采集进度</p></div><Activity :size="15" class="muted" /></div><G2Chart v-if="repositories.length" :spec="statusSpec" label="当前仓库本地采集状态分布" :height="250" /><div v-else class="empty-state small">添加仓库后显示采集状态</div></UiPanel>
     </section>
 
     <section class="detail-grid" aria-label="近期状态">
@@ -318,6 +345,9 @@ onBeforeUnmount(() => {
 .onboarding-steps p { margin: 4px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
 .trend-up { color: var(--green); }
 .trend-down { color: var(--red); }
+.overview-chart-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; align-items:stretch; }
+.overview-chart-panel--wide { grid-column:span 2; }
+.overview-chart-note { margin:3px 0 0; }
 .task-row { display:flex; align-items:center; justify-content:space-between; gap:12px; color:inherit; text-decoration:none; }
 .task-row__main { display:grid; gap:3px; min-width:0; }
 .task-progress { width:64px; height:5px; flex:none; overflow:hidden; border-radius:9px; background:var(--surface-soft); }
@@ -325,5 +355,8 @@ onBeforeUnmount(() => {
 @media (max-width: 760px) {
   .onboarding-heading { flex-direction: column; }
   .onboarding-steps { grid-template-columns: 1fr; gap: 10px; }
+  .overview-chart-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .overview-chart-panel--wide { grid-column:span 2; }
 }
+@media (max-width: 560px) { .overview-chart-grid { grid-template-columns:1fr; } .overview-chart-panel--wide { grid-column:span 1; } }
 </style>

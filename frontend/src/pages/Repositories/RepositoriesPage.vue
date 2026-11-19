@@ -533,11 +533,12 @@ void reloadLibrary()
 
 <style scoped>
 .repositories-page {
-  max-width: 1360px;
+  width: 100%;
+  max-width: none;
   block-size: max(420px, calc(100dvh - var(--topbar-height)));
   grid-template-rows: auto minmax(0, 1fr);
   gap: 18px;
-  margin-inline: auto;
+  margin-inline: 0;
   padding-block-end: 24px;
 }
 .repositories-page :deep(.page-header) { margin-bottom: 0; }
