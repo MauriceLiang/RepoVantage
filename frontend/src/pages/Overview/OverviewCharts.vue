@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { OverviewChartData, PushBucketKey } from '@/lib/overviewChartData'
+import type { OverviewChartData } from '@/lib/overviewChartData'
 import type { OverviewChartFilterState } from '@/composables/useOverviewChartFilters'
 import PortfolioLanguageChart from './charts/PortfolioLanguageChart.vue'
 import PortfolioStarsDistribution from './charts/PortfolioStarsDistribution.vue'
 import PortfolioPopularityScatter from './charts/PortfolioPopularityScatter.vue'
-import PortfolioPushRecency from './charts/PortfolioPushRecency.vue'
 
 const props = defineProps<{
   data: OverviewChartData
@@ -15,7 +14,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   toggleLanguages: [languageKeys: string[]]
   toggleStarsBucket: [key: string]
-  togglePushBucket: [key: PushBucketKey]
   selectRepository: [id: string]
   clearSelectedRepository: []
   clearFilters: []
@@ -24,32 +22,26 @@ const emit = defineEmits<{
 const starsLabels: Record<string, string> = {
   zero: '0 Stars', b1: '1–100 Stars', b2: '101–1k Stars', b3: '1k–10k Stars', b4: '10k–100k Stars', b5: '100k+ Stars',
 }
-const pushLabels: Record<PushBucketKey, string> = {
-  '7d': '近 7 天 Push', '30d': '8–30 天 Push', '90d': '31–90 天 Push', '365d': '91–365 天 Push',
-  older: '超过 1 年未 Push', missing: '无 Push 日期', future: 'Push 日期异常',
-}
 const selectedRepository = () => props.data.repositories.find((repository) => repository.id === props.filters.selectedRepositoryId)
 </script>
 
 <template>
   <div class="overview-charts" data-testid="overview-visualizations">
-    <div v-if="filters.languageKeys.length || filters.starsBucket || filters.pushBucket || filters.selectedRepositoryId" class="overview-filter-bar" role="region" aria-label="当前图表筛选条件">
+    <div v-if="filters.languageKeys.length || filters.starsBucket || filters.selectedRepositoryId" class="overview-filter-bar" role="region" aria-label="当前图表筛选条件">
       <div class="overview-filter-summary"><strong>已筛选 {{ filteredCount }} / {{ data.repositories.length }} 个仓库</strong><span>图表互相联动；顶部指标仍按全部仓库统计</span></div>
       <div class="overview-filter-chips">
         <button v-if="filters.languageKeys.length" type="button" class="filter-chip" @click="emit('toggleLanguages', filters.languageKeys)">语言 · {{ filters.languageKeys.length }} 种 <span aria-hidden="true">×</span></button>
         <button v-if="filters.starsBucket" type="button" class="filter-chip" @click="emit('toggleStarsBucket', filters.starsBucket!)">{{ starsLabels[filters.starsBucket] ?? filters.starsBucket }} <span aria-hidden="true">×</span></button>
-        <button v-if="filters.pushBucket" type="button" class="filter-chip" @click="emit('togglePushBucket', filters.pushBucket!)">{{ pushLabels[filters.pushBucket] }} <span aria-hidden="true">×</span></button>
         <span v-if="filters.selectedRepositoryId && selectedRepository()" class="selected-repository-chip">已选 {{ selectedRepository()?.fullName }}<button type="button" aria-label="清除所选仓库" @click="emit('clearSelectedRepository')">×</button></span>
         <button type="button" class="clear-filters" @click="emit('clearFilters')">清除全部</button>
       </div>
     </div>
-    <div v-else class="overview-filter-hint"><span>四种视角：语言构成、Stars 分层、受欢迎程度关联、最近 Push 活跃度</span><span>点击图例或数据点联动筛选四张图</span></div>
+    <div v-else class="overview-filter-hint"><span>三种视角：语言构成、Stars 分层、Stars 与 Forks 关联</span><span>点击图例或数据点联动筛选图表</span></div>
     <div class="overview-chart-grid overview-chart-grid--top">
       <PortfolioLanguageChart :rows="data.languageRows" :total="data.repositories.length" :filtered-count="filteredCount" :selected-language-keys="filters.languageKeys" @toggle-languages="emit('toggleLanguages', $event)" />
       <PortfolioStarsDistribution :buckets="data.starsBuckets" :points="data.starsPoints" :total="data.repositories.length" :valid-count="data.validStarsCount" :invalid-count="data.invalidStarsCount" :selected-bucket="filters.starsBucket" :selected-repository-id="filters.selectedRepositoryId" :filtered-ids="filteredIds" :filtered-count="filteredCount" @toggle-bucket="emit('toggleStarsBucket', $event)" @select-repository="emit('selectRepository', $event)" />
     </div>
     <PortfolioPopularityScatter :points="data.popularityPoints" :total="data.repositories.length" :median-stars="data.popularityMedianStars" :median-forks="data.popularityMedianForks" :filtered-ids="filteredIds" :filtered-count="filteredCount" :selected-repository-id="filters.selectedRepositoryId" :overlap-groups="data.popularityOverlapGroups" @select-repository="emit('selectRepository', $event)" @clear-selection="emit('clearSelectedRepository')" />
-    <PortfolioPushRecency :points="data.pushPoints" :total="data.repositories.length" :active30-count="data.active30Count" :active30-rate="data.active30Rate" :missing-count="data.missingPushCount" :invalid-count="data.invalidPushCount" :future-count="data.futurePushCount" :filtered-count="filteredCount" :selected-bucket="filters.pushBucket" :selected-repository-id="filters.selectedRepositoryId" :filtered-ids="filteredIds" @toggle-bucket="emit('togglePushBucket', $event)" @select-repository="emit('selectRepository', $event)" />
   </div>
 </template>
 

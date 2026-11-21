@@ -22,7 +22,7 @@ const dataCoverageCount = computed(() => repositories.value.filter((repository) 
 const asOfMs = ref(Date.now())
 watch(repositories, () => { asOfMs.value = Date.now() })
 const chartData = computed(() => buildOverviewChartData({ repositories: repositories.value, asOfMs: asOfMs.value }))
-const chartFilters = useOverviewChartFilters(repositories, asOfMs)
+const chartFilters = useOverviewChartFilters(repositories)
 const chartFilterState = chartFilters.filterState
 const chartFilteredRepositories = chartFilters.filteredRepositories
 const chartFilteredIds = computed(() => chartFilteredRepositories.value.map((repository) => repository.id))
@@ -127,7 +127,6 @@ async function addRepository() {
         :filtered-count="chartFilteredRepositories.length"
         @toggle-languages="chartFilters.toggleLanguages($event)"
         @toggle-stars-bucket="chartFilters.toggleStarsBucket($event)"
-        @toggle-push-bucket="chartFilters.togglePushBucket($event)"
         @select-repository="selectChartRepository"
         @clear-selected-repository="clearSelectedRepository"
         @clear-filters="clearChartFilters"
