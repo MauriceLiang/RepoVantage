@@ -73,7 +73,7 @@ try {
 
   await page.goto(new URL('/', base).href, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="overview-visualizations"]')
-  await page.waitForFunction(() => ['.language-panel', '.stars-panel', '.scatter-panel'].every((selector) => {
+  await page.waitForFunction(() => ['.language-panel', '.scatter-panel'].every((selector) => {
     const canvas = document.querySelector(`${selector} .g2-chart__canvas canvas`)
     return canvas instanceof HTMLCanvasElement && canvas.width > 100 && canvas.height > 100
   }), { timeout: 15000 })

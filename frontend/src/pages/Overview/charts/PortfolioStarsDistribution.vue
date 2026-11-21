@@ -1,102 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { G2Spec, ViewComposition } from '@antv/g2'
-import type { StarsBucketDatum, StarsPoint } from '@/lib/overviewChartData'
-import G2Chart from '@/components/charts/G2Chart.vue'
+import type { StarsBucketDatum } from '@/lib/overviewChartData'
 
 const props = defineProps<{
   buckets: StarsBucketDatum[]
-  points: StarsPoint[]
   total: number
   validCount: number
   invalidCount: number
   selectedBucket: string | null
-  selectedRepositoryId: string | null
-  filteredIds: string[]
   filteredCount: number
 }>()
 const emit = defineEmits<{
   toggleBucket: [key: string]
-  selectRepository: [id: string]
 }>()
 
 const leadingBucket = computed(() => [...props.buckets].filter((bucket) => bucket.count > 0).sort((left, right) => right.count - left.count || left.min - right.min)[0] ?? null)
-const filteredSet = computed(() => new Set(props.filteredIds))
-const chartPoints = computed(() => props.points.map((point, dataIndex) => ({
-  ...point,
-  dataIndex,
-  sourceIndex: dataIndex,
-})))
-const selectedPoints = computed(() => chartPoints.value.filter((point) => point.repositoryId === props.selectedRepositoryId))
-const emphasizedPoints = computed(() => chartPoints.value.filter((point) => point.repositoryId !== props.selectedRepositoryId && (
-  props.selectedBucket ? point.bucketKey === props.selectedBucket : filteredSet.value.has(point.repositoryId)
-)))
-const dimmedPoints = computed(() => chartPoints.value.filter((point) => point.repositoryId !== props.selectedRepositoryId && !emphasizedPoints.value.includes(point)))
-const maxPlot = computed(() => Math.max(1, ...props.points.map((point) => point.xPlot)))
-const pointTooltip = computed(() => ({
-  title: 'fullName',
-  items: [
-    { field: 'stars', name: 'Stars', valueFormatter: (value: number) => Number(value).toLocaleString('zh-CN') },
-    { field: 'bucketKey', name: '区间', valueFormatter: (value: string) => props.buckets.find((bucket) => bucket.key === value)?.label ?? value },
-  ],
-}))
-const pointChildren = computed<NonNullable<ViewComposition['children']>>(() => [
-  ...(dimmedPoints.value.length ? [{
-    type: 'point' as const,
-    data: dimmedPoints.value,
-    encode: { x: 'xPlot', y: 'lane', color: 'bucketKey', shape: 'point', size: 6 },
-    style: { fillOpacity: 0.2, stroke: '#ffffff', lineWidth: 1.4 },
-    tooltip: pointTooltip.value,
-  }] : []),
-  ...(emphasizedPoints.value.length ? [{
-    type: 'point' as const,
-    data: emphasizedPoints.value,
-    encode: { x: 'xPlot', y: 'lane', color: 'bucketKey', shape: 'point', size: 6 },
-    style: { fillOpacity: 0.9, stroke: '#ffffff', lineWidth: 1.4 },
-    tooltip: pointTooltip.value,
-  }] : []),
-  ...(selectedPoints.value.length ? [{
-    type: 'point' as const,
-    data: selectedPoints.value,
-    encode: { x: 'xPlot', y: 'lane', color: 'bucketKey', shape: 'point', size: 9 },
-    style: { fillOpacity: 1, stroke: '#ffffff', lineWidth: 2 },
-    tooltip: pointTooltip.value,
-  }] : []),
-])
-const spec = computed<G2Spec>(() => ({
-  type: 'view',
-  scale: {
-    x: { domain: [0, maxPlot.value] },
-    y: { domain: [0, 1] },
-    color: { domain: props.buckets.map((bucket) => bucket.key), range: props.buckets.map((bucket) => bucket.color) },
-  },
-  children: pointChildren.value,
-  axis: {
-    x: {
-      title: 'Stars（log1p 位置）',
-      labelFormatter: (value: unknown) => formatStarsTick(value),
-      labelFontSize: 10,
-      grid: false,
-    },
-    y: false,
-  },
-  legend: false,
-  interaction: { elementHighlight: true, tooltip: { shared: false } },
-}))
-
-function formatStarsTick(value: unknown) {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return ''
-  const actual = Math.max(0, Math.expm1(numeric))
-  if (actual >= 1_000_000) return `${(actual / 1_000_000).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}m`
-  if (actual >= 1_000) return `${(actual / 1_000).toLocaleString('zh-CN', { maximumFractionDigits: 1 })}k`
-  return Math.round(actual).toLocaleString('zh-CN')
-}
-
-function selectPoint(payload: { datum: Record<string, unknown> }) {
-  const id = payload.datum.repositoryId
-  if (typeof id === 'string') emit('selectRepository', id)
-}
 
 function toggleBucket(key: string) {
   emit('toggleBucket', key)
@@ -106,7 +24,7 @@ function toggleBucket(key: string) {
 <template>
   <UiPanel as="article" class="chart-panel stars-panel" aria-labelledby="overview-stars-title">
     <div class="panel-heading">
-      <div><h2 id="overview-stars-title" class="panel-title">Stars 关注度分层</h2><p class="panel-description">按区间展示仓库数；长尾使用对数位置</p></div>
+      <div><h2 id="overview-stars-title" class="panel-title">Stars 关注度分层</h2><p class="panel-description">按 Stars 区间展示仓库数与有效样本占比</p></div>
       <span class="chart-sample mono">n={{ validCount }} / {{ total }}</span>
     </div>
     <div v-if="filteredCount !== total" class="chart-scope">当前筛选 {{ filteredCount }} / {{ total }}</div>
@@ -135,13 +53,9 @@ function toggleBucket(key: string) {
       </button>
     </div>
 
-    <div v-if="validCount" class="stars-dot-section">
-      <div class="stars-dot-heading"><span>每个点代表一个仓库</span><span>0 与缺失分开处理</span></div>
-      <G2Chart :spec="spec" label="每个仓库的 Stars 对数点阵图，点的纵向位置仅用于避免重叠" :height="132" @select="selectPoint" />
-    </div>
-    <div v-else class="chart-empty">当前组合没有有效 Stars 样本</div>
+    <div v-if="!validCount" class="chart-empty">当前组合没有有效 Stars 样本</div>
 
-    <p class="chart-note">百分比分母为 {{ validCount }} 个有效 Stars 样本；缺失 {{ total - validCount }} 个<span v-if="invalidCount">，无效值 {{ invalidCount }} 个</span>。点阵纵向位置仅用于排布，没有指标含义。</p>
+    <p class="chart-note">百分比分母为 {{ validCount }} 个有效 Stars 样本；缺失 {{ total - validCount }} 个<span v-if="invalidCount">，无效值 {{ invalidCount }} 个</span>。</p>
   </UiPanel>
 </template>
 
@@ -170,8 +84,6 @@ function toggleBucket(key: string) {
 .stars-legend-item span, .stars-legend-item strong, .stars-legend-item small { overflow: hidden; font-size: 9.5px; text-overflow: ellipsis; white-space: nowrap; }
 .stars-legend-item strong { font-weight: 600; }
 .stars-legend-item small { grid-column: 2 / -1; justify-self: end; color: var(--muted); }
-.stars-dot-section { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
-.stars-dot-heading { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 0; color: var(--muted); font-size: 9.5px; }
 .chart-note { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .chart-empty { display: grid; min-height: 130px; place-items: center; color: var(--muted); font-size: 11px; }
 @media (max-width: 600px) { .stars-lead { align-items: flex-start; flex-direction: column; gap: 5px; } .stars-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

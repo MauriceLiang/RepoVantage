@@ -26,15 +26,6 @@ export interface StarsBucketDatum {
   repositoryIds: string[]
 }
 
-export interface StarsPoint {
-  repositoryId: string
-  fullName: string
-  stars: number
-  xPlot: number
-  lane: number
-  bucketKey: string
-}
-
 export interface PopularityPoint {
   repositoryId: string
   fullName: string
@@ -61,7 +52,6 @@ export interface OverviewChartData {
   languageRows: LanguageDatum[]
   languageKeys: string[]
   starsBuckets: StarsBucketDatum[]
-  starsPoints: StarsPoint[]
   validStarsCount: number
   invalidStarsCount: number
   popularityPoints: PopularityPoint[]
@@ -189,15 +179,7 @@ function buildStars(repositories: RepositorySummary[]) {
   const validCount = valid.length
   for (const bucket of buckets) bucket.percent = validCount ? bucket.count / validCount * 100 : 0
 
-  const duplicates = new Map<number, typeof valid>()
-  for (const point of valid) duplicates.set(point.stars, [...(duplicates.get(point.stars) ?? []), point])
-  const starsPoints = valid.map(({ repository, stars, bucketKey }) => {
-    const sameValue = duplicates.get(stars) ?? []
-    const index = sameValue.findIndex((item) => item.repository.id === repository.id)
-    const lane = sameValue.length <= 1 ? 0.5 : 0.15 + (index / (sameValue.length - 1)) * 0.7
-    return { repositoryId: repository.id, fullName: repository.fullName, stars, xPlot: Math.log1p(stars), lane, bucketKey }
-  })
-  return { buckets, valid, starsPoints }
+  return { buckets, valid }
 }
 
 function buildPopularity(repositories: RepositorySummary[]) {
@@ -291,7 +273,6 @@ export function buildOverviewChartData(input: { repositories: RepositorySummary[
     languageRows: languages.rows,
     languageKeys: languages.languages,
     starsBuckets: stars.buckets,
-    starsPoints: stars.starsPoints,
     validStarsCount: stars.valid.length,
     invalidStarsCount: repositories.filter((repository) => repository.stars !== null && !isCount(repository.stars)).length,
     popularityPoints: popularity.points,

@@ -39,7 +39,7 @@ const selectedRepository = () => props.data.repositories.find((repository) => re
     <div v-else class="overview-filter-hint"><span>三种视角：语言构成、Stars 分层、Stars 与 Forks 关联</span><span>点击图例或数据点联动筛选图表</span></div>
     <div class="overview-chart-grid overview-chart-grid--top">
       <PortfolioLanguageChart :rows="data.languageRows" :total="data.repositories.length" :filtered-count="filteredCount" :selected-language-keys="filters.languageKeys" @toggle-languages="emit('toggleLanguages', $event)" />
-      <PortfolioStarsDistribution :buckets="data.starsBuckets" :points="data.starsPoints" :total="data.repositories.length" :valid-count="data.validStarsCount" :invalid-count="data.invalidStarsCount" :selected-bucket="filters.starsBucket" :selected-repository-id="filters.selectedRepositoryId" :filtered-ids="filteredIds" :filtered-count="filteredCount" @toggle-bucket="emit('toggleStarsBucket', $event)" @select-repository="emit('selectRepository', $event)" />
+      <PortfolioStarsDistribution :buckets="data.starsBuckets" :total="data.repositories.length" :valid-count="data.validStarsCount" :invalid-count="data.invalidStarsCount" :selected-bucket="filters.starsBucket" :filtered-count="filteredCount" @toggle-bucket="emit('toggleStarsBucket', $event)" />
     </div>
     <PortfolioPopularityScatter :points="data.popularityPoints" :total="data.repositories.length" :median-stars="data.popularityMedianStars" :median-forks="data.popularityMedianForks" :filtered-ids="filteredIds" :filtered-count="filteredCount" :selected-repository-id="filters.selectedRepositoryId" :overlap-groups="data.popularityOverlapGroups" @select-repository="emit('selectRepository', $event)" @clear-selection="emit('clearSelectedRepository')" />
   </div>
@@ -47,7 +47,7 @@ const selectedRepository = () => props.data.repositories.find((repository) => re
 
 <style scoped>
 .overview-charts { display: grid; gap: 12px; min-width: 0; }
-.overview-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
+.overview-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
 .overview-filter-bar { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .overview-filter-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .overview-filter-summary strong { color: var(--ink); font-size: 11px; font-weight: 650; }

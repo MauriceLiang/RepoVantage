@@ -45,7 +45,6 @@ assert.equal(starData.validStarsCount, 10, '0 是有效值，缺失和无效值�
 assert.equal(starData.invalidStarsCount, 3, '负数、非整数與非有限 Stars 计为无效值')
 assert.deepEqual(starData.starsBuckets.map((bucket) => bucket.count), [1, 2, 2, 2, 2, 1], 'Stars 桶数量合计必须等于有效样本')
 assert.equal(starData.starsBuckets.reduce((sum, bucket) => sum + bucket.count, 0), 10)
-assert.notEqual(starData.starsPoints.find((point) => point.stars === 0).xPlot, starData.starsPoints.find((point) => point.stars === 1).xPlot, 'log1p 必须区分 0 与 1')
 
 const languages = ['Python', 'Go', 'Java', 'Rust', 'TypeScript', 'C++', '未知语言', '  ', 'JavaScript', 'Python', 'Go', 'Java']
 const languageData = buildOverviewChartData({ repositories: languages.map((language, index) => repository(`lang-${index}`, { language: language.trim() || null })), asOfMs })
