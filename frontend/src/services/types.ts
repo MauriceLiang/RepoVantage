@@ -8,6 +8,7 @@
 export type TimeWindow = 30 | 90 | 180
 
 export type RepositoryStatus = 'ready' | 'partial' | 'running' | 'idle' | 'failed'
+export type RepositoryDataStatus = 'fresh' | 'stale' | 'missing'
 
 /** 覆盖情况：未知数据不能显示为零，界面通过覆盖说明提示原因。 */
 export interface Coverage {
@@ -115,6 +116,8 @@ export interface RepositorySummary {
   /** GitHub 的 open_issues_count 同时包含开放 Issue 和 PR。 */
   openIssuesAndPrCount?: number | null
   status: RepositoryStatus
+  /** Snapshot freshness returned by the repository library summary endpoint. */
+  dataStatus?: RepositoryDataStatus
   lastAnalyzedAt: string | null
   /** 最近 4 个完整周相对前 4 周的变化百分比；不可比较时为 null。 */
   activityDelta: number | null
@@ -204,6 +207,22 @@ export interface IssueRecordPage {
   windowEnd: string | null
 }
 
+export interface IssueChartSample {
+  closedAt: string
+  durationDays: number | null
+}
+
+export interface IssueChartData {
+  items: IssueChartSample[]
+  total: number
+  complete: boolean
+  available: boolean
+  coverage: Coverage
+  note: string
+  windowStart: string | null
+  windowEnd: string | null
+}
+
 export interface PullRequestActivityRecord {
   number: number
   title: string
@@ -245,6 +264,18 @@ export interface PullRequestActivityPage {
   page: number
   perPage: number
   total: number
+  available: boolean
+  coverage: Coverage
+  note: string
+  windowStart: string | null
+  windowEnd: string | null
+}
+
+export interface PullRequestChartData {
+  items: Array<Pick<PullRequestActivityRecord, 'mergedAt' | 'durationDays' | 'state' | 'commentsCount'>>
+  pageItems: PullRequestActivityRecord[]
+  total: number
+  complete: boolean
   available: boolean
   coverage: Coverage
   note: string
@@ -610,6 +641,7 @@ export interface TaskItem {
   phase?: string | null
   progressPercent?: number | null
   progressKind?: 'stages' | 'records' | 'indeterminate' | 'unknown'
+  progressMotion?: 'forward' | 'bounce'
   scopeKind?: 'quick' | 'window' | 'incremental' | 'backfill' | 'maintenance' | null
   windowDays?: number | null
   windowStart?: string | null
@@ -688,8 +720,9 @@ export interface FeaturedDatasetImportResult {
   alreadyCurrent: boolean
 }
 
-export interface CollectionSettings {
-  githubMaxPages: number
+export interface GitHubTokenSettings {
+  configured: boolean
+  managedByEnvironment: boolean
 }
 
 export interface DefinitionEntry {

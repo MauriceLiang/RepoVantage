@@ -78,6 +78,11 @@ def task_payload(task: CollectionTask, module_progress: list[TaskModuleProgress]
         "type": task.type,
         "depth": task.depth,
         "scope_kind": task.scope_kind or "quick",
+        "progress_motion": (
+            scope.get("progress_motion")
+            if isinstance(scope, dict) and scope.get("progress_motion") in {"forward", "bounce"}
+            else "bounce"
+        ),
         "window_days": window_days,
         "window_start": window_start if isinstance(window_start, str) else None,
         "window_end": window_end if isinstance(window_end, str) else None,

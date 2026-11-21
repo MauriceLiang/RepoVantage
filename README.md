@@ -18,7 +18,7 @@ uv run --locked --all-extras python -m scripts.start
 - API 文档：<http://127.0.0.1:8501/docs>
 - API 健康检查：<http://127.0.0.1:8501/healthz>
 
-按 `Ctrl+C` 会一并停止 API 与 Worker。`.env` 中的 `GITHUB_TOKEN` 可选；不配置时使用 GitHub 匿名额度。
+按 `Ctrl+C` 会一并停止 API 与 Worker。设置页可保存 GitHub 个人访问令牌；未配置时使用匿名额度。默认 `GITHUB_MAX_PAGES=0`，采集所选时间窗的全部分页；正整数才会限制每个接口的页数。详细说明见 [后端配置与 API](README_backend.md)。
 
 新前端只监听本机回环地址。浏览器通过同源会话和 CSRF 校验访问 API；`INTERNAL_API_KEY` 仅由服务端读取，不进入前端构建产物。
 

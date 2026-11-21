@@ -8,9 +8,9 @@ from backend.app.api.dependencies import get_github_client, get_session
 from backend.app.api.helpers import envelope, pagination
 from backend.app.core.exceptions import AppError
 from backend.app.schemas.common import SuccessEnvelope
-from backend.app.schemas.insights import ClosedIssueDetail, ClosedIssuePage, CommitActivityPage, InsightQuality, InsightSeries, OnlineIssueDetail, OnlinePullRequestDetail, PullRequestDetail, PullRequestPage, ReleaseDetail, RepositoryInsights
+from backend.app.schemas.insights import ClosedIssueChartData, ClosedIssueDetail, ClosedIssuePage, CommitActivityPage, InsightQuality, InsightSeries, OnlineIssueDetail, OnlinePullRequestDetail, PullRequestChartData, PullRequestDetail, PullRequestPage, ReleaseDetail, RepositoryInsights
 from backend.app.schemas.ml_evaluation import RepositoryEvaluation
-from backend.app.services.insights import repository_closed_issue_detail, repository_closed_issue_online_detail, repository_closed_issues, repository_commit_activity, repository_insights, repository_pull_request_detail, repository_pull_request_online_detail, repository_pull_requests, repository_release_detail
+from backend.app.services.insights import repository_closed_issue_chart_data, repository_closed_issue_detail, repository_closed_issue_online_detail, repository_closed_issues, repository_commit_activity, repository_insights, repository_pull_request_chart_data, repository_pull_request_detail, repository_pull_request_online_detail, repository_pull_requests, repository_release_detail
 from backend.app.integrations.github.client import GitHubClient
 from backend.app.services.ml_evaluation import repository_evaluation
 
@@ -80,6 +80,16 @@ def closed_issues(
     return envelope(request, result, pagination=pagination(page, per_page, total), search={"q": search} if search else None)
 
 
+@router.get("/{repository_id}/issues/chart-data", response_model=SuccessEnvelope[ClosedIssueChartData])
+def closed_issue_chart_data(
+    repository_id: int,
+    request: Request,
+    window_days: int | None = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    return envelope(request, repository_closed_issue_chart_data(session, repository_id, window_days=window_days))
+
+
 @router.get("/{repository_id}/issues/export.csv")
 def export_closed_issues(repository_id: int, search: str = Query(default="", max_length=100), window_days: int | None = Query(default=None), session: Session = Depends(get_session)):
     result = repository_closed_issues(session, repository_id, search, window_days=window_days)
@@ -121,6 +131,16 @@ def pull_requests(
     total = len(items)
     result.update({"items": items[(page - 1) * per_page : page * per_page], "page": page, "per_page": per_page, "total": total})
     return envelope(request, result, pagination=pagination(page, per_page, total), search={"q": search} if search else None)
+
+
+@router.get("/{repository_id}/pull-requests/chart-data", response_model=SuccessEnvelope[PullRequestChartData])
+def pull_request_chart_data(
+    repository_id: int,
+    request: Request,
+    window_days: int | None = Query(default=None),
+    session: Session = Depends(get_session),
+):
+    return envelope(request, repository_pull_request_chart_data(session, repository_id, window_days=window_days))
 
 
 @router.get("/{repository_id}/pull-requests/export.csv")

@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
 from typing import Any, Callable
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit
 
 import httpx
 
@@ -30,6 +30,7 @@ class PageObservation:
     page_cap: int | None
     has_next: bool
     duration_ms: float
+    total_pages: int | None = None
     records: list[dict[str, Any]] = field(default_factory=list)
     raw_body: str | None = None
     request_url: str | None = None
@@ -84,7 +85,8 @@ class GitHubClient:
         if client is not None:
             self.client.headers.update(headers)
         self._owns_client = client is None
-        self.max_pages = None if unbounded else settings.github_max_pages if max_pages is None else max_pages
+        configured_max_pages = settings.github_max_pages if max_pages is None else max_pages
+        self.max_pages = None if unbounded or configured_max_pages == 0 else configured_max_pages
         self._on_response = on_response
         self._metrics_lock = threading.Lock()
         self._request_metrics: dict[str, int | float] = {
@@ -362,6 +364,10 @@ class GitHubClient:
             page_next_url = link["url"] if link else None
             if page_next_url is not None and not _is_github_api_url(page_next_url):
                 raise AppError(502, "GITHUB_UPSTREAM_ERROR", "GitHub 返回了无效分页地址")
+            last_link = response.links.get("last")
+            total_pages = _pagination_page_number(last_link.get("url")) if last_link else None
+            if total_pages is None and page_next_url is None:
+                total_pages = page_offset + pages_this_call + 1
             if collect_items:
                 rows.extend(data)
             if collect_raw_pages:
@@ -376,6 +382,7 @@ class GitHubClient:
                     pages_fetched=page_offset + pages_this_call,
                     observed_items=records_offset + observed_this_call,
                     page_cap=page_cap,
+                    total_pages=total_pages,
                     has_next=next_url is not None,
                     duration_ms=max(0.0, (time.monotonic() - page_started) * 1000),
                     records=data,
@@ -474,6 +481,17 @@ def _json(response: httpx.Response) -> Any:
         return response.json()
     except ValueError as exc:
         raise AppError(502, "GITHUB_UPSTREAM_ERROR", "GitHub 返回了无效 JSON") from exc
+
+
+def _pagination_page_number(value: str | None) -> int | None:
+    if not value:
+        return None
+    try:
+        page_values = parse_qs(urlsplit(value).query).get("page", [])
+        page = int(page_values[-1]) if page_values else None
+    except (TypeError, ValueError):
+        return None
+    return page if page is not None and page > 0 else None
 
 
 def _is_github_api_url(value: str) -> bool:

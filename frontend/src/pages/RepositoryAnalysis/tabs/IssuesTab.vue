@@ -15,7 +15,7 @@ import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
 import { formatDate, formatDuration, formatTime } from '@/lib/format'
 import { dailyCoveragePoints, groupByMonth } from '@/lib/chartAnalytics'
-import type { IssueRecord, IssueRecordPage, RepositoryAnalysis } from '@/services/types'
+import type { IssueChartData, IssueRecord, IssueRecordPage, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -28,10 +28,11 @@ const { page, searchInput, appliedSearch, records, loading, loadError, pageCount
   () => props.analysis.windowAvailability.requestedDays,
 )
 const exporting = ref(false)
-const issueViz = ref<{ items: IssueRecord[]; total: number; complete: boolean; available: boolean; note: string; windowStart: string | null; windowEnd: string | null; coverage: IssueRecordPage['coverage'] } | null>(null)
+const issueViz = ref<IssueChartData | null>(null)
 const issueVizLoading = ref(false)
 const issueVizError = ref('')
 let issueDetailRequest = 0
+let issueVizRequest = 0
 watch(() => props.analysis.windowAvailability.requestedDays, () => { page.value = 1 }, { flush: 'sync' })
 
 const issueBoxSamples = computed(() => groupByMonth((issueViz.value?.items ?? []).map((item) => ({ date: item.closedAt, value: item.durationDays }))))
@@ -50,27 +51,19 @@ const issueClosedDaily = computed(() => {
 })
 
 async function loadIssueVisualData() {
+  const requestId = ++issueVizRequest
   const repositoryId = props.analysis.repository.id
   const windowDays = props.analysis.windowAvailability.requestedDays
   issueVizLoading.value = true
   issueVizError.value = ''
   issueViz.value = null
   try {
-    const first = await source.getIssueRecords(repositoryId, 1, 100, '', windowDays)
-    if (!first.available) {
-      issueViz.value = { ...first, items: [], total: first.total, complete: false }
-      return
-    }
-    const requestedPages = Math.min(10, Math.ceil(first.total / 100))
-    const rest = requestedPages > 1
-      ? await Promise.all(Array.from({ length: requestedPages - 1 }, (_, index) => source.getIssueRecords(repositoryId, index + 2, 100, '', windowDays)))
-      : []
-    const items = [first, ...rest].flatMap((result) => result.items)
-    issueViz.value = { ...first, items, total: first.total, complete: items.length >= first.total }
+    const result = await source.getIssueChartData(repositoryId, windowDays)
+    if (requestId === issueVizRequest) issueViz.value = result
   } catch (cause) {
-    issueVizError.value = cause instanceof Error ? cause.message : 'Issue 图表样本加载失败'
+    if (requestId === issueVizRequest) issueVizError.value = cause instanceof Error ? cause.message : 'Issue 图表样本加载失败'
   } finally {
-    issueVizLoading.value = false
+    if (requestId === issueVizRequest) issueVizLoading.value = false
   }
 }
 watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays], () => { void loadIssueVisualData() }, { immediate: true })
@@ -131,86 +124,43 @@ async function exportCsv() {
     <p v-else class="text-[11px] text-muted">当前数据未提供新增 Issue 趋势，显示已采集的关闭数量。</p>
   </GdCard>
 
-  <div class="grid gap-4 lg:grid-cols-[1fr_1.15fr]">
-    <GdCard class="h-[420px] min-h-0 overflow-hidden">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">关闭耗时分布</h3>
-          <p class="mt-0.5 text-[12px] text-muted">closed_at − created_at · 柱为区间样本数，折线为累计占比</p>
+  <GdCard class="min-w-0" data-testid="issue-duration-distribution-card">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h3 class="m-0 text-[15.5px] font-semibold">关闭耗时分布</h3>
+        <p class="mt-0.5 text-[12px] text-muted">Issue 从创建到关闭的耗时；按区间展示样本数与累计占比</p>
+      </div>
+      <span class="rounded-full bg-soft px-2.5 py-1 font-mono text-[11.5px] text-muted">{{ analysis.issueDuration.sampleSize.toLocaleString('zh-CN') }} 条样本</span>
+    </div>
+
+    <div class="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_220px] lg:items-center">
+      <div class="min-w-0">
+        <div class="mb-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[10.5px] text-muted" aria-label="图表图例">
+          <span class="inline-flex items-center gap-1.5"><span class="h-2.5 w-2.5 rounded-sm bg-[#E5A03A]" aria-hidden="true" />区间样本数</span>
+          <span class="inline-flex items-center gap-1.5"><span class="h-0.5 w-4 rounded-full bg-[#4d819b]" aria-hidden="true" />累计占比</span>
         </div>
-        <span class="font-mono text-[11.5px] text-muted">n={{ analysis.issueDuration.sampleSize }}</span>
+        <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="250" class="w-full" />
       </div>
-      <HistogramChart :buckets="analysis.issueDuration.buckets" color="#E5A03A" unit="个 Issue" :height="200" :median-days="analysis.issueDuration.percentiles.p50" show-median-reference class="min-h-[200px] flex-1 w-full" />
-      <p v-if="analysis.issueDuration.sampleSize > 0 && analysis.issueDuration.percentiles.p50 !== null" class="text-[11px] text-muted">柱为耗时区间数量；折线表示累计占比，Tooltip 给出准确百分比。中位数以 P50 标示。</p>
-      <div class="text-[11px] text-muted">P50 {{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天 · P75 {{ analysis.issueDuration.percentiles.p75 ?? '—' }} 天 · P90 {{ analysis.issueDuration.percentiles.p90 ?? '—' }} 天</div>
-      <p v-if="analysis.issueDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
-    </GdCard>
 
-    <GdCard class="h-[420px] min-h-0 overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex min-w-0 items-center gap-2">
-          <h3 class="m-0 text-[15.5px] font-semibold">Issue 逐条记录</h3>
-          <GdCoverageNote v-if="records" :coverage="records.coverage" compact />
+      <dl class="grid grid-cols-3 gap-3 border-t border-line pt-3 lg:grid-cols-1 lg:gap-0 lg:border-l lg:border-t-0 lg:py-1 lg:pl-4">
+        <div class="min-w-0 lg:pb-3">
+          <dt class="text-[10.5px] text-muted">中位数 · P50</dt>
+          <dd class="mb-0 mt-1 text-[19px] font-semibold leading-tight text-ink">{{ formatDuration(analysis.issueDuration.percentiles.p50) }}</dd>
+          <p class="mb-0 mt-1 hidden text-[10.5px] text-muted lg:block">一半样本不超过此耗时</p>
         </div>
-        <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : '导出 Issue CSV' }}</GdButton>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <GdInput v-model="searchInput" size="sm" class="min-w-[190px] flex-1" placeholder="搜索 Issue 编号或标题" @enter="applySearch" />
-        <GdButton variant="outline" size="sm" :disabled="loading" @click="applySearch">搜索</GdButton>
-        <span v-if="records?.available" class="shrink-0 text-[11px] text-muted">{{ records.total.toLocaleString('zh-CN') }} 条 · {{ formatDate(records.windowStart) }} 至 {{ formatDate(records.windowEnd) }}</span>
-      </div>
-
-      <p v-if="records?.note" class="m-0 text-[11px] leading-relaxed text-muted">{{ records.note }}</p>
-
-      <div v-if="loading" class="min-h-0 flex-1 overflow-y-auto py-8 text-center text-[12px] text-muted" role="status">正在加载 Issue 记录…</div>
-      <div v-else-if="loadError" class="min-h-0 flex-1 overflow-y-auto py-6 text-center text-[12px] text-danger">
-        <p class="mb-3">{{ loadError }}</p>
-        <GdButton variant="outline" size="sm" @click="loadRecords">重新加载</GdButton>
-      </div>
-      <div v-else-if="records && !records.available" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] leading-relaxed text-muted">{{ records.note }}</div>
-      <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ appliedSearch ? '没有找到匹配的 Issue。' : '本次采集窗口内没有已关闭的 Issue。' }}</div>
-      <div v-else class="min-h-0 flex-1 overflow-auto overscroll-contain">
-        <table class="w-full min-w-[480px] table-fixed border-collapse text-[12px]">
-          <thead class="sticky top-0 z-10 bg-panel">
-            <tr class="text-left text-[11px] text-muted">
-              <th class="w-[40px] border-b border-line px-1.5 pb-2 font-medium">编号</th>
-              <th class="w-[166px] border-b border-line px-1.5 pb-2 font-medium">标题</th>
-              <th class="w-[76px] border-b border-line px-1.5 pb-2 font-medium">创建时间</th>
-              <th class="w-[76px] border-b border-line px-1.5 pb-2 font-medium">关闭时间</th>
-              <th class="w-[56px] border-b border-line px-1.5 pb-2 font-medium">耗时</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in records?.items" :key="item.number" class="border-b border-line/70 last:border-0">
-              <td class="whitespace-nowrap px-1.5 py-2.5 font-mono text-ink">
-                <button type="button" class="underline decoration-line underline-offset-2 hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" @click="openIssue(item)">#{{ item.number }}</button>
-              </td>
-              <td class="px-1.5 py-2.5 text-ink" :title="item.title"><button type="button" class="line-clamp-2 text-left hover:underline focus-visible:underline" @click="openIssue(item)">{{ item.title }}</button></td>
-              <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink">
-                <span>{{ formatDate(item.createdAt) }}</span>
-                <span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.createdAt) }}</span>
-              </td>
-              <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink">
-                <span>{{ formatDate(item.closedAt) }}</span>
-                <span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.closedAt) }}</span>
-              </td>
-              <td class="whitespace-nowrap px-1.5 py-2.5 text-[11px] text-ink">{{ formatDuration(item.durationDays) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div v-if="records?.available && records.total > 0" class="flex shrink-0 items-center justify-between gap-2 border-t border-line pt-2 text-[11px] text-muted">
-        <span>显示 {{ firstRecord }}–{{ lastRecord }} / {{ records.total }}</span>
-        <div class="flex items-center gap-2">
-          <GdButton variant="outline" size="sm" :disabled="loading || page <= 1" @click="page -= 1">上一页</GdButton>
-          <span class="font-mono">{{ page }} / {{ pageCount }}</span>
-          <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
+        <div class="min-w-0 border-l border-line pl-3 lg:border-l-0 lg:border-t lg:pl-0 lg:pt-3 lg:pb-3">
+          <dt class="text-[10.5px] text-muted">P75 · 75% 样本以内</dt>
+          <dd class="mb-0 mt-1 text-[15px] font-medium leading-tight text-ink">{{ formatDuration(analysis.issueDuration.percentiles.p75) }}</dd>
         </div>
-      </div>
-    </GdCard>
-  </div>
+        <div class="min-w-0 border-l border-line pl-3 lg:border-l-0 lg:border-t lg:pt-3 lg:pl-0">
+          <dt class="text-[10.5px] text-muted">P90 · 90% 样本以内</dt>
+          <dd class="mb-0 mt-1 text-[15px] font-medium leading-tight text-ink">{{ formatDuration(analysis.issueDuration.percentiles.p90) }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    <p v-if="analysis.issueDuration.note" class="m-0 text-[11px] text-warnfg">{{ analysis.issueDuration.note }}</p>
+  </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-2">
     <GdCard class="min-w-0" data-testid="issue-duration-boxplot-card">
@@ -230,4 +180,69 @@ async function exportCsv() {
       <p v-if="issueViz" class="m-0 text-[10.5px] text-muted">{{ issueViz.coverage.label }} · 已加载 {{ issueViz.items.length }} / {{ issueViz.total }} 条{{ issueViz.complete ? '' : '，日历仅覆盖当前样本' }}</p>
     </GdCard>
   </div>
+
+  <GdCard class="h-[420px] min-h-0 overflow-hidden">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex min-w-0 items-center gap-2">
+        <h3 class="m-0 text-[15.5px] font-semibold">Issue 逐条记录</h3>
+        <GdCoverageNote v-if="records" :coverage="records.coverage" compact />
+      </div>
+      <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : '导出 Issue CSV' }}</GdButton>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <GdInput v-model="searchInput" size="sm" class="min-w-[190px] flex-1" placeholder="搜索 Issue 编号或标题" @enter="applySearch" />
+      <GdButton variant="outline" size="sm" :disabled="loading" @click="applySearch">搜索</GdButton>
+      <span v-if="records?.available" class="shrink-0 text-[11px] text-muted">{{ records.total.toLocaleString('zh-CN') }} 条 · {{ formatDate(records.windowStart) }} 至 {{ formatDate(records.windowEnd) }}</span>
+    </div>
+
+    <p v-if="records?.note" class="m-0 text-[11px] leading-relaxed text-muted">{{ records.note }}</p>
+
+    <div v-if="loading" class="min-h-0 flex-1 overflow-y-auto py-8 text-center text-[12px] text-muted" role="status">正在加载 Issue 记录…</div>
+    <div v-else-if="loadError" class="min-h-0 flex-1 overflow-y-auto py-6 text-center text-[12px] text-danger">
+      <p class="mb-3">{{ loadError }}</p>
+      <GdButton variant="outline" size="sm" @click="loadRecords">重新加载</GdButton>
+    </div>
+    <div v-else-if="records && !records.available" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] leading-relaxed text-muted">{{ records.note }}</div>
+    <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ appliedSearch ? '没有找到匹配的 Issue。' : '本次采集窗口内没有已关闭的 Issue。' }}</div>
+    <div v-else class="min-h-0 flex-1 overflow-auto overscroll-contain">
+      <table class="w-full min-w-[480px] table-fixed border-collapse text-[12px]">
+        <thead class="sticky top-0 z-10 bg-panel">
+          <tr class="text-left text-[11px] text-muted">
+            <th class="w-[40px] border-b border-line px-1.5 pb-2 font-medium">编号</th>
+            <th class="w-[166px] border-b border-line px-1.5 pb-2 font-medium">标题</th>
+            <th class="w-[76px] border-b border-line px-1.5 pb-2 font-medium">创建时间</th>
+            <th class="w-[76px] border-b border-line px-1.5 pb-2 font-medium">关闭时间</th>
+            <th class="w-[56px] border-b border-line px-1.5 pb-2 font-medium">耗时</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in records?.items" :key="item.number" class="border-b border-line/70 last:border-0">
+            <td class="whitespace-nowrap px-1.5 py-2.5 font-mono text-ink">
+              <button type="button" class="underline decoration-line underline-offset-2 hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" @click="openIssue(item)">#{{ item.number }}</button>
+            </td>
+            <td class="px-1.5 py-2.5 text-ink" :title="item.title"><button type="button" class="line-clamp-2 text-left hover:underline focus-visible:underline" @click="openIssue(item)">{{ item.title }}</button></td>
+            <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink">
+              <span>{{ formatDate(item.createdAt) }}</span>
+              <span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.createdAt) }}</span>
+            </td>
+            <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink">
+              <span>{{ formatDate(item.closedAt) }}</span>
+              <span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.closedAt) }}</span>
+            </td>
+            <td class="whitespace-nowrap px-1.5 py-2.5 text-[11px] text-ink">{{ formatDuration(item.durationDays) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-if="records?.available && records.total > 0" class="flex shrink-0 items-center justify-between gap-2 border-t border-line pt-2 text-[11px] text-muted">
+      <span>显示 {{ firstRecord }}–{{ lastRecord }} / {{ records.total }}</span>
+      <div class="flex items-center gap-2">
+        <GdButton variant="outline" size="sm" :disabled="loading || page <= 1" @click="page -= 1">上一页</GdButton>
+        <span class="font-mono">{{ page }} / {{ pageCount }}</span>
+        <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
+      </div>
+    </div>
+  </GdCard>
 </template>

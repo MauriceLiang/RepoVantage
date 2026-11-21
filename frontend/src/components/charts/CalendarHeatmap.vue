@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import type { TimePoint } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
+import NumberRangeSlider from './NumberRangeSlider.vue'
 
 interface CalendarCell {
   date: string
@@ -58,7 +59,7 @@ const themePalette = computed(() => ui.isDark
   ? ['#252b31', '#274233', '#31573d', '#3c7548', '#4c9958']
   : ['#edf0f2', '#d9eadc', '#afd3b4', '#79b681', '#3f9251'])
 const maxCommitCount = computed(() => Math.max(0, ...calendar.value.cells.flatMap((cell) => cell.commitCount === null ? [] : [cell.commitCount])))
-const sliderMax = computed(() => Math.max(1, maxCommitCount.value))
+const sliderMax = computed(() => maxCommitCount.value)
 const minimumCommitCount = ref(0)
 const maximumCommitCount = ref(0)
 const selectedRange = computed(() => ({
@@ -76,16 +77,6 @@ watch(maxCommitCount, (maximum) => {
 function isFilteredOut(cell: CalendarCell) {
   if (cell.commitCount === null) return false
   return cell.commitCount < selectedRange.value.min || cell.commitCount > selectedRange.value.max
-}
-
-function setMinimumCommitCount(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  minimumCommitCount.value = Math.min(value, selectedRange.value.max)
-}
-
-function setMaximumCommitCount(event: Event) {
-  const value = Number((event.target as HTMLInputElement).value)
-  maximumCommitCount.value = Math.max(value, selectedRange.value.min)
 }
 
 function resetCommitRange() {
@@ -119,8 +110,15 @@ function cellLabel(cell: CalendarCell) {
         <button v-if="selectedRange.min > 0 || selectedRange.max < maxCommitCount" type="button" @click="resetCommitRange">重置</button>
       </div>
       <div class="calendar-filter__sliders">
-        <label><span>最少 {{ minimumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="minimumCommitCount" :aria-label="`最少每日 ${metricLabel} 数`" @input="setMinimumCommitCount" /></label>
-        <label><span>最多 {{ maximumCommitCount }}</span><input type="range" min="0" :max="sliderMax" :value="maximumCommitCount" :aria-label="`最多每日 ${metricLabel} 数`" @input="setMaximumCommitCount" /></label>
+        <NumberRangeSlider
+          v-model:start-value="minimumCommitCount"
+          v-model:end-value="maximumCommitCount"
+          :min="0"
+          :max="sliderMax"
+          :range-label="`每日 ${metricLabel} 数范围`"
+          start-label="最少"
+          end-label="最多"
+        />
       </div>
     </div>
     <div class="calendar-scroll" role="grid" :aria-label="`UTC 日历热力图，筛选 ${selectedRange.min} 到 ${selectedRange.max} 个每日 ${metricLabel}；颜色深浅表示数量，虚线框表示部分覆盖`" :style="{ maxHeight: `${height}px`, '--calendar-cell-size': `${cellSize}px` }">
@@ -140,9 +138,7 @@ function cellLabel(cell: CalendarCell) {
 .calendar-filter__summary { display:flex; flex-wrap:wrap; align-items:center; gap:4px 9px; }
 .calendar-filter__summary strong { color:var(--ink); font-weight:600; }
 .calendar-filter__summary button { border:0; padding:0; color:var(--primary-ink); background:transparent; font-size:10px; text-decoration:underline; cursor:pointer; }
-.calendar-filter__sliders { display:flex; flex:1 1 260px; justify-content:flex-end; gap:10px; max-width:520px; }
-.calendar-filter__sliders label { display:flex; min-width:100px; flex:1; align-items:center; gap:6px; white-space:nowrap; }
-.calendar-filter__sliders input { width:100%; min-width:44px; height:14px; margin:0; accent-color:var(--green); cursor:pointer; }
+.calendar-filter__sliders { display:flex; min-width:0; flex:1 1 260px; justify-content:flex-end; max-width:520px; }
 .calendar-scroll { display:grid; grid-template-columns:18px minmax(0,1fr); gap:7px; overflow:auto; padding:3px; width:100%; }
 .calendar-weekdays { display:grid; grid-template-rows:repeat(7,var(--calendar-cell-size)); gap:3px; color:var(--muted); font-size:10px; text-align:center; }
 .calendar-body { display:grid; grid-template-rows:16px repeat(7,var(--calendar-cell-size)); grid-auto-flow:column; gap:3px; }

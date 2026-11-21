@@ -6,7 +6,6 @@ import HistogramChart from '@/components/charts/HistogramChart.vue'
 import PrMergeTrendChart from '@/components/charts/PrMergeTrendChart.vue'
 import PrMonthlyDurationChart, { type PrDurationGrain } from '@/components/charts/PrMonthlyDurationChart.vue'
 import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
-import DonutChart from '@/components/charts/DonutChart.vue'
 import G2Chart from '@/components/charts/G2Chart.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
@@ -19,7 +18,7 @@ import { usePagedRecords } from '@/composables/usePagedRecords'
 import { downloadBlob } from '@/lib/download'
 import { groupByMonth } from '@/lib/chartAnalytics'
 import { formatDate, formatDuration, formatTime } from '@/lib/format'
-import type { PrDurationPeriod, PullRequestActivityPage, PullRequestActivityRecord, RepositoryAnalysis } from '@/services/types'
+import type { PrDurationPeriod, PullRequestActivityPage, PullRequestActivityRecord, PullRequestChartData, RepositoryAnalysis } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -56,60 +55,130 @@ const selectedPeriodText = computed(() => {
   const lastIncluded = new Date(Date.parse(selectedRange.value.end) - 1).toISOString()
   return `UTC ${formatDate(selectedRange.value.start)} 至 ${formatDate(lastIncluded)}`
 })
+const prViz = ref<PullRequestChartData | null>(null)
+const prVizLoading = ref(false)
+const prVizError = ref('')
+let prVizRequest = 0
+let prVizCacheKey = ''
+let prVizPromise: Promise<PullRequestChartData> | null = null
+
+function ensurePrVisualData(repositoryId: string, windowDays: RepositoryAnalysis['windowAvailability']['requestedDays']) {
+  const cacheKey = `${repositoryId}:${windowDays}`
+  if (cacheKey === prVizCacheKey && prVizPromise) return prVizPromise
+  const requestId = ++prVizRequest
+  prVizCacheKey = cacheKey
+  prVizLoading.value = true
+  prVizError.value = ''
+  prViz.value = null
+  prVizPromise = source.getPullRequestChartData(repositoryId, windowDays)
+    .then((result) => {
+      if (requestId === prVizRequest) prViz.value = result
+      return result
+    })
+    .catch((cause) => {
+      if (requestId === prVizRequest) {
+        prVizError.value = cause instanceof Error ? cause.message : 'PR 可视化样本加载失败'
+        prVizCacheKey = ''
+        prVizPromise = null
+      }
+      throw cause
+    })
+    .finally(() => {
+      if (requestId === prVizRequest) prVizLoading.value = false
+    })
+  return prVizPromise
+}
 const { page, searchInput, appliedSearch, records, loading, loadError, pageCount, firstRecord, lastRecord, loadRecords, applySearch } = usePagedRecords<PullRequestActivityPage>(
   () => props.analysis.repository.id,
-  (id, page, perPage, search) => source.getPullRequestRecords(id, page, perPage, search, selectedRange.value?.start, selectedRange.value?.end, props.analysis.windowAvailability.requestedDays),
+  async (id, page, perPage, search) => {
+    if (page === 1 && !search.trim() && !selectedRange.value) {
+      try {
+        const chartData = await ensurePrVisualData(id, props.analysis.windowAvailability.requestedDays)
+        return {
+          items: chartData.pageItems, page, perPage, total: chartData.total, available: chartData.available,
+          coverage: chartData.coverage, note: chartData.note, windowStart: chartData.windowStart, windowEnd: chartData.windowEnd,
+        }
+      } catch {
+        // Keep the records list usable if chart aggregation fails independently.
+      }
+    }
+    return source.getPullRequestRecords(id, page, perPage, search, selectedRange.value?.start, selectedRange.value?.end, props.analysis.windowAvailability.requestedDays)
+  },
   'Pull Request 记录加载失败',
   () => `${props.analysis.windowAvailability.requestedDays}:${selectedPeriodKey.value}`,
 )
 const exporting = ref(false)
-const prViz = ref<{ items: PullRequestActivityRecord[]; total: number; complete: boolean; available: boolean; note: string; windowStart: string | null; windowEnd: string | null; coverage: PullRequestActivityPage['coverage'] } | null>(null)
-const prVizLoading = ref(false)
-const prVizError = ref('')
 let detailRequest = 0
 
 const prBoxSamples = computed(() => groupByMonth((prViz.value?.items ?? []).filter((item) => item.state === 'merged').map((item) => ({ date: item.mergedAt, value: item.durationDays }))))
-const prScatterRows = computed(() => (prViz.value?.items ?? []).flatMap((item) => item.commentsCount === null || item.durationDays === null ? [] : [{
-  number: item.number, title: item.title, comments: item.commentsCount, durationDays: item.durationDays, state: item.state,
+const commentBands = ['0', '1–2', '3–5', '6–10', '>10']
+const durationBands = ['<1 天', '1–3 天', '3–7 天', '7–30 天', '≥30 天']
+function commentBand(value: number) {
+  if (value <= 0) return '0'
+  if (value <= 2) return '1–2'
+  if (value <= 5) return '3–5'
+  if (value <= 10) return '6–10'
+  return '>10'
+}
+function durationBand(value: number) {
+  if (value < 1) return '<1 天'
+  if (value < 3) return '1–3 天'
+  if (value < 7) return '3–7 天'
+  if (value < 30) return '7–30 天'
+  return '≥30 天'
+}
+const prHeatmapSamples = computed(() => (prViz.value?.items ?? []).flatMap((item) => item.commentsCount === null || item.durationDays === null ? [] : [{
+  comments: item.commentsCount, durationDays: item.durationDays, state: item.state,
 }]))
+const prHeatmapCells = computed(() => {
+  const counts = new Map<string, { count: number; mergedCount: number; closedCount: number }>()
+  for (const sample of prHeatmapSamples.value) {
+    const key = `${commentBand(sample.comments)}|${durationBand(sample.durationDays)}`
+    const cell = counts.get(key) ?? { count: 0, mergedCount: 0, closedCount: 0 }
+    cell.count += 1
+    if (sample.state === 'merged') cell.mergedCount += 1
+    else cell.closedCount += 1
+    counts.set(key, cell)
+  }
+  return durationBands.flatMap((duration) => commentBands.map((comments) => {
+    const cell = counts.get(`${comments}|${duration}`) ?? { count: 0, mergedCount: 0, closedCount: 0 }
+    return { comments, duration, ...cell, countLabel: cell.count ? String(cell.count) : '' }
+  }))
+})
+const prCommentBandNote = computed(() => {
+  const bands = [...new Set(prHeatmapSamples.value.map((sample) => commentBand(sample.comments)))]
+  return bands.length === 1 ? `有效样本均落在“${bands[0]}”评论区间，图表主要展示该区间内的处理耗时分布。` : ''
+})
 const prStatusRows = computed(() => {
   const merged = prViz.value?.items.filter((item) => item.state === 'merged').length ?? 0
   const closed = prViz.value?.items.filter((item) => item.state === 'closed').length ?? 0
   return [...(merged ? [{ label: '已合并', value: merged }] : []), ...(closed ? [{ label: '关闭未合并', value: closed }] : [])]
 })
-const prScatterSpec = computed<G2Spec>(() => ({
-  type: 'point', data: prScatterRows.value, encode: { x: 'comments', y: 'durationDays', color: 'state' },
-  scale: { color: { domain: ['merged', 'closed'], range: ['#4d819b', '#c27a4a'] } },
-  axis: { x: { title: '评论数', labelFontSize: 9 }, y: { title: '耗时（天）', labelFontSize: 9, gridLineDash: [3, 3] } },
-  style: { fillOpacity: 0.7, stroke: 'var(--surface, #fff)', lineWidth: 1 },
-  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
-  tooltip: { title: (datum: { number: number; title: string }) => `#${datum.number} ${datum.title}`, items: [{ field: 'comments', name: '评论数' }, { field: 'durationDays', name: '合并 / 关闭耗时（天）' }, { field: 'state', name: '状态' }] },
-  interaction: { brushHighlight: true, tooltip: { shared: false } },
+const prHeatmapSpec = computed<G2Spec>(() => ({
+  type: 'cell', data: prHeatmapCells.value, encode: { x: 'comments', y: 'duration', color: 'count' },
+  scale: {
+    x: { domain: commentBands }, y: { domain: durationBands },
+    color: { domain: [0, Math.max(1, ...prHeatmapCells.value.map((cell) => cell.count))], range: ui.theme === 'dark' ? ['#263742', '#557786'] : ['#edf3f6', '#3d809c'] },
+  },
+  axis: { x: { title: '评论数区间', labelFontSize: 9 }, y: { title: '合并 / 关闭耗时', labelFontSize: 9 } },
+  legend: { color: { position: 'bottom', title: 'PR 数' } },
+  style: { inset: 2, radius: 2, stroke: 'var(--surface, #fff)', lineWidth: 1 },
+  labels: [{ text: 'countLabel', position: 'inside', fill: ui.theme === 'dark' ? '#f3f4f6' : '#26313a', fontSize: 10, fontWeight: 600 }],
+  tooltip: { title: (datum: { comments: string; duration: string }) => `${datum.comments} 评论 · ${datum.duration}`, items: [
+    { field: 'count', name: '样本数' }, { field: 'mergedCount', name: '已合并' }, { field: 'closedCount', name: '关闭未合并' },
+  ] },
 }))
+const prStatusTotal = computed(() => prStatusRows.value.reduce((sum, row) => sum + row.value, 0))
+const prStatusSegments = computed(() => prStatusRows.value.map((row) => ({
+  ...row,
+  percent: prStatusTotal.value ? row.value / prStatusTotal.value * 100 : 0,
+  color: row.label === '已合并' ? '#3f75c5' : '#57a58e',
+})))
 
 async function loadPrVisualData() {
-  const repositoryId = props.analysis.repository.id
-  const windowDays = props.analysis.windowAvailability.requestedDays
-  prVizLoading.value = true
-  prVizError.value = ''
-  prViz.value = null
   try {
-    const first = await source.getPullRequestRecords(repositoryId, 1, 100, '', undefined, undefined, windowDays)
-    if (!first.available) {
-      prViz.value = { ...first, items: [], total: first.total, complete: false }
-      return
-    }
-    const requestedPages = Math.min(10, Math.ceil(first.total / 100))
-    const rest = requestedPages > 1
-      ? await Promise.all(Array.from({ length: requestedPages - 1 }, (_, index) => source.getPullRequestRecords(repositoryId, index + 2, 100, '', undefined, undefined, windowDays)))
-      : []
-    const items = [first, ...rest].flatMap((result) => result.items)
-    prViz.value = { ...first, items, total: first.total, complete: items.length >= first.total }
-  } catch (cause) {
-    prVizError.value = cause instanceof Error ? cause.message : 'PR 可视化样本加载失败'
-  } finally {
-    prVizLoading.value = false
-  }
+    await ensurePrVisualData(props.analysis.repository.id, props.analysis.windowAvailability.requestedDays)
+  } catch { /* 图表区域会显示错误状态；记录区可通过自己的接口继续恢复。 */ }
 }
 watch([() => props.analysis.repository.id, () => props.analysis.windowAvailability.requestedDays], () => { void loadPrVisualData() }, { immediate: true })
 
@@ -184,116 +253,127 @@ async function exportCsv() {
     <p v-else class="text-[11px] text-muted">当前数据未提供逐条耗时，显示已采集的每周合并数量。</p>
   </GdCard>
 
-  <div class="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
-    <GdCard class="h-[460px] min-h-0 min-w-0 overflow-hidden max-[680px]:h-[800px]">
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? `${durationGrainLabel}合并耗时分布` : '合并耗时分布' }}</h3>
-          <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '左图为各耗时区间样本数 · 右图为每时段中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
-        </div>
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
-          <div v-if="analysis.chartData" class="flex items-center gap-1" aria-label="耗时分布时间粒度">
-            <GdButton v-for="option in durationGrains" :key="option.value" size="sm" :variant="durationGrain === option.value ? 'primary' : 'outline'" :aria-pressed="durationGrain === option.value" @click="durationGrain = option.value">{{ option.label }}</GdButton>
-          </div>
+  <GdCard class="min-w-0">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h3 class="m-0 text-[15.5px] font-semibold">{{ analysis.chartData ? `${durationGrainLabel}合并耗时分布` : '合并耗时分布' }}</h3>
+        <p class="mt-0.5 text-[12px] text-muted">{{ analysis.chartData ? '左图为各耗时区间样本数 · 右图为每时段中位耗时' : '柱为区间样本数 · 折线为累计占比' }}</p>
+      </div>
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <span class="font-mono text-[11.5px] text-muted">n={{ analysis.prDuration.sampleSize }}</span>
+        <div v-if="analysis.chartData" class="flex items-center gap-1" aria-label="耗时分布时间粒度">
+          <GdButton v-for="option in durationGrains" :key="option.value" size="sm" :variant="durationGrain === option.value ? 'primary' : 'outline'" :aria-pressed="durationGrain === option.value" @click="durationGrain = option.value">{{ option.label }}</GdButton>
         </div>
       </div>
-      <PrMonthlyDurationChart v-if="analysis.chartData" :periods="durationPeriods" :grain="durationGrain" :selected-period-start="selectedPeriod?.start" :height="280" class="min-h-[280px] flex-1 w-full" @select="selectDurationPeriod" />
-      <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="280" class="min-h-[280px] flex-1 w-full" />
-      <div class="text-[11px] text-muted"><template v-if="analysis.chartData">柱体始终使用实色；柱顶 n 为该时段样本数，* 表示覆盖不完整。点击柱体可按该时段筛选 PR 记录。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
-      <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
-    </GdCard>
-
-    <GdCard class="h-[460px] min-h-0 min-w-0 overflow-hidden max-[680px]:h-[500px]">
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex min-w-0 items-center gap-2">
-          <h3 class="m-0 text-[15.5px] font-semibold">PR 逐条记录</h3>
-          <GdCoverageNote v-if="records" :coverage="records.coverage" compact />
-        </div>
-        <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : selectedPeriod ? '导出筛选结果 CSV' : '导出 PR CSV' }}</GdButton>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-2">
-        <GdInput v-model="searchInput" size="sm" class="min-w-[190px] flex-1" placeholder="搜索 PR 编号或标题" @enter="applySearch" />
-        <GdButton variant="outline" size="sm" :disabled="loading" @click="applySearch">搜索</GdButton>
-        <span v-if="records?.available" class="shrink-0 text-[11px] text-muted">{{ records.total.toLocaleString('zh-CN') }} 条 · {{ formatDate(records.windowStart) }} 至 {{ formatDate(records.windowEnd) }}</span>
-      </div>
-
-      <div v-if="selectedPeriod" class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-soft px-2.5 py-1.5 text-[11px] text-ink">
-        <span>已按合并时间筛选：{{ selectedPeriodText }}</span>
-        <button type="button" class="text-muted underline decoration-line underline-offset-2 hover:text-ink" @click="selectDurationPeriod(selectedPeriod)">清除筛选</button>
-      </div>
-
-      <p v-if="records?.note" class="m-0 text-[11px] leading-relaxed text-muted">{{ records.note }}</p>
-
-      <div v-if="loading" class="min-h-0 flex-1 overflow-y-auto py-8 text-center text-[12px] text-muted" role="status">正在加载 PR 记录…</div>
-      <div v-else-if="loadError" class="min-h-0 flex-1 overflow-y-auto py-6 text-center text-[12px] text-danger">
-        <p class="mb-3">{{ loadError }}</p>
-        <GdButton variant="outline" size="sm" @click="loadRecords">重新加载</GdButton>
-      </div>
-      <div v-else-if="records && !records.available" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] leading-relaxed text-muted">{{ records.note }}</div>
-      <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ selectedPeriod ? '该时段没有已采集的已合并 PR。' : appliedSearch ? '没有找到匹配的 PR。' : '本次采集窗口内没有已关闭的 PR。' }}</div>
-      <div v-else class="min-h-0 flex-1 overflow-auto overscroll-contain">
-        <table class="w-full min-w-[560px] table-fixed border-collapse text-[12px]">
-          <thead class="sticky top-0 z-10 bg-panel">
-            <tr class="text-left text-[11px] text-muted">
-              <th class="w-[48px] border-b border-line px-1.5 pb-2 font-medium">编号</th>
-              <th class="w-[170px] border-b border-line px-1.5 pb-2 font-medium">标题</th>
-              <th class="w-[84px] border-b border-line px-1.5 pb-2 font-medium">状态</th>
-              <th class="w-[82px] border-b border-line px-1.5 pb-2 font-medium">创建时间</th>
-              <th class="w-[82px] border-b border-line px-1.5 pb-2 font-medium">合并/关闭</th>
-              <th class="w-[48px] border-b border-line px-1.5 pb-2 text-right font-medium">评论</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in records?.items" :key="item.number" class="border-b border-line/70 last:border-0">
-              <td class="whitespace-nowrap px-1.5 py-2.5 font-mono text-ink">
-                <button type="button" class="underline decoration-line underline-offset-2 hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" @click="openPullRequest(item)">#{{ item.number }}</button>
-              </td>
-              <td class="px-1.5 py-2.5 text-ink" :title="item.title"><button type="button" class="line-clamp-2 text-left hover:underline focus-visible:underline" @click="openPullRequest(item)">{{ item.title }}</button><span v-if="item.draft" class="text-[10px] text-muted">草稿</span></td>
-              <td class="whitespace-nowrap px-1.5 py-2.5"><GdBadge :variant="item.state === 'merged' ? 'default' : 'warn'">{{ item.state === 'merged' ? '已合并' : '关闭未合并' }}</GdBadge></td>
-              <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.createdAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.createdAt) }}</span></td>
-              <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.mergedAt ?? item.closedAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.mergedAt ?? item.closedAt) }}</span></td>
-              <td class="whitespace-nowrap px-1.5 py-2.5 text-right text-[11px] text-ink">{{ item.commentsCount ?? '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div v-if="records?.available && records.total > 0" class="flex shrink-0 items-center justify-between gap-2 border-t border-line pt-2 text-[11px] text-muted">
-        <span>显示 {{ firstRecord }}–{{ lastRecord }} / {{ records.total }}</span>
-        <div class="flex items-center gap-2">
-          <GdButton variant="outline" size="sm" :disabled="loading || page <= 1" @click="page -= 1">上一页</GdButton>
-          <span class="font-mono">{{ page }} / {{ pageCount }}</span>
-          <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
-        </div>
-      </div>
-    </GdCard>
-  </div>
+    </div>
+    <PrMonthlyDurationChart v-if="analysis.chartData" :periods="durationPeriods" :grain="durationGrain" :selected-period-start="selectedPeriod?.start" :height="250" class="w-full" @select="selectDurationPeriod" />
+    <HistogramChart v-else :buckets="analysis.prDuration.buckets" color="#CE3F7C" unit="个 PR" :height="250" class="w-full" />
+    <div class="text-[11px] text-muted"><template v-if="analysis.chartData">柱体始终使用实色；柱顶 n 为该时段样本数，* 表示覆盖不完整。点击柱体可按该时段筛选 PR 记录。</template> 整体 P50 {{ analysis.prDuration.percentiles.p50 ?? '—' }} 天 · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</div>
+    <p v-if="analysis.prDuration.note" class="mt-2 text-[11px] text-warnfg">{{ analysis.prDuration.note }}</p>
+  </GdCard>
 
   <div class="grid gap-4 xl:grid-cols-[1fr_1.2fr_1fr]">
     <GdCard class="min-w-0" data-testid="pr-duration-boxplot-card">
-      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">按月合并耗时箱线图</h3><p class="mt-0.5 text-[12px] text-muted">按 merged_at 月份分组，每组至少 5 条</p></div><GdCoverageNote v-if="prViz" :coverage="prViz.coverage" compact /></div>
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">按月合并耗时箱线图</h3><p class="mt-0.5 text-[12px] text-muted">按 merged_at 月份分组；纵轴 log1p 压缩长尾，刻度仍显示实际天数</p></div><GdCoverageNote v-if="prViz" :coverage="prViz.coverage" compact /></div>
       <div v-if="prVizLoading" class="flex h-[280px] items-center justify-center text-[12px] text-muted" role="status">正在汇总 PR 样本…</div>
       <div v-else-if="prVizError" class="flex h-[280px] items-center justify-center text-center text-[12px] text-danger" role="alert">{{ prVizError }}</div>
-      <BoxPlotChart v-else-if="prBoxSamples.length" :samples="prBoxSamples" label="每月已合并 PR 耗时箱线图" unit="合并耗时（天）" :height="260" />
+      <BoxPlotChart v-else-if="prBoxSamples.length" :samples="prBoxSamples" label="每月已合并 PR 耗时箱线图（log1p 纵轴）" unit="合并耗时（天）" scale="log1p" :height="260" />
       <div v-else class="flex h-[280px] items-center justify-center text-center text-[12px] text-muted">当前没有样本量达到 5 的月份；已加载 {{ prViz?.items.length ?? 0 }} / {{ prViz?.total ?? 0 }} 条。</div>
       <p v-if="prViz && !prViz.complete" class="m-0 text-[10.5px] text-muted">图表最多读取前 1,000 条，月度分布仅代表已加载样本。</p>
     </GdCard>
     <GdCard class="min-w-0" data-testid="pr-comments-duration-card">
-      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">评论数与处理耗时</h3><p class="mt-0.5 text-[12px] text-muted">评论数 × 实际合并或关闭耗时；颜色区分是否合并</p></div><span class="text-[11px] text-muted">有效样本 n={{ prScatterRows.length }}</span></div>
+      <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">评论数与处理耗时</h3><p class="mt-0.5 text-[12px] text-muted">按评论数和实际处理耗时分箱；色阶表示样本数量</p></div><span class="text-[11px] text-muted">有效样本 n={{ prHeatmapSamples.length }}</span></div>
       <div v-if="prVizLoading" class="flex h-[280px] items-center justify-center text-[12px] text-muted" role="status">正在读取评论与耗时记录…</div>
       <div v-else-if="prVizError" class="flex h-[280px] items-center justify-center text-[12px] text-danger" role="alert">{{ prVizError }}</div>
-      <G2Chart v-else-if="prScatterRows.length" :spec="prScatterSpec" label="PR 评论数与合并或关闭耗时散点图，可框选" :height="280" />
+      <G2Chart v-else-if="prHeatmapSamples.length" :spec="prHeatmapSpec" label="PR 评论数区间与处理耗时区间样本数量热力图" :height="280" />
       <div v-else class="flex h-[280px] items-center justify-center text-center text-[12px] text-muted">没有同时具有评论数与耗时的 PR 样本。</div>
-      <p v-if="prViz" class="m-0 text-[10.5px] text-muted">显示 {{ prScatterRows.length }} 条具备完整字段的记录 / {{ prViz.total }} 条已关闭 PR。</p>
+      <p v-if="prViz" class="m-0 text-[10.5px] text-muted">显示 {{ prHeatmapSamples.length }} 条具备完整字段的记录 / {{ prViz.total }} 条已关闭 PR；悬浮单元格可查看合并状态拆分。</p>
+      <p v-if="prCommentBandNote" class="m-0 text-[10.5px] text-muted">{{ prCommentBandNote }}</p>
     </GdCard>
     <GdCard class="min-w-0" data-testid="pr-merge-state-card">
       <div class="flex flex-wrap items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">已关闭 PR 状态构成</h3><p class="mt-0.5 text-[12px] text-muted">仅统计已关闭记录中的已合并与关闭未合并</p></div></div>
-      <DonutChart v-if="prStatusRows.length" :rows="prStatusRows" :total="(prViz?.items.length ?? 0).toLocaleString('zh-CN')" center-label="已关闭 PR" label="已关闭 PR 的合并状态构成环形图" :height="280" />
+      <div v-if="prStatusSegments.length" class="flex h-[280px] flex-col justify-center" role="img" :aria-label="`已关闭 PR 状态构成：${prStatusSegments.map((segment) => `${segment.label} ${segment.value} 条，占 ${segment.percent.toFixed(1)}%`).join('；')}`">
+        <div class="mb-2 flex items-center justify-between text-[11px] text-muted"><span>已读取样本 {{ prStatusTotal.toLocaleString('zh-CN') }} 条</span><span>100%</span></div>
+        <div class="flex h-9 w-full overflow-hidden rounded-full bg-soft">
+          <div v-for="segment in prStatusSegments" :key="segment.label" class="h-full transition-[width] duration-300" :style="{ width: `${segment.percent}%`, backgroundColor: segment.color }" :title="`${segment.label}：${segment.value.toLocaleString('zh-CN')} 条（${segment.percent.toFixed(1)}%）`" />
+        </div>
+        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+          <div v-for="segment in prStatusSegments" :key="segment.label" class="rounded-md border border-line px-3 py-2.5">
+            <div class="flex items-center gap-2 text-[11px] text-muted"><span class="size-2.5 rounded-sm" :style="{ backgroundColor: segment.color }" />{{ segment.label }}</div>
+            <div class="mt-1.5 flex items-baseline justify-between gap-2"><strong class="font-mono text-[18px] font-semibold text-ink">{{ segment.value.toLocaleString('zh-CN') }}</strong><span class="font-mono text-[12px] text-muted">{{ segment.percent.toFixed(1) }}%</span></div>
+          </div>
+        </div>
+        <p class="mt-4 text-center text-[11px] text-muted">按已读取的关闭 PR 样本计算占比</p>
+      </div>
       <div v-else class="flex h-[280px] items-center justify-center text-[12px] text-muted">{{ prVizLoading ? '正在读取 PR 状态…' : '暂无已关闭 PR 状态样本' }}</div>
       <p v-if="prViz && !prViz.complete" class="m-0 text-[10.5px] text-muted">状态比例基于已读取的 {{ prViz.items.length }} / {{ prViz.total }} 条 PR。</p>
-      <p class="m-0 text-[10.5px] text-muted">生命周期漏斗暂不显示：当前接口只返回已关闭 PR，无法确认同一创建 cohort 中仍开放的 PR。</p>
+      <p class="m-0 text-[10.5px] text-muted">当前数据只含已关闭 PR，无法确认同一创建 cohort 中仍开放的 PR。</p>
     </GdCard>
   </div>
+
+  <GdCard class="h-[460px] min-h-0 min-w-0 overflow-hidden" data-testid="pr-records-card">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="flex min-w-0 items-center gap-2">
+        <h3 class="m-0 text-[15.5px] font-semibold">PR 逐条记录</h3>
+        <GdCoverageNote v-if="records" :coverage="records.coverage" compact />
+      </div>
+      <GdButton variant="outline" size="sm" :disabled="exporting || loading || !records?.available" @click="exportCsv">{{ exporting ? '导出中…' : selectedPeriod ? '导出筛选结果 CSV' : '导出 PR CSV' }}</GdButton>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2">
+      <GdInput v-model="searchInput" size="sm" class="min-w-[190px] flex-1" placeholder="搜索 PR 编号或标题" @enter="applySearch" />
+      <GdButton variant="outline" size="sm" :disabled="loading" @click="applySearch">搜索</GdButton>
+      <span v-if="records?.available" class="shrink-0 text-[11px] text-muted">{{ records.total.toLocaleString('zh-CN') }} 条 · {{ formatDate(records.windowStart) }} 至 {{ formatDate(records.windowEnd) }}</span>
+    </div>
+
+    <div v-if="selectedPeriod" class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-soft px-2.5 py-1.5 text-[11px] text-ink">
+      <span>已按合并时间筛选：{{ selectedPeriodText }}</span>
+      <button type="button" class="text-muted underline decoration-line underline-offset-2 hover:text-ink" @click="selectDurationPeriod(selectedPeriod)">清除筛选</button>
+    </div>
+
+    <p v-if="records?.note" class="m-0 text-[11px] leading-relaxed text-muted">{{ records.note }}</p>
+
+    <div v-if="loading" class="min-h-0 flex-1 overflow-y-auto py-8 text-center text-[12px] text-muted" role="status">正在加载 PR 记录…</div>
+    <div v-else-if="loadError" class="min-h-0 flex-1 overflow-y-auto py-6 text-center text-[12px] text-danger">
+      <p class="mb-3">{{ loadError }}</p>
+      <GdButton variant="outline" size="sm" @click="loadRecords">重新加载</GdButton>
+    </div>
+    <div v-else-if="records && !records.available" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] leading-relaxed text-muted">{{ records.note }}</div>
+    <div v-else-if="records && records.total === 0" class="min-h-0 flex-1 overflow-y-auto rounded-md bg-soft px-3 py-8 text-center text-[12px] text-muted">{{ selectedPeriod ? '该时段没有已采集的已合并 PR。' : appliedSearch ? '没有找到匹配的 PR。' : '本次采集窗口内没有已关闭的 PR。' }}</div>
+    <div v-else class="min-h-0 flex-1 overflow-auto overscroll-contain">
+      <table class="w-full min-w-[560px] table-fixed border-collapse text-[12px]">
+        <thead class="sticky top-0 z-10 bg-panel">
+          <tr class="text-left text-[11px] text-muted">
+            <th class="w-[48px] border-b border-line px-1.5 pb-2 font-medium">编号</th>
+            <th class="w-[170px] border-b border-line px-1.5 pb-2 font-medium">标题</th>
+            <th class="w-[84px] border-b border-line px-1.5 pb-2 font-medium">状态</th>
+            <th class="w-[82px] border-b border-line px-1.5 pb-2 font-medium">创建时间</th>
+            <th class="w-[82px] border-b border-line px-1.5 pb-2 font-medium">合并/关闭</th>
+            <th class="w-[48px] border-b border-line px-1.5 pb-2 text-right font-medium">评论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="item in records?.items" :key="item.number" class="border-b border-line/70 last:border-0">
+            <td class="whitespace-nowrap px-1.5 py-2.5 font-mono text-ink">
+              <button type="button" class="underline decoration-line underline-offset-2 hover:decoration-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2" @click="openPullRequest(item)">#{{ item.number }}</button>
+            </td>
+            <td class="px-1.5 py-2.5 text-ink" :title="item.title"><button type="button" class="line-clamp-2 text-left hover:underline focus-visible:underline" @click="openPullRequest(item)">{{ item.title }}</button><span v-if="item.draft" class="text-[10px] text-muted">草稿</span></td>
+            <td class="whitespace-nowrap px-1.5 py-2.5"><GdBadge :variant="item.state === 'merged' ? 'default' : 'warn'">{{ item.state === 'merged' ? '已合并' : '关闭未合并' }}</GdBadge></td>
+            <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.createdAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.createdAt) }}</span></td>
+            <td class="whitespace-nowrap px-1.5 py-2 font-mono text-[10.5px] text-ink"><span>{{ formatDate(item.mergedAt ?? item.closedAt) }}</span><span class="block text-[9px] leading-3 text-ink/70">{{ formatTime(item.mergedAt ?? item.closedAt) }}</span></td>
+            <td class="whitespace-nowrap px-1.5 py-2.5 text-right text-[11px] text-ink">{{ item.commentsCount ?? '—' }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div v-if="records?.available && records.total > 0" class="flex shrink-0 items-center justify-between gap-2 border-t border-line pt-2 text-[11px] text-muted">
+      <span>显示 {{ firstRecord }}–{{ lastRecord }} / {{ records.total }}</span>
+      <div class="flex items-center gap-2">
+        <GdButton variant="outline" size="sm" :disabled="loading || page <= 1" @click="page -= 1">上一页</GdButton>
+        <span class="font-mono">{{ page }} / {{ pageCount }}</span>
+        <GdButton variant="outline" size="sm" :disabled="loading || page >= pageCount" @click="page += 1">下一页</GdButton>
+      </div>
+    </div>
+  </GdCard>
 </template>

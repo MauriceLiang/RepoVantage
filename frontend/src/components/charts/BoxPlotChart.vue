@@ -10,13 +10,30 @@ const props = withDefaults(defineProps<{
   unit: string
   height?: number
   shape?: 'box' | 'violin'
-}>(), { height: 260, shape: 'box' })
+  scale?: 'linear' | 'log1p'
+}>(), { height: 260, shape: 'box', scale: 'linear' })
 const groupSummaries = computed(() => summarizeByGroup(props.samples))
+const chartSamples = computed(() => props.samples.map((sample) => ({
+  ...sample,
+  plotValue: props.scale === 'log1p' ? Math.log1p(Math.max(0, sample.value)) : sample.value,
+})))
+function formatPlotValue(value: unknown) {
+  const numeric = Number(value)
+  const actualValue = props.scale === 'log1p' ? Math.expm1(numeric) : numeric
+  return `${actualValue.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} ${props.unit}`
+}
 const spec = computed<G2Spec>(() => {
   const shared = {
-    data: props.samples,
+    data: chartSamples.value,
     scale: { x: { paddingInner: 0.24, paddingOuter: 0.08 } },
-    axis: { x: { labelFontSize: 9 }, y: { title: props.unit, gridLineDash: [3, 3] } },
+    axis: {
+      x: { labelFontSize: 9 },
+      y: {
+        title: props.scale === 'log1p' ? `${props.unit}（log1p 压缩）` : props.unit,
+        gridLineDash: [3, 3],
+        ...(props.scale === 'log1p' ? { labelFormatter: (value: unknown) => Math.expm1(Number(value)).toLocaleString('zh-CN', { maximumFractionDigits: 1 }) } : {}),
+      },
+    },
     legend: false,
   }
 
@@ -27,16 +44,16 @@ const spec = computed<G2Spec>(() => {
       children: [
         {
           type: 'density',
-          data: { transform: [{ type: 'kde', field: 'value', groupBy: ['group'], size: 40 }] },
+          data: { transform: [{ type: 'kde', field: 'plotValue', groupBy: ['group'], size: 40 }] },
           encode: { x: 'group', y: 'y', color: 'group', size: 'size' },
           tooltip: false,
           style: { fillOpacity: 0.28, lineWidth: 1 },
         },
         {
           type: 'boxplot',
-          encode: { x: 'group', y: 'value', color: 'group', shape: 'violin' },
+          encode: { x: 'group', y: 'plotValue', color: 'group', shape: 'violin' },
           style: { opacity: 0.75, strokeOpacity: 0.85, point: false },
-          tooltip: { title: 'group', items: [{ field: 'value', name: props.unit }] },
+          tooltip: { title: 'group', items: [{ field: 'plotValue', name: props.unit, valueFormatter: formatPlotValue }] },
         },
       ],
     }
@@ -45,9 +62,9 @@ const spec = computed<G2Spec>(() => {
   return {
     ...shared,
     type: 'boxplot',
-    encode: { x: 'group', y: 'value', color: 'group' },
+    encode: { x: 'group', y: 'plotValue', color: 'group' },
     style: { boxFill: '#6d8fa3', boxFillOpacity: 0.52, boxStroke: '#527489', pointFill: '#d18a43', pointStroke: '#fff' },
-    tooltip: { title: 'group', items: [{ field: 'value', name: props.unit }] },
+    tooltip: { title: 'group', items: [{ field: 'plotValue', name: props.unit, valueFormatter: formatPlotValue }] },
   }
 })
 </script>

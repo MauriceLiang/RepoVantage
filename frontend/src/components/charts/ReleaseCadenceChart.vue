@@ -9,8 +9,6 @@ interface ReleaseCadencePoint {
   date: string
   days: number
   previousDate: string | null
-  commitCount: number | null
-  reason: string | null
 }
 const props = withDefaults(defineProps<{ items: ReleaseCadencePoint[]; height?: number }>(), { height: 280 })
 const emit = defineEmits<{ select: [tag: string] }>()
@@ -29,7 +27,7 @@ const spec = computed<G2Spec>(() => ({
   encode: { x: 'label', y: 'days' },
   style: { fill: '#4d819b', radiusTopLeft: 3, radiusTopRight: 3 },
   axis: { x: { labelFontSize: 8, labelAutoRotate: false }, y: { title: '间隔（天）', gridLineDash: [3, 3] } },
-  tooltip: { title: 'label', items: [{ field: 'previousTag', name: '上一版本' }, { field: 'tag', name: '当前版本' }, { field: 'days', name: '发布间隔（天）' }, { field: 'commitCount', name: '期间 Commit' }, { field: 'reason', name: 'Commit 覆盖说明' }] },
+  tooltip: { title: 'label', items: [{ field: 'previousTag', name: '上一版本' }, { field: 'tag', name: '当前版本' }, { field: 'days', name: '发布间隔（天）' }] },
 }))
 function select(payload: { dataIndex: number; seriesName: string }) {
   if (payload.seriesName !== '发布间隔') return

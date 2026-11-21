@@ -175,7 +175,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
     </GdCard>
   </div>
 
-  <div class="grid gap-4 lg:grid-cols-3">
+  <div class="grid items-stretch gap-4 lg:grid-cols-3">
     <GdCard>
       <div class="flex items-start justify-between gap-3">
         <div>
@@ -189,7 +189,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/issues`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#E5A03A', '#CE3F7C']" :height="112" :show-legend="false" />
+      <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#E5A03A', '#CE3F7C']" :height="150" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天</b>
         <span class="text-[11px] leading-tight text-muted">关闭耗时 P50<br />n={{ analysis.issueDuration.sampleSize }} · P90 <span :title="analysis.issueDuration.percentiles.p90 == null ? undefined : `${analysis.issueDuration.percentiles.p90.toLocaleString('zh-CN')} 天`">{{ durationLabel(analysis.issueDuration.percentiles.p90) }}</span></span>
@@ -204,7 +204,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/prs`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#CE3F7C', '#2E8FCB']" :height="112" :show-legend="false" />
+      <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#CE3F7C', '#2E8FCB']" :height="150" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.prDuration.percentiles.p50 ?? '—' }} 天</b>
         <span class="text-[11px] leading-tight text-muted">合并耗时 P50<br />n={{ analysis.prDuration.sampleSize }} · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</span>
@@ -215,7 +215,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[14.5px] font-semibold">Release 时间线</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">正式版与预发布版按日期分道显示</p>
+          <p class="mt-0.5 text-[11.5px] text-muted">按时间段统计正式版与预发布版数量</p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>

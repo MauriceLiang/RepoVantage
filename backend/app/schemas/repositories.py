@@ -54,7 +54,7 @@ class ResolveRequest(DTO):
 class AddRepositoryRequest(DTO):
     full_name: str = Field(min_length=3, max_length=200)
     auto_analyze: bool = True
-    depth: Literal["basic", "deep"] = "basic"
+    depth: Literal["basic", "deep"] = "deep"
 
 
 class AddRepositoryResponse(DTO):

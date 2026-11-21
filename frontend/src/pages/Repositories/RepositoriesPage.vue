@@ -242,7 +242,7 @@ async function addRepository(repository: RepositorySummary) {
   busyId.value = repository.id
   try {
     const result = await source.addRepository(repository.fullName)
-    ui.toast(result.taskId ? '仓库已加入，采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
+    ui.toast(result.taskId ? '仓库已加入，180 天完整采集任务已排队' : '仓库已加入分析库', result.taskId ? 'warning' : 'success')
     await loadRepositories()
     void router.push(`/repositories/${result.repositoryId}/overview`)
   } catch (cause) {

@@ -55,58 +55,6 @@ def get_course_ml_evaluation(request: Request):
     return envelope(request, course_machine_learning_evaluation())
 
 
-@router.get("/selection/scenarios")
-def get_selection_scenarios(request: Request, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import list_scenarios
-    return envelope(request, list_scenarios(session))
-
-
-@router.get("/selection/references")
-def get_selection_references(request: Request, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import list_references
-    return envelope(request, {"references": list_references(session)})
-
-
-@router.get("/selection/scenarios/{slug}/viz")
-def get_selection_scenario_viz(request: Request, slug: str, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import get_scenario_viz
-    result = get_scenario_viz(session, slug)
-    if result is None:
-        from backend.app.core.exceptions import AppError
-        raise AppError(404, "RESOURCE_NOT_FOUND", "技术选型场景不存在")
-    return envelope(request, result)
-
-
-@router.get("/selection/scenarios/{slug}/candidates/{repository_id}")
-def get_selection_candidate(request: Request, slug: str, repository_id: int, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import get_candidate
-    result = get_candidate(session, slug, repository_id)
-    if result is None:
-        from backend.app.core.exceptions import AppError
-        raise AppError(404, "RESOURCE_NOT_FOUND", "当前场景中没有该候选仓库")
-    return envelope(request, result)
-
-
-@router.get("/selection/scenarios/{slug}/sensitivity")
-def get_selection_sensitivity(request: Request, slug: str, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import get_scenario
-    scenario = get_scenario(session, slug)
-    if scenario is None:
-        from backend.app.core.exceptions import AppError
-        raise AppError(404, "RESOURCE_NOT_FOUND", "技术选型场景不存在")
-    return envelope(request, {"available": False, "reason": "当前快照不生成跨维度综合排名；没有用户明确选择且完整覆盖的权重集合。"})
-
-
-@router.get("/selection/scenarios/{slug}")
-def get_selection_scenario(request: Request, slug: str, session: Session = Depends(get_session)):
-    from backend.app.services.selection_v44 import get_scenario
-    result = get_scenario(session, slug)
-    if result is None:
-        from backend.app.core.exceptions import AppError
-        raise AppError(404, "RESOURCE_NOT_FOUND", "技术选型场景不存在")
-    return envelope(request, result)
-
-
 @router.post("/comparisons", response_model=SuccessEnvelope[ComparisonResponse])
 def compare(request: Request, body: ComparisonRequest, session: Session = Depends(get_session)):
     return envelope(request, compare_repositories(session, body.repository_ids, body.depth))

@@ -45,9 +45,8 @@ const failed = computed(() => Boolean(error.value) || (data.value?.repository.st
 async function refresh() {
   refreshing.value = true
   try {
-    const windowDays = analysisStore.timeWindow
-    await source.refreshRepository(repoId.value, { scopeKind: 'quick', windowDays })
-    ui.toast(`已排队：${windowDays} 天快速采集，可在任务页查看进度`, 'warning')
+    await source.refreshRepository(repoId.value, { scopeKind: 'window', windowDays: 180 })
+    ui.toast('已排队：最近 180 天完整数据更新，可在任务页查看进度', 'warning')
     void router.push('/tasks')
   } catch (cause) {
     ui.toast(cause instanceof Error ? cause.message : '启动采集失败', 'error')

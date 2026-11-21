@@ -1,98 +1,135 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { G2Spec } from '@antv/g2'
-import type { ReleaseRecord, TimePoint } from '@/services/types'
+import type { ReleaseRecord } from '@/services/types'
+import DateRangeSlider from './DateRangeSlider.vue'
 import G2Chart from './G2Chart.vue'
 
-const props = withDefaults(defineProps<{ releases: ReleaseRecord[]; commits?: TimePoint[]; height?: number; compact?: boolean }>(), { commits: () => [], height: 150, compact: false })
-const emit = defineEmits<{ select: [release: ReleaseRecord] }>()
-const eventDates = computed(() => [
-  ...props.releases.map((release) => release.publishedAt.slice(0, 10)),
-  ...props.commits.map((point) => point.date.slice(0, 10)),
-].filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date)).sort())
+const props = withDefaults(defineProps<{ releases: ReleaseRecord[]; height?: number; compact?: boolean }>(), { height: 220, compact: false })
+const DAY = 86_400_000
+const eventDates = computed(() => props.releases
+  .map((release) => release.publishedAt.slice(0, 10))
+  .filter((date) => /^\d{4}-\d{2}-\d{2}$/.test(date))
+  .sort())
 const minDate = computed(() => eventDates.value[0] ?? '')
 const maxDate = computed(() => eventDates.value.at(-1) ?? '')
 const startDate = ref('')
 const endDate = ref('')
+
 watch([minDate, maxDate], ([min, max]) => {
   if (!min || !max) { startDate.value = ''; endDate.value = ''; return }
   const latest = Date.parse(max + 'T00:00:00Z')
-  startDate.value = new Date(Math.max(Date.parse(min + 'T00:00:00Z'), latest - 90 * 86400000)).toISOString().slice(0, 10)
+  startDate.value = new Date(Math.max(Date.parse(min + 'T00:00:00Z'), latest - 90 * DAY)).toISOString().slice(0, 10)
   endDate.value = max
 }, { immediate: true })
+
 const range = computed(() => {
   if (!startDate.value || !endDate.value || startDate.value > endDate.value) return null
-  return { start: Date.parse(startDate.value + 'T00:00:00Z'), end: Date.parse(endDate.value + 'T00:00:00Z') + 86400000 }
+  return { start: Date.parse(startDate.value + 'T00:00:00Z'), end: Date.parse(endDate.value + 'T00:00:00Z') + DAY }
 })
-const commitRows = computed(() => props.commits.flatMap((point, dataIndex) => {
-  const time = Date.parse(point.date + 'T00:00:00Z')
-  if (!range.value || !Number.isFinite(time) || time < range.value.start || time >= range.value.end) return []
-  // G2 的 time scale 只接受 Date/number；ISO 日期字符串会被转成 NaN，
-  // 导致所有仓库的时间序列都挤到同一个位置。
-  return [{ date: new Date(time), commits: point.value ?? point.observedValue ?? null, quality: point.value === null ? '部分覆盖或缺失' : '完整数据', dataIndex, seriesName: '每周提交' }]
-}))
-const releaseRows = computed(() => props.releases.flatMap((release, dataIndex) => {
-  const time = Date.parse(release.publishedAt)
-  if (!range.value || !Number.isFinite(time) || time < range.value.start || time >= range.value.end) return []
-  return [{
-    date: new Date(time),
-    day: release.publishedAt.slice(0, 10),
-    tag: release.tag,
-    lane: release.prerelease ? '预发布' : '正式发布',
-    symbol: 'diamond',
-    dataIndex,
-    sourceIndex: dataIndex,
-    seriesName: release.prerelease ? '预发布' : '正式发布',
-  }]
-}))
-const commitsSpec = computed<G2Spec>(() => ({
-  type: 'line', data: commitRows.value,
-  encode: { x: 'date', y: 'commits' },
-  scale: { x: { type: 'time', utc: true } },
-  style: { stroke: '#4d819b', lineWidth: 1.8 },
-  axis: { x: { label: !props.compact, labelFontSize: 8 }, y: { title: 'Commit / 周', gridLineDash: [3, 3] } },
-  tooltip: { title: 'date', items: [{ field: 'commits', name: 'Commit（完整或已观察）' }, { field: 'quality', name: '覆盖状态' }] },
-}))
-const releasesSpec = computed<G2Spec>(() => ({
-  type: 'point', data: releaseRows.value,
-  encode: { x: 'date', y: 'lane' },
-  scale: { x: { type: 'time', utc: true }, y: { domain: ['正式发布', '预发布'] } },
-  style: { shape: 'diamond', fill: '#ce3f7c', stroke: '#ce3f7c', r: 5 },
-  axis: { x: { label: !props.compact, labelFontSize: 8 }, y: { title: false } },
-  tooltip: { title: 'day', items: [{ field: 'tag', name: '版本' }, { field: 'lane', name: '类型' }] },
-}))
-function select(payload: { dataIndex: number; seriesName: string }) {
-  if (payload.seriesName !== '正式发布' && payload.seriesName !== '预发布') return
-  const release = props.releases[payload.dataIndex]
-  if (release) emit('select', release)
+const bucketSize = computed<'week' | 'month' | 'quarter'>(() => {
+  const span = range.value ? range.value.end - range.value.start : 0
+  if (span <= 60 * DAY) return 'week'
+  if (span <= 3 * 365 * DAY) return 'month'
+  return 'quarter'
+})
+
+function bucketStart(timestamp: number, size: 'week' | 'month' | 'quarter') {
+  const date = new Date(timestamp)
+  const year = date.getUTCFullYear()
+  const month = date.getUTCMonth()
+  if (size === 'week') {
+    const day = date.getUTCDay()
+    return Date.UTC(year, month, date.getUTCDate() - ((day + 6) % 7))
+  }
+  if (size === 'month') return Date.UTC(year, month, 1)
+  return Date.UTC(year, Math.floor(month / 3) * 3, 1)
 }
-function resetRange() {
-  if (!minDate.value || !maxDate.value) return
-  const latest = Date.parse(maxDate.value + 'T00:00:00Z')
-  startDate.value = new Date(Math.max(Date.parse(minDate.value + 'T00:00:00Z'), latest - 90 * 86400000)).toISOString().slice(0, 10)
-  endDate.value = maxDate.value
-}
+
+const labelsByBucket = computed(() => {
+  if (!range.value) return new Map<number, string>()
+  const firstYear = new Date(range.value.start).getUTCFullYear()
+  const lastYear = new Date(range.value.end - 1).getUTCFullYear()
+  const spansYears = firstYear !== lastYear
+  const labels = new Map<number, string>()
+  let cursor = bucketStart(range.value.start, bucketSize.value)
+  const last = bucketStart(range.value.end - 1, bucketSize.value)
+
+  while (cursor <= last) {
+    const date = new Date(cursor)
+    const year = date.getUTCFullYear()
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const label = bucketSize.value === 'week'
+      ? `${spansYears ? `${String(year).slice(-2)}/` : ''}${month}/${day}`
+      : bucketSize.value === 'month'
+        ? spansYears ? `${year}/${month}` : `${month}月`
+        : `${year} Q${Math.floor(date.getUTCMonth() / 3) + 1}`
+    labels.set(cursor, label)
+    if (bucketSize.value === 'week') cursor += 7 * DAY
+    else if (bucketSize.value === 'month') cursor = Date.UTC(year, date.getUTCMonth() + 1, 1)
+    else cursor = Date.UTC(year, date.getUTCMonth() + 3, 1)
+  }
+  return labels
+})
+
+const rows = computed(() => {
+  if (!range.value) return []
+  const counts = new Map<number, { formal: number; prerelease: number }>()
+  for (const bucket of labelsByBucket.value.keys()) counts.set(bucket, { formal: 0, prerelease: 0 })
+
+  for (const release of props.releases) {
+    const timestamp = Date.parse(release.publishedAt)
+    if (!Number.isFinite(timestamp) || timestamp < range.value.start || timestamp >= range.value.end) continue
+    const bucket = bucketStart(timestamp, bucketSize.value)
+    const count = counts.get(bucket)
+    if (!count) continue
+    if (release.prerelease) count.prerelease += 1
+    else count.formal += 1
+  }
+
+  return [...counts.entries()].flatMap(([bucket, count]) => {
+    const label = labelsByBucket.value.get(bucket) ?? ''
+    return [
+      { label, kind: '正式版', count: count.formal },
+      { label, kind: '预发布版', count: count.prerelease },
+    ]
+  })
+})
+const maxBucketCount = computed(() => Math.max(0, ...rows.value.map((row) => row.count)))
+
+const spec = computed<G2Spec>(() => ({
+  type: 'interval',
+  data: rows.value,
+  transform: [{ type: 'dodgeX' }],
+  encode: { x: 'label', y: 'count', color: 'kind' },
+  scale: {
+    color: { domain: ['正式版', '预发布版'], range: ['#4d819b', '#ce3f7c'] },
+    x: { padding: 0.16 },
+    y: { domainMin: 0, nice: false, tickCount: Math.max(1, Math.min(5, maxBucketCount.value)) },
+  },
+  axis: {
+    x: { title: false, label: !props.compact, labelFontSize: 9, labelAutoRotate: false },
+    y: { title: props.compact ? false : 'Release 数', gridLineDash: [3, 3] },
+  },
+  legend: props.compact ? false : { color: { position: 'bottom', itemLabelFontSize: 10 } },
+  tooltip: { title: 'label', items: [{ field: 'kind', name: '版本类型' }, { field: 'count', name: 'Release 数' }] },
+}))
+
 </script>
 
 <template>
   <div class="release-timeline" data-testid="release-timeline">
     <div v-if="!compact" class="release-timeline__range">
-      <label>起始日期 <input v-model="startDate" type="date" :min="minDate" :max="endDate || maxDate" aria-label="时间线起始日期" /></label>
-      <label>结束日期 <input v-model="endDate" type="date" :min="startDate || minDate" :max="maxDate" aria-label="时间线结束日期" /></label>
-      <button type="button" @click="resetRange">重置近 90 天</button>
+      <DateRangeSlider v-model:start-date="startDate" v-model:end-date="endDate" :min-date="minDate" :max-date="maxDate" range-label="发布时间线日期范围" />
     </div>
-    <section><h4>每周 Commit</h4><G2Chart :spec="commitsSpec" label="按 UTC 周排列的 Commit 活动" :height="Math.max(84, Math.round(height * 0.5))" /></section>
-    <section><h4>Release 时间点</h4><G2Chart :spec="releasesSpec" label="按日期分道展示正式 Release 和预发布；点击打开详情" :height="Math.max(74, Math.round(height * 0.42))" @select="select" /></section>
+    <G2Chart v-if="rows.some((row) => row.count > 0)" :spec="spec" label="按周、月或季度统计的正式版与预发布版数量" :height="height" />
+    <div v-else class="release-timeline__empty" :style="{ height: `${height}px` }">所选日期范围内没有已采集的 Release 记录</div>
   </div>
 </template>
 
 <style scoped>
-.release-timeline { display:grid; gap:3px; }
-.release-timeline section { min-width:0; }
-.release-timeline :deep(.g2-chart__canvas) { min-height:0; }
-.release-timeline h4 { margin:0; color:var(--muted); font-size:10px; font-weight:600; }
-.release-timeline__range { display:flex; flex-wrap:wrap; align-items:center; gap:8px; color:var(--muted); font-size:10px; }
-.release-timeline__range label { display:flex; align-items:center; gap:4px; }
-.release-timeline__range input { min-width:120px; border:1px solid var(--line); border-radius:5px; background:var(--surface); color:var(--ink); padding:3px 5px; }
-.release-timeline__range button { border:0; background:transparent; color:var(--accent,#2e8fcb); text-decoration:underline; cursor:pointer; }
+.release-timeline { display:grid; gap:8px; min-width:0; }
+.release-timeline__range { min-width:0; }
+.release-timeline__empty { display:grid; place-items:center; color:var(--muted); font-size:11px; text-align:center; }
 </style>

@@ -21,7 +21,6 @@ from backend.app.core.config import PROJECT_ROOT, get_settings
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import begin_immediate
 from backend.app.persistence.models import (
-    ApplicationSetting,
     Dataset,
     DatasetRepository,
     MaintenanceRun,
@@ -33,7 +32,6 @@ from backend.app.services.repositories import LIBRARY_ID, STANDARD_TEST_ID, STAN
 
 COURSE_RESEARCH_ID = "course-research-300-v1"
 COURSE_RESEARCH_NAME = "300 仓库课程研究样本（历史快照）"
-COURSE_LIBRARY_INITIALIZED_KEY = "course_research_300_library_initialized_v1"
 BUNDLE_ROOT = (PROJECT_ROOT / "data/datasets/course-research-300-v1").resolve()
 ARCHIVE_RELATIVE = Path("course-research-300-v1/weeks.json.gz")
 EXPECTED_SOURCE_SHA256 = "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d"
@@ -475,53 +473,15 @@ def _ensure_standard_test_dataset(session: Session, bundle: dict) -> int:
     return added
 
 
-def _sync_course_library_memberships(
-    session: Session,
-    bundle: dict,
-    *,
-    include_missing_course_memberships: bool,
-) -> tuple[int, int]:
-    course_ids = set(bundle["role_by_id"])
+def _remove_course_library_memberships(session: Session) -> tuple[int, int]:
+    """Keep the 300-repository ML cohort out of the user-facing repository library."""
     imported_members = session.scalars(select(DatasetRepository).where(
         DatasetRepository.dataset_id == LIBRARY_ID,
-        DatasetRepository.selection_source.in_((COURSE_RESEARCH_ID, "featured bundle import")),
+        DatasetRepository.selection_source == COURSE_RESEARCH_ID,
     )).all()
-    removed = 0
     for member in imported_members:
-        is_old_course_training_member = (
-            member.selection_source == COURSE_RESEARCH_ID and member.repository_id not in course_ids
-        )
-        is_old_featured_member = (
-            member.selection_source == "featured bundle import" and member.repository_id not in course_ids
-        )
-        if is_old_course_training_member or is_old_featured_member:
-            session.delete(member)
-            removed += 1
-
-    existing_ids = set(session.scalars(select(DatasetRepository.repository_id).where(
-        DatasetRepository.dataset_id == LIBRARY_ID
-    )).all())
-    added = 0
-    if include_missing_course_memberships:
-        for repository_id in sorted(course_ids - existing_ids):
-            session.add(DatasetRepository(
-                dataset_id=LIBRARY_ID,
-                repository_id=repository_id,
-                added_at=utc_now(),
-                selection_source=COURSE_RESEARCH_ID,
-            ))
-            added += 1
-    return added, removed
-
-
-def _initialize_course_library(session: Session, bundle: dict, *, include_missing: bool) -> tuple[int, int]:
-    if session.get(ApplicationSetting, COURSE_LIBRARY_INITIALIZED_KEY) is not None:
-        return 0, 0
-    result = _sync_course_library_memberships(
-        session, bundle, include_missing_course_memberships=include_missing,
-    )
-    session.add(ApplicationSetting(setting_key=COURSE_LIBRARY_INITIALIZED_KEY, setting_value="1"))
-    return result
+        session.delete(member)
+    return 0, len(imported_members)
 
 
 def _copy_archive(source: Path, archive_root: Path) -> str:
@@ -560,13 +520,7 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
                 current = {}
         if existing_count == 300 and current.get("bundle_hash") == bundle["bundle_hash"]:
             standard_added = _ensure_standard_test_dataset(session, bundle)
-            default_membership_count = session.scalar(select(func.count()).select_from(DatasetRepository).where(
-                DatasetRepository.dataset_id == LIBRARY_ID,
-                DatasetRepository.selection_source.in_((COURSE_RESEARCH_ID, "featured bundle import")),
-            )) or 0
-            library_added, library_removed = _initialize_course_library(
-                session, bundle, include_missing=default_membership_count > 0,
-            )
+            library_added, library_removed = _remove_course_library_memberships(session)
             session.commit()
             return {"dataset_id": COURSE_RESEARCH_ID, "bundle_hash": bundle["bundle_hash"],
                     "repositories": 300, "standard_test_repositories_added": standard_added,
@@ -690,9 +644,7 @@ def import_course_research_bundle(session: Session, source: Path = BUNDLE_ROOT, 
             counts["maintenance_runs_added"] += 1
         counts["repositories"] += 1
     counts["standard_test_repositories_added"] = _ensure_standard_test_dataset(session, bundle)
-    counts["library_memberships_added"], counts["library_memberships_removed"] = _initialize_course_library(
-        session, bundle, include_missing=True,
-    )
+    counts["library_memberships_added"], counts["library_memberships_removed"] = _remove_course_library_memberships(session)
     session.commit()
     return {"dataset_id": COURSE_RESEARCH_ID, "bundle_hash": bundle["bundle_hash"],
             "already_imported": False, "archive_path": archive_path, **counts}

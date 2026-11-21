@@ -1,6 +1,6 @@
 import type {
-  ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
-  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
+  ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, GitHubTokenSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
+  IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
@@ -375,6 +375,7 @@ function mapRepository(value: Record<string, any>, extras: Record<string, any> =
     sizeKb: numberOrNull(value.size_kb),
     openIssuesAndPrCount: numberOrNull(value.open_issues_and_pr_count),
     status: mapStatus(raw.analysis_status),
+    dataStatus: raw.data_status === 'fresh' || raw.data_status === 'stale' || raw.data_status === 'missing' ? raw.data_status : undefined,
     lastAnalyzedAt: shortDate(raw.last_successful_collection_at),
     activityDelta: null,
     htmlUrl: textOrNull(value.html_url) ?? `https://github.com/${fullName}`,
@@ -565,17 +566,22 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return downloadResponse('/datasets/featured/export', '精选数据包下载失败')
   }
 
-  async getCollectionSettings(): Promise<CollectionSettings> {
-    const settings = await data<{ github_max_pages: number }>('/settings')
-    return { githubMaxPages: settings.github_max_pages }
+  async getGitHubTokenSettings(): Promise<GitHubTokenSettings> {
+    const settings = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token')
+    return { configured: Boolean(settings.configured), managedByEnvironment: Boolean(settings.managed_by_environment) }
   }
 
-  async saveCollectionSettings(settings: CollectionSettings): Promise<CollectionSettings> {
-    const saved = await data<{ github_max_pages: number }>('/settings', {
+  async saveGitHubToken(token: string): Promise<GitHubTokenSettings> {
+    const saved = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token', {
       method: 'POST',
-      body: JSON.stringify({ github_max_pages: settings.githubMaxPages }),
+      body: JSON.stringify({ token }),
     })
-    return { githubMaxPages: saved.github_max_pages }
+    return { configured: Boolean(saved.configured), managedByEnvironment: Boolean(saved.managed_by_environment) }
+  }
+
+  async deleteGitHubToken(): Promise<GitHubTokenSettings> {
+    const saved = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token', { method: 'DELETE' })
+    return { configured: Boolean(saved.configured), managedByEnvironment: Boolean(saved.managed_by_environment) }
   }
 
   async listRepositories(): Promise<RepositorySummary[]> {
@@ -657,7 +663,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       const refreshed = await data<Record<string, any>>(`/repositories/${id}/refresh`, {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ depth: 'deep', force: false }),
+        body: JSON.stringify({ depth: 'deep', force: false, scope_kind: 'window', window_days: 180 }),
       })
       return { repositoryId: String(id), taskId: textOrNull(refreshed.task_id), existing: true }
     }
@@ -899,6 +905,28 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getIssueChartData(id: string, windowDays?: TimeWindow): Promise<IssueChartData> {
+    const params = new URLSearchParams()
+    if (windowDays) params.set('window_days', String(windowDays))
+    const query = params.size ? `?${params}` : ''
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/issues/chart-data${query}`)
+    const rawCoverage = object(result.coverage)
+    const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
+    return {
+      items: array(result.items).flatMap((item) => {
+        const closedAt = textOrNull(item.closed_at)
+        return closedAt ? [{ closedAt, durationDays: numberOrNull(item.duration_days) }] : []
+      }),
+      total: numberOrNull(result.total) ?? 0,
+      complete: result.complete === true,
+      available: result.available === true,
+      coverage: { state, label: String(rawCoverage.label ?? '覆盖未知'), detail: textOrNull(rawCoverage.detail) ?? undefined },
+      note: String(result.note ?? ''),
+      windowStart: textOrNull(result.window_start),
+      windowEnd: textOrNull(result.window_end),
+    }
+  }
+
   async getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage> {
     const params = new URLSearchParams({ page: String(page), per_page: String(perPage) })
     if (search.trim()) params.set('search', search.trim())
@@ -1011,6 +1039,42 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       page: numberOrNull(result.page) ?? page,
       perPage: numberOrNull(result.per_page) ?? perPage,
       total: numberOrNull(result.total) ?? 0,
+      available: result.available === true,
+      coverage: { state, label: String(rawCoverage.label ?? '覆盖未知'), detail: textOrNull(rawCoverage.detail) ?? undefined },
+      note: String(result.note ?? ''),
+      windowStart: textOrNull(result.window_start),
+      windowEnd: textOrNull(result.window_end),
+    }
+  }
+
+  async getPullRequestChartData(id: string, windowDays?: TimeWindow): Promise<PullRequestChartData> {
+    const params = new URLSearchParams()
+    if (windowDays) params.set('window_days', String(windowDays))
+    const query = params.size ? `?${params}` : ''
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/pull-requests/chart-data${query}`)
+    const rawCoverage = object(result.coverage)
+    const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
+    return {
+      items: array(result.items).map((item) => ({
+        mergedAt: textOrNull(item.merged_at),
+        durationDays: numberOrNull(item.duration_days),
+        state: item.state === 'merged' ? 'merged' : 'closed',
+        commentsCount: numberOrNull(item.comments_count),
+      })),
+      pageItems: array(result.page_items).map((item) => ({
+        number: numberOrNull(item.number) ?? 0,
+        title: String(item.title ?? ''),
+        createdAt: textOrNull(item.created_at),
+        closedAt: textOrNull(item.closed_at),
+        mergedAt: textOrNull(item.merged_at),
+        durationDays: numberOrNull(item.duration_days),
+        state: item.state === 'merged' ? 'merged' : 'closed',
+        draft: item.draft === true,
+        commentsCount: numberOrNull(item.comments_count),
+        url: textOrNull(item.url) ?? undefined,
+      })),
+      total: numberOrNull(result.total) ?? 0,
+      complete: result.complete === true,
       available: result.available === true,
       coverage: { state, label: String(rawCoverage.label ?? '覆盖未知'), detail: textOrNull(rawCoverage.detail) ?? undefined },
       note: String(result.note ?? ''),
@@ -1254,6 +1318,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         phase: textOrNull(task.phase),
         progressPercent: numberOrNull(task.progress_percent),
         progressKind: task.progress_kind === 'stages' || task.progress_kind === 'records' || task.progress_kind === 'indeterminate' ? task.progress_kind : 'unknown',
+        ...(!datasetImport ? { progressMotion: task.progress_motion === 'forward' ? 'forward' as const : 'bounce' as const } : {}),
         scopeKind: task.scope_kind === 'backfill' || task.scope_kind === 'incremental' || task.scope_kind === 'window' || task.scope_kind === 'maintenance' ? task.scope_kind : task.scope_kind === null ? null : 'quick',
         windowDays: numberOrNull(task.window_days),
         windowStart: textOrNull(task.window_start),

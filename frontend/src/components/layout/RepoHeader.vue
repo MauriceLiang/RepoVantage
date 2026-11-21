@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { CalendarDays, Database, Download, ExternalLink, Info, RefreshCw, Scale, Code2, Trash2 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { CalendarDays, Database, Download, ExternalLink, Info, LoaderCircle, RefreshCw, Scale, Code2, Trash2 } from 'lucide-vue-next'
+import { ref } from 'vue'
 import type { Coverage, RepositorySummary, TimeWindow } from '@/services/types'
 import GdBadge from '@/components/ui/GdBadge.vue'
-import GdButton from '@/components/ui/GdButton.vue'
 import GdIconButton from '@/components/ui/GdIconButton.vue'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
 import { useDataSource } from '@/composables/useDataSource'
@@ -24,14 +23,13 @@ const statusMeta = {
   failed: { text: '采集失败', variant: 'warn' as const },
 }
 const windowOptions = [
-  { value: 30, label: '30 天', hint: '查看最近 30 天；范围缺失时可按所选范围采集' },
-  { value: 90, label: '90 天', hint: '查看最近 90 天；范围缺失时可按所选范围采集' },
-  { value: 180, label: '180 天', hint: '查看最近 180 天；可能需要更长时间采集' },
+  { value: 30, label: '30 天', hint: '查看最近 30 天；更新数据时会完整采集最近 180 天' },
+  { value: 90, label: '90 天', hint: '查看最近 90 天；更新数据时会完整采集最近 180 天' },
+  { value: 180, label: '180 天', hint: '查看最近 180 天；更新数据时会完整采集最近 180 天' },
 ]
 const emit = defineEmits<{ refresh: []; clear: [] }>()
 const setWindow = (value: string | number) => analysis.setWindow(value as TimeWindow)
-const refreshDescription = '按页数预算采集所选时长；达到上限时会标记为部分覆盖。'
-const refreshLabel = computed(() => `开始采集 · ${analysis.timeWindow} 天`)
+const refreshDescription = '完整更新最近 180 天活动数据；若 .env 设置了页数上限，达到上限时会标记为部分覆盖。'
 
 async function exportCsv() {
   exporting.value = true
@@ -69,15 +67,18 @@ async function exportCsv() {
 
     <div class="flex flex-wrap items-center gap-2">
       <GdSegmented :model-value="analysis.timeWindow" :options="windowOptions" aria-label="分析时间范围" data-testid="analysis-window" @update:model-value="setWindow" />
-      <GdButton class="repo-toolbar-action repo-toolbar-action--primary" data-testid="collect-repository" :disabled="refreshing || clearing" :title="refreshDescription" @click="emit('refresh')"><RefreshCw :size="14" /> {{ refreshing ? '排队中…' : refreshLabel }}</GdButton>
-      <GdIconButton label="导出聚合 CSV" :disabled="exporting" @click="exportCsv"><Download :size="16" /></GdIconButton>
-      <GdButton variant="danger" size="sm" :loading="clearing" :disabled="refreshing" @click="emit('clear')"><Trash2 :size="13" />清除仓库数据</GdButton>
+      <GdIconButton label="更新最近 180 天数据" data-testid="collect-repository" :disabled="refreshing || clearing" :title="refreshDescription" @click="emit('refresh')"><RefreshCw :size="16" :class="{ 'animate-spin': refreshing }" /></GdIconButton>
+      <GdIconButton label="下载分析数据" :disabled="exporting" @click="exportCsv"><Download :size="16" :class="{ 'animate-spin': exporting }" /></GdIconButton>
+      <button class="repo-delete-action" type="button" aria-label="删除仓库本地数据" title="删除仓库本地数据" :disabled="clearing || refreshing" @click="emit('clear')">
+        <LoaderCircle v-if="clearing" :size="16" class="animate-spin" aria-hidden="true" />
+        <Trash2 v-else :size="16" aria-hidden="true" />
+      </button>
     </div>
   </div>
 </template>
 
 <style scoped>
-.repo-toolbar-action { height:32px !important; }
-.repo-toolbar-action--primary,
-.repo-toolbar-action--primary:hover { box-shadow:none !important; }
+.repo-delete-action { display:grid; width:30px; height:30px; flex-shrink:0; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--red); transition:background-color .15s,color .15s; }
+.repo-delete-action:hover:not(:disabled) { background:color-mix(in srgb,var(--red) 10%,transparent); }
+.repo-delete-action:disabled { cursor:not-allowed; opacity:.5; }
 </style>

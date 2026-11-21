@@ -1,6 +1,6 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
-  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositorySummary,
+  IssueChartData, IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositorySummary,
   ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
@@ -338,7 +338,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
   private retryTasks: TaskItem[] = []
   private deletedTaskIds = new Set<string>()
 
-  private githubMaxPages = 10
+  private githubTokenConfigured = false
   private featuredImport: { taskId: string; startedAt: number; retryOf: string | null } | null = null
 
   private startFeaturedImport(retryOf: string | null) {
@@ -410,13 +410,18 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getCollectionSettings() {
-    return { githubMaxPages: this.githubMaxPages }
+  async getGitHubTokenSettings() {
+    return { configured: this.githubTokenConfigured, managedByEnvironment: false }
   }
 
-  async saveCollectionSettings(settings: { githubMaxPages: number }) {
-    this.githubMaxPages = settings.githubMaxPages
-    return { githubMaxPages: this.githubMaxPages }
+  async saveGitHubToken(token: string) {
+    this.githubTokenConfigured = Boolean(token.trim())
+    return this.getGitHubTokenSettings()
+  }
+
+  async deleteGitHubToken() {
+    this.githubTokenConfigured = false
+    return this.getGitHubTokenSettings()
   }
 
   async searchRepositories(query: string) {
@@ -452,6 +457,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       module: 'commits',
       status: 'queued',
       stage: '等待 Worker 开始执行',
+      progressMotion: 'bounce',
       scopeKind: options.scopeKind,
       windowDays: options.windowDays,
       windowStart: range.start,
@@ -698,6 +704,24 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getIssueChartData(id: string, windowDays: TimeWindow = 90): Promise<IssueChartData> {
+    const seed = repoSeed(id) ?? REPOSITORIES[0]
+    const records = await this.getClosedIssues(id)
+    const available = seed.issueCoverage.state !== 'missing'
+    const window = windowRange(seed, windowDays)
+    const items = records.slice(0, 1000).map((record) => ({ closedAt: record.closedAt, durationDays: record.durationDays }))
+    return {
+      items,
+      total: records.length,
+      complete: items.length >= records.length,
+      available,
+      coverage: seed.issueCoverage,
+      note: available ? '演示数据仅用于界面预览；真实仓库记录来自本次采集窗口。' : '当前示例没有可展示的 Issue 逐条数据。',
+      windowStart: window.start,
+      windowEnd: window.end,
+    }
+  }
+
   async getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail> {
     const issue = (await this.getClosedIssues(id)).find((record) => record.number === issueNumber)
     if (!issue) throw new Error('未找到该示例 Issue')
@@ -753,6 +777,31 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       note: available
         ? '演示数据仅用于界面预览；列表模拟本次采集窗口中的已合并与关闭未合并 PR。'
         : '当前示例没有可展示的 Pull Request 逐条数据。',
+      windowStart: window.start,
+      windowEnd: window.end,
+    }
+  }
+
+  async getPullRequestChartData(id: string, windowDays: TimeWindow = 90): Promise<PullRequestChartData> {
+    const seed = repoSeed(id) ?? REPOSITORIES[0]
+    const available = seed.coverage.state !== 'missing'
+    const records = available ? demoPullRequestRecords(seed) : []
+    const window = windowRange(seed, windowDays)
+    const items = records.slice(0, 1000).map((record) => ({
+      mergedAt: record.mergedAt,
+      durationDays: record.durationDays,
+      state: record.state,
+      commentsCount: record.commentsCount,
+    }))
+    const pageItems = records.slice(0, 10).map(({ body: _body, ...record }) => record)
+    return {
+      items,
+      pageItems,
+      total: records.length,
+      complete: items.length >= records.length,
+      available,
+      coverage: seed.coverage,
+      note: available ? '演示数据仅用于界面预览；图表使用本次采集窗口中的已关闭 PR。' : '当前示例没有可展示的 Pull Request 逐条数据。',
       windowStart: window.start,
       windowEnd: window.end,
     }

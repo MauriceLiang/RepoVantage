@@ -23,9 +23,8 @@ COURSE_RESEARCH_ID = "course-research-300-v1"
 
 def ensure_default_datasets(session: Session) -> None:
     defaults = (
-        (LIBRARY_ID, "我的分析库", "library", None, None, "共享课程工作区的仓库集合"),
-        (RESEARCH_ID, "开源软件研究样本 v1", "research", "selection-v1", None, "等待通过真实采样清单导入冻结成员；空样本不是研究结果"),
-        (COURSE_RESEARCH_ID, "默认仓库数据集（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "使用已采集的仓库资料、周统计与本地事件快照；不因查看分析而重新拉取"),
+        (LIBRARY_ID, "我的仓库", "library", None, None, "包含精选仓库和用户主动添加的仓库；机器学习研究样本单独保存"),
+        (COURSE_RESEARCH_ID, "机器学习研究样本（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "仅供机器学习数据页与详细研究视图使用；不加入仓库列表"),
         (STANDARD_TEST_ID, STANDARD_TEST_NAME, "research", STANDARD_TEST_ID, None, "从 300 仓库机器学习数据中固定选出的 150 个留出测试仓库；不用于模型训练"),
         (FEATURED_ID, "首页精选", "featured", None, None, "人工维护的公开仓库集合"),
     )
@@ -78,6 +77,7 @@ def make_task(
     scope_kind: str = "quick",
     window_days: int = 90,
     scope_json: str | None = None,
+    progress_motion: str = "bounce",
     retry_of: str | None = None,
     idempotency_key: str | None = None,
 ) -> CollectionTask:
@@ -105,11 +105,20 @@ def make_task(
             return existing
     now = utc_now()
     if depth == "deep" and scope_json is None:
-        scope_json = json.dumps({
+        scope = {
             "window_start": iso_z(now - timedelta(days=window_days)),
             "window_end": iso_z(now),
             "window_days": window_days,
-        })
+        }
+    else:
+        try:
+            scope = json.loads(scope_json or "{}")
+        except (TypeError, ValueError):
+            scope = {}
+        if not isinstance(scope, dict):
+            scope = {}
+    scope["progress_motion"] = progress_motion if progress_motion in {"forward", "bounce"} else "bounce"
+    scope_json = json.dumps(scope, ensure_ascii=False)
     task = CollectionTask(
         task_id=str(uuid4()), repository_id=repository_id, depth=depth, scope_kind=scope_kind,
         scope_json=scope_json, status="queued", retry_of=retry_of, idempotency_key=idempotency_key,
@@ -316,7 +325,15 @@ def enqueue_add(session: Session, github_payload: dict[str, Any], auto_analyze: 
         membership.added_at = utc_now()
     task = None
     if auto_analyze and (created or latest_analysis(session, repo.repository_id) is None):
-        task = make_task(session, repo.repository_id, depth, idempotency_key=idempotency_key)
+        task = make_task(
+            session,
+            repo.repository_id,
+            depth,
+            scope_kind="window",
+            window_days=180,
+            progress_motion="forward",
+            idempotency_key=idempotency_key,
+        )
     elif auto_analyze:
         task = session.scalar(select(CollectionTask).where(CollectionTask.repository_id == repo.repository_id, CollectionTask.status.in_(["queued", "running"])).order_by(desc(CollectionTask.created_at)).limit(1))
     result = {

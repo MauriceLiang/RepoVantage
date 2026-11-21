@@ -25,7 +25,7 @@ const distribution = computed(() => {
 })
 
 const stats = computed(() => distribution.value ? summarizeAuthorDistribution(distribution.value) : null)
-const chartHeight = computed(() => Math.max(170, Math.min(280, chartRegionSize.value.height - 48, chartRegionSize.value.width * 0.62)))
+const chartHeight = computed(() => Math.max(170, Math.min(360, chartRegionSize.value.height - 32, chartRegionSize.value.width * 0.82)))
 
 onMounted(() => {
   if (!chartRegion.value) return
@@ -87,7 +87,7 @@ const spec = computed<G2Spec>(() => {
         </div>
       </div>
       <div class="flex items-center justify-between py-2 text-[10.5px] text-muted"><span>提交数排行</span><span>次</span></div>
-      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1" role="region" aria-label="提交数排行，可滚动查看全部作者" tabindex="0">
         <button v-for="(author, index) in authors" :key="`${author.author}-${index}`" type="button" class="flex w-full items-center gap-2 rounded px-1 py-1 text-left text-[11px] hover:bg-soft focus-visible:bg-soft" :title="`搜索 ${author.author} 的 Commit`" @click="emit('select-author', author.author)">
           <span class="w-4 shrink-0 font-mono text-[10px] text-muted">{{ index + 1 }}</span>
           <span class="min-w-0 flex-1 truncate">{{ author.author }}<span v-if="author.isBot" class="ml-1 text-[9px] text-muted">Bot</span></span>

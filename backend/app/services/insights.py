@@ -684,6 +684,26 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
     }
 
 
+def repository_closed_issue_chart_data(session, repository_id, *, window_days=None):
+    """为 Issue 图表一次返回精简样本，避免前端分页反复扫描同一归档。"""
+    result = repository_closed_issues(session, repository_id, window_days=window_days)
+    records = result["items"]
+    items = [
+        {"closed_at": row["closed_at"], "duration_days": row["duration_days"]}
+        for row in records[:1000]
+    ]
+    return {
+        "available": result["available"],
+        "coverage": result["coverage"],
+        "note": result["note"],
+        "window_start": result["window_start"],
+        "window_end": result["window_end"],
+        "items": items,
+        "total": len(records),
+        "complete": len(items) >= len(records),
+    }
+
+
 def repository_pull_requests(session, repository_id, search=None, *, include_body=False, merged_from=None, merged_to=None, window_days=None):
     """返回最新分析归档中保存的已关闭 Pull Request。"""
     # 图表点选传入 UTC 左闭右开区间；兼容未带时区的查询值并统一成 UTC。
@@ -820,6 +840,32 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
         "window_start": iso_z(scope_start),
         "window_end": iso_z(scope_end),
         "items": rows,
+    }
+
+
+def repository_pull_request_chart_data(session, repository_id, *, window_days=None):
+    """为 PR 图表一次读取精简样本，避免分页请求重复扫描相同归档。"""
+    result = repository_pull_requests(session, repository_id, window_days=window_days)
+    records = result["items"]
+    items = [
+        {
+            "merged_at": row["merged_at"],
+            "duration_days": row["duration_days"],
+            "state": row["state"],
+            "comments_count": row["comments_count"],
+        }
+        for row in records[:1000]
+    ]
+    return {
+        "available": result["available"],
+        "coverage": result["coverage"],
+        "note": result["note"],
+        "window_start": result["window_start"],
+        "window_end": result["window_end"],
+        "items": items,
+        "page_items": records[:10],
+        "total": len(records),
+        "complete": len(items) >= len(records),
     }
 
 

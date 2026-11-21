@@ -2,9 +2,11 @@
 import { computed, ref, watch } from 'vue'
 import type { G2Spec } from '@antv/g2'
 import type { RepositoryChartData, TimePoint } from '@/services/types'
+import DateRangeSlider from './DateRangeSlider.vue'
 import G2Chart from './G2Chart.vue'
 
 const props = withDefaults(defineProps<{ points: TimePoint[]; data: RepositoryChartData; durationP90?: number | null; height?: number }>(), { durationP90: null, height: 270 })
+const DAY = 86_400_000
 const allDates = computed(() => [
   ...props.points.map((point) => point.date),
   ...props.data.prSamples.map((sample) => sample.mergedAt.slice(0, 10)),
@@ -16,12 +18,12 @@ const endDate = ref('')
 watch([minDate, maxDate], ([min, max]) => {
   if (!min || !max) { startDate.value = ''; endDate.value = ''; return }
   const latest = Date.parse(max + 'T00:00:00Z')
-  startDate.value = new Date(Math.max(Date.parse(min + 'T00:00:00Z'), latest - 90 * 86400000)).toISOString().slice(0, 10)
+  startDate.value = new Date(Math.max(Date.parse(min + 'T00:00:00Z'), latest - 90 * DAY)).toISOString().slice(0, 10)
   endDate.value = max
 }, { immediate: true })
 const range = computed(() => {
   if (!startDate.value || !endDate.value || startDate.value > endDate.value) return null
-  return { start: Date.parse(startDate.value + 'T00:00:00Z'), end: Date.parse(endDate.value + 'T00:00:00Z') + 86400000 }
+  return { start: Date.parse(startDate.value + 'T00:00:00Z'), end: Date.parse(endDate.value + 'T00:00:00Z') + DAY }
 })
 const visiblePoints = computed(() => props.points.flatMap((point, dataIndex) => {
   const time = Date.parse(point.date + 'T00:00:00Z')
@@ -65,20 +67,12 @@ const medianSpec = computed<G2Spec>(() => ({
   axis: { x: { labelFontSize: 8, labelAutoRotate: true }, y: { title: '每周中位（天）', gridLineDash: [3, 3] } },
   tooltip: { title: 'date', items: [{ field: 'days', name: '中位耗时（天）' }, { field: 'validSamples', name: '有效样本' }] },
 }))
-function resetRange() {
-  if (!minDate.value || !maxDate.value) return
-  const latest = Date.parse(maxDate.value + 'T00:00:00Z')
-  startDate.value = new Date(Math.max(Date.parse(minDate.value + 'T00:00:00Z'), latest - 90 * 86400000)).toISOString().slice(0, 10)
-  endDate.value = maxDate.value
-}
 </script>
 
 <template>
   <div class="pr-merge-chart">
     <div class="pr-merge-chart__range">
-      <label>起始日期 <input v-model="startDate" type="date" :min="minDate" :max="endDate || maxDate" aria-label="PR 趋势起始日期" /></label>
-      <label>结束日期 <input v-model="endDate" type="date" :min="startDate || minDate" :max="maxDate" aria-label="PR 趋势结束日期" /></label>
-      <button type="button" @click="resetRange">重置近 90 天</button>
+      <DateRangeSlider v-model:start-date="startDate" v-model:end-date="endDate" :min-date="minDate" :max-date="maxDate" range-label="PR 合并趋势日期范围" />
     </div>
     <div class="pr-merge-chart__panels">
       <section><h4>每周合并数量</h4><G2Chart :spec="countSpec" label="PR 每周合并数量，单位条" :height="Math.max(210, height)" /></section>
@@ -90,10 +84,7 @@ function resetRange() {
 </template>
 
 <style scoped>
-.pr-merge-chart__range { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:4px 0 8px; color:var(--muted); font-size:10px; }
-.pr-merge-chart__range label { display:flex; align-items:center; gap:4px; }
-.pr-merge-chart__range input { min-width:120px; border:1px solid var(--line); border-radius:5px; background:var(--surface); color:var(--ink); padding:3px 5px; }
-.pr-merge-chart__range button { border:0; background:transparent; color:var(--accent,#2e8fcb); text-decoration:underline; cursor:pointer; }
+.pr-merge-chart__range { min-width:0; margin:4px 0 8px; }
 .pr-merge-chart__panels { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
 .pr-merge-chart__panels section { min-width:0; }
 .pr-merge-chart__panels h4 { margin:0; color:var(--muted); font-size:10px; font-weight:600; }

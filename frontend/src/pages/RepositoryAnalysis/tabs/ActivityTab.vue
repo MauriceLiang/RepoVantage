@@ -4,7 +4,7 @@ import AuthorConcentrationChart from '@/components/charts/AuthorConcentrationCha
 import CalendarHeatmap from '@/components/charts/CalendarHeatmap.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
 import CommitAuthorStackChart from '@/components/charts/CommitAuthorStackChart.vue'
-import DonutChart from '@/components/charts/DonutChart.vue'
+import ContributionBreakdown from '@/components/charts/ContributionBreakdown.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -44,7 +44,7 @@ const dailyPoints = computed(() => dailyCoveragePoints(
 const activeDays = computed(() => activity.value?.dailyCounts.length ?? 0)
 const identifiedAuthors = computed(() => (activity.value?.authors ?? []).filter((author) => author.author !== '匿名作者' && author.author !== '未关联账号'))
 const identifiedCommitCount = computed(() => (activity.value?.authorDistribution ?? []).reduce((sum, bucket) => sum + bucket.commits * bucket.authors, 0))
-const contributorDonutRows = computed(() => {
+const contributorRows = computed(() => {
   const ranked = [...identifiedAuthors.value].sort((left, right) => right.commits - left.commits)
   const top = ranked.slice(0, 5).map((author) => ({ label: author.author, value: author.commits }))
   const topTotal = top.reduce((sum, row) => sum + row.value, 0)
@@ -52,21 +52,22 @@ const contributorDonutRows = computed(() => {
   const unidentified = activity.value?.unidentifiedCommitCount
   if (other > 0) top.push({ label: '其他已识别作者', value: other })
   if (unidentified !== null && unidentified !== undefined && unidentified > 0) top.push({ label: '身份未识别', value: unidentified })
-  return top
+  const colors = ['#356fc7', '#56a58c', '#d1a34a', '#9c78bd', '#ce7189', '#74828e', '#aeb6bd']
+  return top.map((row, index) => ({ ...row, color: colors[index % colors.length] }))
 })
-const botDonutRows = computed(() => {
+const botRows = computed(() => {
   const bot = identifiedAuthors.value.filter((author) => author.isBot === true).reduce((sum, author) => sum + author.commits, 0)
   const human = identifiedAuthors.value.filter((author) => author.isBot === false).reduce((sum, author) => sum + author.commits, 0)
   const total = activity.value?.commitCount ?? 0
   const unclassified = Math.max(0, total - bot - human)
   return [
-    ...(bot ? [{ label: 'Bot', value: bot }] : []),
-    ...(human ? [{ label: '人工账号', value: human }] : []),
-    ...(unclassified ? [{ label: '长尾或类型未知', value: unclassified }] : []),
+    { label: 'Bot', value: bot, color: '#9c78bd' },
+    { label: '人工账号', value: human, color: '#356fc7' },
+    { label: '长尾/未知类型', value: unclassified, color: '#74828e' },
   ]
 })
-const contributorTotal = computed(() => contributorDonutRows.value.reduce((sum, row) => sum + row.value, 0))
-const botTotal = computed(() => botDonutRows.value.reduce((sum, row) => sum + row.value, 0))
+const contributorTotal = computed(() => contributorRows.value.reduce((sum, row) => sum + row.value, 0))
+const botTotal = computed(() => activity.value?.commitCount ?? 0)
 
 async function loadActivity() {
   const version = ++requestVersion
@@ -137,7 +138,7 @@ function filterAuthor(author: string) {
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-2">
-    <GdCard class="h-[430px] min-h-0 overflow-hidden" data-testid="commit-heatmap-card">
+    <GdCard class="min-h-[460px]" data-testid="commit-heatmap-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">每日提交热力图</h3>
@@ -157,7 +158,7 @@ function filterAuthor(author: string) {
       <p v-if="activity?.note" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity.note }}</p>
     </GdCard>
 
-    <GdCard class="h-[430px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
+    <GdCard class="h-[500px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">作者贡献集中度</h3>
@@ -176,14 +177,14 @@ function filterAuthor(author: string) {
   <div class="grid gap-4 lg:grid-cols-2">
     <GdCard class="min-w-0" data-testid="contributor-composition-card">
       <div class="flex items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">贡献者构成</h3><p class="mt-0.5 text-[12px] text-muted">前五位作者、其他已识别作者与身份未识别提交</p></div><GdCoverageNote v-if="activity" :coverage="activity.coverage" compact /></div>
-      <DonutChart v-if="contributorDonutRows.length" :rows="contributorDonutRows" :total="contributorTotal.toLocaleString('zh-CN')" center-label="提交" label="贡献者提交构成环形图" :height="250" />
-      <div v-else class="flex h-[250px] items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者记录…' : '暂无贡献者样本' }}</div>
+      <ContributionBreakdown v-if="contributorRows.length" :rows="contributorRows" :total="contributorTotal" mode="ranked" label="贡献者提交数量与占比" />
+      <div v-else class="flex h-[180px] items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者记录…' : '暂无贡献者样本' }}</div>
       <p class="m-0 text-[10.5px] leading-relaxed text-muted">实际样本 {{ contributorTotal.toLocaleString('zh-CN') }} 条。{{ activity?.unidentifiedCommitCount === null ? '身份未识别数量未知，当前仅统计已识别作者分布。' : '作者长尾已合并，未识别身份单独列出。' }}</p>
     </GdCard>
     <GdCard class="min-w-0" data-testid="bot-contribution-card">
-      <div class="flex items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">Bot 与人工提交</h3><p class="mt-0.5 text-[12px] text-muted">依作者标记统计；排行外作者与未知类型合并显示</p></div><GdCoverageNote v-if="activity" :coverage="activity.coverage" compact /></div>
-      <DonutChart v-if="botDonutRows.length" :rows="botDonutRows" :total="botTotal.toLocaleString('zh-CN')" center-label="归档提交" label="Bot、人工账号与长尾或未知类型提交构成环形图" :height="250" />
-      <div v-else class="flex h-[250px] items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者类型…' : '暂无作者类型样本' }}</div>
+      <div class="flex items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">Bot 与人工提交</h3><p class="mt-0.5 text-[12px] text-muted">按作者 Bot 标记汇总数量与占比</p></div><GdCoverageNote v-if="activity" :coverage="activity.coverage" compact /></div>
+      <ContributionBreakdown v-if="activity?.available && botTotal > 0" class="flex-1" :rows="botRows" :total="botTotal" mode="summary" label="Bot、人工账号、长尾或类型未知的提交数量" />
+      <div v-else class="flex min-h-[180px] flex-1 items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者类型…' : '暂无作者类型样本' }}</div>
       <p class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity?.unidentifiedCommitCount === null ? '身份无法识别的提交数量未知。' : `${activity?.unidentifiedCommitCount ?? 0} 条身份未识别提交已归入未知。` }}未知 Bot 类型未归为人工账号。</p>
     </GdCard>
   </div>

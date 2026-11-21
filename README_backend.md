@@ -14,7 +14,7 @@ cp .env.example .env
 
 在 `.env` 中设置仅本机使用的 `INTERNAL_API_KEY`。`GITHUB_TOKEN` 可选；未配置时使用 GitHub 匿名额度。密钥只由 API 和 Worker 进程读取。
 
-默认 SQLite 文件固定解析到仓库根目录的 `data/app.db`，不受启动时当前目录影响。兼容旧版的原始压缩 JSON 写入 `data/raw/`；新版逐页采集归档写入 Git 忽略的 `data/collected/`。首次安装或升级旧默认库时，应用将 `course-research-300-v1` 的 300 个仓库加入“我的分析库”，研究页也默认展示这 300 个仓库。用户之后添加或移除的仓库不会在重启时被自动改回。`course-research-test-150-v1` 仅保留机器学习评估分组；旧 `featured-v1` 的 15 个精选仓库不再作为默认集合。可用 `DATABASE_URL` 与 `RAW_DATA_DIR` 覆盖旧版归档路径。
+默认 SQLite 文件固定解析到仓库根目录的 `data/app.db`，不受启动时当前目录影响。兼容旧版的原始压缩 JSON 写入 `data/raw/`；新版逐页采集归档写入 Git 忽略的 `data/collected/`。仓库页只列出 15 个精选仓库和用户主动添加的仓库；机器学习的 300 个研究仓库、150 个留出组及历史事件仅供机器学习页和详细研究视图使用，不混入仓库列表。安装或升级时，程序会一次性将精选集加入仓库列表，并清理旧版本误加的 300 仓库成员。用户之后移除的精选仓库不会在重启时自动恢复。可用 `DATABASE_URL` 与 `RAW_DATA_DIR` 覆盖旧版归档路径。
 
 ## 数据库与启动
 
@@ -43,60 +43,25 @@ python -m backend.app.worker.main
 
 健康检查为 `GET /healthz`。其余 `/api/v1/*` 请求须带 `X-Internal-Api-Key`。`/api/browser/*` 是给同源 Vue 前端使用的本机会话入口；密钥不会下发到浏览器。`/docs` 和 `/openapi.json` 用于本机联调，服务默认只绑定回环地址。
 
-## 课程标准数据与研究样本
+## 数据分类与课程样本
 
-应用启动时会校验并导入 300 个历史仓库与 12 周特征；固定的 150 成员 `test` 分组仍用于模型留出评估。完整数据集保留 `train` / `test` 角色供实验追溯。导入过程不请求 GitHub。
+应用启动时会校验并导入 300 个历史仓库与 12 周特征；固定的 150 成员 `test` 分组仍用于模型留出评估。完整数据集保留 `train` / `test` 角色供机器学习页追溯。导入过程不请求 GitHub，也不会把这 300 个仓库放入仓库页或用户比较列表。
 
-`data/datasets/course-research-events-300-v1/` 保存 300 个仓库已采集的 Commit、Issue、PR 和 Release 事件，用于单仓分析、比较和研究统计。事件快照的统一分析截止时间为 2026-11-05，页面读取本地数据时不会创建采集任务。Issue 可能遗漏采集起点之前创建、之后关闭的记录；`sgl-project/sglang` 的 PR 更新和 `renovatebot/renovate` 的 Release 原始采集标记为部分覆盖，页面会标注已观察样本。快照未保存提交说明、Issue / PR 标题和正文。首次读取时会校验并解压到 `RAW_DATA_DIR`；可以用 `scripts/build_course_test_events.py` 从 `dataprepare/MachineLearn/run/repo-evaluation-2026-v1/collection.sqlite3` 重新生成。
+`data/datasets/course-research-events-300-v1/` 保存 300 个仓库的 Commit、Issue、PR 和 Release 历史事件，供机器学习页的详细数据视图读取。事件快照的统一分析截止时间为 2026-11-05；Issue 可能遗漏采集起点之前创建、之后关闭的记录，少数模块标为部分覆盖。快照未保存提交说明、Issue / PR 标题和正文。首次读取时会校验并解压到 `RAW_DATA_DIR`；可以用 `scripts/build_course_test_events.py` 从 `dataprepare/MachineLearn/run/repo-evaluation-2026-v1/collection.sqlite3` 重新生成。
 
-首次安装还会创建空的 `research-2026-v1` 数据集；API 会如实返回 0 个成员。要冻结额外的正式研究样本，先从 GitHub REST Search 收集公开候选，人工复核项目资格，并按以下结构提供 manifest：
-
-```json
-{
-  "metadata": {
-    "source": "GitHub REST API",
-    "sampled_at": "2026-10-13T00:00:00Z",
-    "queries": {"Python": "stars:100..100000 language:Python"},
-    "candidate_count": 1,
-    "incomplete_results": false,
-    "random_seed": 20261013,
-    "rules_version": "selection-v1",
-    "quotas": {"Python": {"0-999": 1}}
-  },
-  "candidates": [
-    {
-      "repository": {"id": 123, "full_name": "owner/project", "html_url": "https://github.com/owner/project", "language": "Python", "stargazers_count": 500, "forks_count": 30, "fork": false, "archived": false, "private": false},
-      "reviewed_eligible": true,
-      "inclusion_reason": "人工复核为公开软件项目",
-      "selection_source": "language=Python; tier=0-999"
-    }
-  ]
-}
-```
-
-构建选择结果并写入一个尚未冻结的数据集：
-
-```bash
-python -m scripts.build_research_sample candidates.json --dataset-id research-2026-v1
-```
-
-候选清单由 GitHub Search 采集器生成。默认对每个语言/Star 分层按最近更新、Star 降序和 Star 升序各取 20 条并按仓库 ID 去重（最多 900 条候选）；这会产生最多 45 次 Search 请求，运行前应检查当前 GitHub 配额。Search 的排序结果可能重叠，manifest 会记录每层的实际候选数和不足目标，不能把候选目标当作已保证数量。采集器只生成待人工复核的 manifest，不能直接构建研究样本：
-
-```bash
-python -m scripts.collect_research_candidates --per-bucket 20 --output data/manifests/research-candidates.json
-```
-
-审核候选的公开状态、项目类型和存在时间后，填写 `reviewed_eligible` 与 `inclusion_reason`，再运行上面的冻结命令。采集器不会自动替用户消耗配额或冻结样本。
-
-脚本按 manifest 中的语言/Star 分层配额和固定随机种子抽取，并在 `sampling_runs` 中保留每条候选的纳入或排除原因；候选不够时报告未填满配额。已冻结版本不会被覆盖，规则变化时请使用新的 `dataset_id`。GitHub Search 不完整或候选范围有限时，结果只能称为分层配额样本，不能代表 GitHub 全体。
+仓库页初始列表来自 `featured-v1` 的 15 个精选仓库。仓库比较只对用户在仓库页选择的项目计算；应用启动时不创建预设技术选型场景、候选清单或排名快照。
 
 ## API
 
 契约为 `docs/03_API接口契约_v1.0.md`。实现覆盖 API-01 至 API-20（API-01 为 `/healthz`）：搜索/解析、分析库、仓库快照与分析、任务/重试、数据集、总览/研究统计/质量、比较和 CSV 导出。JSON 成功响应采用 `data`/`meta`，错误采用 `error`/`request_id`；删除成员关系返回空的 204，CSV 为 UTF-8 文本。
 
-Worker 对基础仓库档案采集真实快照。深度任务支持 `quick`、`window`、后台 `incremental` 和人工排队的 `backfill`：快速范围遵守用户页数预算；完整窗口和增量同步跟随所有分页；增量同步仅对最近分析运行的四个活动模块都完整的仓库排队，按 7 天重叠区间查询并从本地去重事件表重新计算滚动窗口。Commit/Issue 使用时间查询，PR 按更新时间倒序并在重叠边界停止，Release 端点逐次复核并按数字 ID 去重。每日增量同步在 04:00 UTC 排队，日常基础资料刷新在 03:00 UTC 排队。
+Worker 对基础仓库档案采集真实快照。深度任务支持 `quick`、`window` 和人工排队的 `backfill`，所有范围都读取 `.env` 的 `GITHUB_MAX_PAGES` 配置。Commit/Issue 使用时间查询，PR 按更新时间倒序并在重叠边界停止，Release 端点逐次复核并按数字 ID 去重。系统不再定时排队仓库刷新或增量采集；新加入的仓库会自动排队完整 180 天窗口采集，后续仅在用户点击详情页的更新数据操作时排队同样的 180 天更新。页面仍可切换 30、90、180 天分析窗口。
 
-历史回填只针对五个试点仓库提供 CLI 入口，默认仅预览本地数据库中已存在的仓库；加 `--queue` 才会写入任务队列。每次回填按用户页数预算让出 Worker，保留检查点并继续排队，普通任务优先。CLI 本身不访问 GitHub；实际请求只会在 Worker 执行时发生。预算耗尽、部分覆盖和配额延期不会被标为完整；相关进度和采集范围可在任务详情中查看。星标时间序列只包含真实采集日期，不插值。
+深度采集默认通过分页拉取所选时间窗内的全部 Commit、Issue、PR 和 Release，直到 GitHub 没有下一页，确保后续分析不因固定页数截断。项目根目录 `.env` 中的 `GITHUB_MAX_PAGES=0` 表示不限页；`1`–`10000` 是每个接口的页数上限，达到后该模块可能为部分完成。设置上限可控制请求量，但无法保证非常活跃的仓库完整覆盖。每页最多请求 100 条，因此不限页数比任意有限默认值更适合作为分析默认值。修改页数上限后需重启 API；新建任务采用新值，已排队任务沿用创建时保存的上限。
+
+设置页可保存个人 GitHub fine-grained token。令牌写入本机 `.env`（权限设为仅当前用户可读写），Worker 会在领取下一项任务前重新读取；API 不会回传令牌本身。公开仓库的只读请求通常不需额外权限；私有仓库应仅授权所需仓库和读取权限。GitHub 文档说明未认证 REST API 主额度为 60 次/小时，认证个人请求通常为 5,000 次/小时；账户共享额度和次级限流仍适用。创建令牌步骤见[官方个人访问令牌说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)，限流细节见[REST API 限流说明](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)。
+
+历史回填只针对五个试点仓库提供 CLI 入口，默认仅预览本地数据库中已存在的仓库；加 `--queue` 才会写入任务队列。每次回填按用户页数预算让出 Worker，保留检查点并继续排队，普通任务优先。CLI 本身不访问 GitHub；实际请求只会在 Worker 执行时发生。有限页数预算下，任务进度按当前模块已获取页数推进，并在模块结束时推进阶段；总量未知的完整时间窗任务显示动态进度。预算耗尽、部分覆盖和配额延期不会被标为完整；进度只表示任务执行过程，不代表历史覆盖率。星标时间序列只包含真实采集日期，不插值。
 
 仅在需要重新采集整个数据集时，可为成员排队任务（实际 GitHub 请求由 Worker 执行，会消耗额度）：
 
@@ -116,7 +81,7 @@ python -m scripts.queue_history_pilot
 python -m scripts.queue_history_pilot --queue
 ```
 
-旧 15 仓库精选包工具仅为兼容历史数据保留；它不再是研究页默认样本、回退样本或仓库页导入流程。若需维护旧包，CLI 仍可生成、校验和导出数据；导入会写入当前 `DATABASE_URL` 指向的数据库：
+15 仓库精选包是仓库页初始列表的数据来源。CLI 可生成、校验和导出精选包；导入会写入当前 `DATABASE_URL` 指向的数据库：
 
 ```bash
 python -m scripts.build_featured_bundle --version featured-v1.0.0
@@ -125,7 +90,7 @@ python -m scripts.export_dataset_bundle data/datasets/featured-v1 --output data/
 python -m scripts.import_dataset_bundle data/datasets/featured-v1.zip
 ```
 
-打包器要求 `featured-default` 恰有 15 个已审核成员，且本地具备快照和分析数据；不会生成虚构的演示记录。该数据包已退出产品默认路径：仓库页不再提供导入/下载按钮，研究页不再提供精选模式或回退，任务页不再展示旧精选导入任务。`/api/v1/datasets/featured/*` 与相关 CLI 仍保留为兼容接口；显式调用时仍可能导入旧数据，但不会把它设为标准样本，也不会请求 GitHub。`POST /api/v1/datasets/featured/import` 返回 `202` 和持久化任务 ID；本地 Worker 校验并分批暂存数据，再在一个事务中合并正式数据和完成状态。`GET /api/v1/datasets/featured/status` 返回轻量包状态、已导入版本和当前任务；旧下载接口返回与内置目录校验一致的 ZIP。
+打包器要求 `featured-default` 恰有 15 个已审核成员，且本地具备快照和分析数据；不会生成虚构的演示记录。精选成员也加入 `library-default`，供仓库页筛选、分组和用户自选比较；再次导入不会覆盖用户移除动作，也不会触碰机器学习的 300 仓库样本。`/api/v1/datasets/featured/*` 与相关 CLI 用于维护精选数据包。
 
 ## 验证与诊断
 

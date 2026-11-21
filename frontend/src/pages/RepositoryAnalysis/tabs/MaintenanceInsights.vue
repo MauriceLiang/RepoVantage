@@ -57,8 +57,6 @@ const canExtendMaintenance = computed(() => {
   return ageWeeks >= 12 && (pattern.value.windowWeeks < 12 || (patternEvidence.value.commit_total_12w ?? 0) < 3)
 })
 const activeWeeks = computed(() => patternEvidence.value.commit_active_weeks_12w)
-const commitCoverageLabel = computed(() => coverageLabel(pattern.value?.coverage.commits))
-const prCoverageLabel = computed(() => coverageLabel(pattern.value?.coverage.pull_requests_created))
 const observationWindowLabel = computed(() => {
   if (pattern.value?.coverage.commits === 'partial'
       && typeof patternEvidence.value.commit_observed_weeks === 'number') {
@@ -68,49 +66,13 @@ const observationWindowLabel = computed(() => {
     ? `最近 ${pattern.value.windowWeeks} 个完整 UTC 周`
     : '尚无完整观察周'
 })
-const analysisCollectionTime = computed(() => formatUtc(pattern.value?.collectedAt ?? null))
-const analysisWindow = computed(() => {
-  if (pattern.value?.windowWeeks && pattern.value.windowWeeks >= 24) {
-    return '已扩展至 24 周背景；M1/M2 仍依据最近 12 周特征推理。'
-  }
-  if (pattern.value?.windowWeeks && pattern.value.windowWeeks < 12) {
-    return '当前不足 12 个完整 UTC 周，不生成 M1/M2；仅展示已观察事实。'
-  }
-  return '模型使用最近 12 个完整 UTC 周；按需扩展的 24 周仅作事实背景。'
-})
-const patternScopeNote = computed(() => {
-  if (pattern.value?.coverage.commits === 'partial') {
-    return 'Commit 覆盖不完整，本页只展示明确标注的已观察下限和完整周事实；M1/M2/M3 不基于缺失周推理。'
-  }
-  if (pattern.value?.windowWeeks && pattern.value.windowWeeks < 12) {
-    return `当前仅观察到 ${pattern.value.windowWeeks} 个完整 UTC 周，未达到 M1 的 12 周输入要求；下方只显示事实统计。`
-  }
-  return '只依据采集时默认分支最近 12 个完整 UTC 周的 Commit；不能代表 PR、Issue、总体社区活跃度或代码质量。'
-})
 
 function isActive(status: TaskStatus | undefined): boolean {
   return Boolean(status && activeStatuses.has(status))
 }
 
-function coverageLabel(value: string | undefined): string {
-  if (value === 'complete') return '完整'
-  if (value === 'partial') return '部分覆盖'
-  if (value === 'partial_or_unavailable') return '部分覆盖或不可用'
-  if (value === 'not_collected') return '未采集'
-  if (value === 'missing') return '缺少数据'
-  return '状态未知'
-}
-
-function formatUtc(value: string | null | undefined): string {
-  return value ? `${value.slice(0, 16).replace('T', ' ')} UTC` : '—'
-}
-
 function formatCount(value: number | null | undefined): string {
   return value == null ? '—' : value.toLocaleString('zh-CN')
-}
-
-function formatForecastDate(value: number | string | undefined): string {
-  return typeof value === 'string' ? formatUtc(value) : '—'
 }
 
 function formatTrend(value: string | null | undefined): string {
@@ -243,26 +205,5 @@ onBeforeUnmount(() => {
       </article>
     </div>
 
-    <details class="rounded-md border border-line bg-panel px-3 py-2 text-[11px]" data-testid="analysis-provenance">
-      <summary class="cursor-pointer font-medium">数据范围与模型说明</summary>
-      <div v-if="evaluation" class="mt-2 space-y-1.5 leading-relaxed text-muted">
-        <p v-if="evaluation.researchSample" class="m-0" data-testid="course-research-sample">
-          课程研究样本 · {{ evaluation.researchSample.datasetVersion }} · {{ evaluation.researchSample.sampleRole === 'train' ? '训练组' : '测试组' }} · 资料快照截至 {{ evaluation.researchSample.dataAsOf ?? '未知' }}；活动窗口 {{ evaluation.researchSample.observationStart ?? '—' }} 至 {{ evaluation.researchSample.observationEndExclusive ?? '—' }}。{{ evaluation.researchSample.sampleRole === 'train' ? '模型应用于训练组，不代表独立测试证明。' : '模型应用于测试组；历史回测指标以训练报告固定时点结果为准。' }}在线采集优先于历史快照。
-        </p>
-        <p class="m-0">观察窗口：{{ observationWindowLabel }}；{{ analysisWindow }}</p>
-        <p class="m-0">Commit 来源：采集时默认分支 · 覆盖{{ commitCoverageLabel }}；同期 PR 创建覆盖{{ prCoverageLabel }}（独立统计）。</p>
-        <p class="m-0">M1 模型 {{ pattern?.modelVersion ?? '—' }} · Commit 窗口 {{ formatUtc(pattern?.historyStart) }} 至 {{ formatUtc(pattern?.asOf) }}；采集完成于 {{ analysisCollectionTime }}；来源运行 {{ pattern?.sourceRunId ?? '—' }}。</p>
-        <p v-if="evaluation.recentActivityChange.status === 'available'" class="m-0">实际变化窗口：此前 {{ formatUtc(evaluation.recentActivityChange.previousWindowStart) }} 至 {{ formatUtc(evaluation.recentActivityChange.previousWindowEndExclusive) }}；最近 {{ formatUtc(evaluation.recentActivityChange.recentWindowStart) }} 至 {{ formatUtc(evaluation.recentActivityChange.recentWindowEndExclusive) }}。变化 {{ formatCount(evaluation.recentActivityChange.changeCount) }} 次；显著阈值 {{ evaluation.recentActivityChange.threshold ?? '—' }}。{{ evaluation.recentActivityChange.notes.join(' ') }}</p>
-        <p class="m-0">M2 模型 {{ evaluation.activityTrend.modelVersion ?? '—' }} · 预测窗口 {{ formatForecastDate(evaluation.activityTrend.evidence.forecast_start_utc) }} 至 {{ formatForecastDate(evaluation.activityTrend.evidence.forecast_end_exclusive_utc) }}。{{ evaluation.activityTrend.notes.join(' ') }}不预测精确 Commit 数量或成功概率。</p>
-        <ul v-if="evaluation.activityAnomaly.weeks.length" class="m-0 space-y-1 pl-4">
-          <li v-for="week in evaluation.activityAnomaly.weeks" :key="week.weekStart">{{ week.weekStart }} UTC 周 · {{ week.commitCount }} Commit · {{ week.direction === 'up' ? '高于' : week.direction === 'down' ? '低于' : '处于' }}历史基线 · robust Z {{ week.robustZ.toFixed(2) }}</li>
-        </ul>
-        <p class="m-0">{{ patternScopeNote }} {{ summary.anomalyLine }}“疑似异常”仅供核查，不代表维护失败或经标签验证的模型结果。</p>
-        <p v-for="limitation in evaluation.limitations" :key="limitation" class="m-0">{{ limitation }}</p>
-        <p v-for="limitation in pattern?.limitations ?? []" :key="limitation" class="m-0">{{ limitation }}</p>
-        <p v-if="tasksError" class="m-0 text-warnfg">任务状态暂不可用：{{ tasksError }}</p>
-      </div>
-      <p v-else class="mb-0 mt-2 leading-relaxed text-muted">分析结果使用最近 12 个完整 UTC 周；覆盖不足时不按零补齐，也不生成模型推断。</p>
-    </details>
   </section>
 </template>

@@ -149,7 +149,26 @@ function view(task: TaskItem) {
 }
 
 function percent(task: TaskItem): number | null {
-  return task.progressKind === 'stages' || task.progressKind === 'records' ? task.progressPercent ?? null : null
+  const value = task.progressPercent
+  if ((task.progressKind !== 'stages' && task.progressKind !== 'records') || typeof value !== 'number' || !Number.isFinite(value)) return null
+  return Math.min(100, Math.max(0, value))
+}
+
+function displayedPercent(task: TaskItem): number | null {
+  const active = task.status === 'running' || task.status === 'analyzing'
+  if (active && task.taskType === 'repository_collection' && task.progressMotion === 'bounce') return null
+  const current = percent(task)
+  return active && task.taskType === 'repository_collection' && task.progressMotion === 'forward'
+    ? current ?? 0
+    : current
+}
+
+function showIndeterminate(task: TaskItem): boolean {
+  const active = task.status === 'running' || task.status === 'analyzing'
+  if (!active) return false
+  if (task.taskType === 'repository_collection' && task.progressMotion === 'forward') return false
+  if (task.taskType === 'repository_collection' && task.progressMotion === 'bounce') return true
+  return task.progressKind === 'indeterminate'
 }
 
 function taskScopeLabel(task: TaskItem): string {
@@ -192,7 +211,7 @@ function taskDetail(task: TaskItem): string {
 
 <template>
   <div class="stack app-page">
-    <UiPageHeader title="任务中心" description="仓库采集由后端 Worker 执行；进度只反映实际任务阶段，不代表历史覆盖率。">
+    <UiPageHeader title="任务中心" description="仓库采集由后端 Worker 执行；进度按采集阶段和接口页数预算估算，不代表历史覆盖率。">
       <template #actions><UiButton variant="quiet" :disabled="loading" @click="refresh"><RefreshCw :size="13" />刷新</UiButton></template>
     </UiPageHeader>
 
@@ -205,7 +224,7 @@ function taskDetail(task: TaskItem): string {
 
     <UiPanel as="section" class="task-panel">
       <div class="panel-heading">
-        <div><h2 class="panel-title">任务记录</h2><p class="panel-description">进度来自服务端阶段或实际暂存记录数；未知进度不填充百分比。</p></div>
+      <div><h2 class="panel-title">任务记录</h2><p class="panel-description">新采集按阶段与分页进度计算；未知总页数时才估算。更新任务动态显示，百分比不代表历史覆盖率。</p></div>
         <div class="task-toolbar">
           <GdButton v-if="tasks.length" variant="ghost" class="task-destructive-action" aria-label="清除全部已结束任务" @click="askClear">
             <Trash2 :size="13" aria-hidden="true" />清除已结束
@@ -218,7 +237,7 @@ function taskDetail(task: TaskItem): string {
       <div v-else-if="!filteredTasks.length" class="empty-state">{{ tasks.length ? '当前筛选没有任务。' : '当前没有任务。可以从仓库页添加仓库。' }}</div>
       <template v-else>
         <p v-if="error" class="small error-text" role="status">刷新失败，仍显示上次获取的任务状态：{{ error }}</p>
-        <div class="task-table-head"><span>任务 / 类型</span><span>状态</span><span>更新时间</span><span>当前阶段</span><span>进度</span><span>操作</span></div>
+        <div class="task-table-head"><span>任务 / 类型</span><span>进度</span><span>状态</span><span>更新时间</span><span>当前阶段</span><span>操作</span></div>
         <TransitionGroup tag="div" name="gd-motion-list" class="task-list">
           <article v-for="task in filteredTasks" :key="task.id" data-testid="task-row" :data-task-id="task.id" :data-scope-kind="task.scopeKind" :data-window-days="task.windowDays" class="task-row">
             <div class="task-identity">
@@ -226,14 +245,31 @@ function taskDetail(task: TaskItem): string {
               <span class="small muted">{{ task.taskType === 'dataset_import' ? `数据集导入${task.version ? ` · ${task.version}` : ''}` : `${moduleLabel[task.module] ?? task.module}${taskScopeLabel(task) ? ` · ${taskScopeLabel(task)}` : ''}` }}<span v-if="task.isDemo"> · 演示任务</span></span>
               <span v-if="taskDetail(task)" class="small muted task-detail" :title="taskDetail(task)">{{ taskDetail(task) }}</span>
             </div>
+            <div class="task-progress-cell">
+              <div
+                v-if="displayedPercent(task) !== null"
+                class="task-progress"
+                role="progressbar"
+                :aria-label="`${task.repository} 任务进度`"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                :aria-valuenow="Math.round(displayedPercent(task)!)"
+              ><span :style="{ width: `${displayedPercent(task)}%` }" /></div>
+              <div
+                v-else-if="showIndeterminate(task)"
+                class="task-progress"
+                role="progressbar"
+                :aria-label="`${task.repository} 任务进度`"
+                aria-valuetext="正在执行，进度动态显示"
+              ><span class="indeterminate" /></div>
+              <span v-else class="task-progress-placeholder" aria-hidden="true" />
+              <span class="task-progress-value small muted mono">{{ displayedPercent(task) === null ? '—' : `${Math.round(displayedPercent(task)!)}%` }}</span>
+            </div>
             <div><GdBadge :variant="statusMeta[task.status].variant">{{ task.taskType === 'dataset_import' && (task.status === 'running' || task.status === 'analyzing') ? '正在导入' : statusMeta[task.status].text }}</GdBadge></div>
             <time class="small muted">{{ task.updatedAt }}</time>
             <div class="task-stage">
               <span :title="task.stage">{{ task.error ?? task.stage }}</span>
-              <div v-if="percent(task) !== null" class="task-progress"><span :style="{ width: `${percent(task)}%` }" /></div>
-              <div v-else-if="task.progressKind === 'indeterminate' && (task.status === 'running' || task.status === 'analyzing')" class="task-progress"><span class="indeterminate" /></div>
             </div>
-            <span class="small muted mono">{{ percent(task) === null ? '—' : `${Math.round(percent(task)!)}%` }}</span>
             <div class="task-actions">
               <GdButton v-if="task.status === 'failed' || task.status === 'partial'" variant="outline" size="sm" :disabled="retrying === task.id" @click="retry(task)">{{ retrying === task.id ? '排队中…' : '重试' }}</GdButton>
               <GdButton v-else variant="ghost" size="sm" @click="view(task)">{{ task.taskType === 'dataset_import' ? task.status === 'done' ? '查看结果' : '查看进度' : '查看仓库' }}</GdButton>
@@ -268,16 +304,20 @@ function taskDetail(task: TaskItem): string {
 
 <style scoped>
 .task-panel { min-width:0; }
-.task-table-head,.task-row { display:grid; grid-template-columns:minmax(180px,1.5fr) 100px 130px minmax(170px,1.4fr) 55px 126px; align-items:center; gap:14px; }
+.task-table-head,.task-row { display:grid; grid-template-columns:minmax(220px,1.1fr) 228px 96px 108px minmax(160px,1fr) 108px; align-items:center; gap:14px; }
 .task-table-head { padding:0 8px 10px; border-bottom:1px solid var(--line); color:var(--muted); font-size:11px; }
 .task-row { padding:12px 8px; border-bottom:1px solid var(--line); }
 .task-identity,.task-stage { display:grid; min-width:0; gap:4px; }
 .task-identity strong,.task-detail,.task-stage>span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.task-progress-cell { display:grid; grid-template-columns:minmax(0,1fr) 42px; align-items:center; gap:10px; width:228px; min-width:0; }
+.task-progress-value { text-align:right; }
+.task-progress-placeholder { display:block; height:8px; }
+.task-row>time,.task-row>.task-stage { justify-self:start; text-align:left; }
 .task-toolbar,.task-actions { display:flex; align-items:center; justify-content:flex-end; gap:6px; }
 .task-destructive-action,.task-delete-button { color:var(--red) !important; }
 .task-destructive-action:hover:not(:disabled),.task-delete-button:hover:not(:disabled) { background:color-mix(in srgb,var(--red) 9%,var(--surface)); }
-.task-progress { height:5px; overflow:hidden; border-radius:8px; background:var(--surface-soft); }
-.task-progress>span { display:block; height:100%; border-radius:inherit; background:var(--accent); transition:width .3s ease; }
+.task-progress { width:100%; min-width:0; height:8px; overflow:hidden; border-radius:999px; background:var(--track); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--line) 75%,transparent); }
+.task-progress>span { display:block; height:100%; border-radius:inherit; background:var(--primary); transition:width .3s ease; }
 .task-progress .indeterminate { width:35%; animation:task-pulse 1.2s ease-in-out infinite alternate; }
 .error-text { color:var(--red); }
 .task-dialog-overlay { position:fixed; z-index:40; inset:0; background:rgb(0 0 0 / 32%); }
@@ -288,6 +328,6 @@ function taskDetail(task: TaskItem): string {
 .task-dialog-error { margin:10px 0 0; color:var(--red); }
 .task-dialog-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:20px; }
 @keyframes task-pulse { from { transform:translateX(0); } to { transform:translateX(180%); } }
-@media(max-width:1050px) { .task-table-head { display:none; } .task-row { grid-template-columns:minmax(0,1fr) auto; gap:8px 14px; } .task-identity { grid-column:1/-1; } .task-stage { grid-column:1; } .task-actions { grid-column:2; grid-row:2; } }
-@media(max-width:600px) { .task-toolbar { flex-wrap:wrap; } .task-row { align-items:start; } .task-row>time { grid-column:1; } .task-row>.task-stage { grid-column:1/-1; } .task-row>.task-actions { grid-column:2; grid-row:3; } }
+@media(max-width:1280px) { .task-table-head { display:none; } .task-row { grid-template-columns:minmax(0,1fr) auto; gap:8px 14px; } .task-identity { grid-column:1/-1; } .task-progress-cell { grid-column:1; grid-row:2; width:min(228px,100%); } .task-row>div:nth-child(3) { grid-column:2; grid-row:2; } .task-row>time { grid-column:1; grid-row:3; } .task-stage { grid-column:1/-1; grid-row:4; } .task-actions { grid-column:2; grid-row:3; } }
+@media(max-width:600px) { .task-toolbar { flex-wrap:wrap; } .task-row { align-items:start; } .task-progress-cell { grid-template-columns:minmax(72px,1fr) 42px; width:min(228px,100%); } }
 </style>
