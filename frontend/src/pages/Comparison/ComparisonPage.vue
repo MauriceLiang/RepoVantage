@@ -4,7 +4,6 @@ import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
 import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
-import G2Chart from '@/components/charts/G2Chart.vue'
 import RepositoryComparisonRadar from '@/components/charts/RepositoryComparisonRadar.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -13,7 +12,6 @@ import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
 import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, MaintenancePattern, RecentActivityChange, SelectionMetric, SelectionRequest, SelectionResult, TimeWindow } from '@/services/types'
-import type { G2Spec } from '@antv/g2'
 import { normalizeMetrics } from '@/lib/chartAnalytics'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
@@ -111,40 +109,6 @@ const comparisonRadarRows = computed(() => {
   })
   return normalizeMetrics(raw, radarAxes.map((axis) => ({ key: axis.key, direction: axis.direction })))
 })
-const comparisonActivityScatterRows = computed(() => selectionBasisEntries.value.flatMap((entry) => {
-  const completeWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
-  if (!completeWeeks.length || entry.prP50 === null || entry.prSample < 1) return []
-  return [{
-    repository: entry.label,
-    commitsWeekly: completeWeeks.reduce((sum, value) => sum + value, 0) / completeWeeks.length,
-    prP50Days: entry.prP50,
-    prSamples: entry.prSample,
-    prCoverage: entry.prQuality === 'partial' ? '部分覆盖' : '完整覆盖',
-    completeWeeks: completeWeeks.length,
-    color: entry.color,
-  }]
-}))
-const comparisonActivityScatterSpec = computed<G2Spec>(() => ({
-  type: 'point', data: comparisonActivityScatterRows.value,
-  encode: { x: 'commitsWeekly', y: 'prP50Days', color: 'repository', size: 'prSamples' },
-  scale: {
-    color: {
-      domain: comparisonActivityScatterRows.value.map((row) => row.repository),
-      range: comparisonActivityScatterRows.value.map((row) => row.color),
-    },
-    size: { range: [6, 17] },
-  },
-  axis: { x: { title: '周均 Commit（次 / 完整 UTC 周）' }, y: { title: 'PR 合并耗时 P50（天）' } },
-  legend: { color: { position: 'bottom', title: '仓库' }, size: { title: '有效 PR 样本数' } },
-  style: { fillOpacity: 0.8, stroke: '#fff', lineWidth: 1.5 },
-  tooltip: { title: 'repository', items: [
-    { field: 'commitsWeekly', name: '周均 Commit' },
-    { field: 'prP50Days', name: 'PR 合并耗时 P50（天）' },
-    { field: 'prSamples', name: '有效 PR 样本数' },
-    { field: 'prCoverage', name: 'PR 覆盖状态' },
-    { field: 'completeWeeks', name: '有效完整周数' },
-  ] },
-}))
 const missingReason = (quality: string) => ({
   partial: '覆盖不完整',
   insufficient_samples: '样本不足',
@@ -663,25 +627,20 @@ async function exportComparison() {
       </div>
     </UiPanel>
 
-    <UiPanel as="section" data-testid="comparison-diverse-charts">
-      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
-      <div class="mt-3 grid gap-6">
-        <div v-if="comparisonRadarRows.length" class="min-w-0">
-          <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
-          <RepositoryComparisonRadar :rows="comparisonRadarRows" :dimensions="radarAxes" />
-          <p class="m-0 mt-2 text-[10.5px] text-muted">所有已选仓库均列入图例；完整数据绘制为填充多边形，部分数据只连接相邻的可用指标。归一值按各指标的有效样本单独计算，悬停数据点可查看原始值。</p>
+    <div class="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      <UiPanel as="section" data-testid="comparison-diverse-charts">
+        <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
+        <div class="mt-3">
+          <div v-if="comparisonRadarRows.length" class="min-w-0">
+            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
+            <RepositoryComparisonRadar :rows="comparisonRadarRows" :dimensions="radarAxes" />
+            <p class="m-0 mt-2 text-[10.5px] text-muted">所有已选仓库均列入图例；完整数据绘制为填充多边形，部分数据只连接相邻的可用指标。归一值按各指标的有效样本单独计算，悬停数据点可查看原始值。</p>
+          </div>
+          <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
         </div>
-        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
-        <div v-if="comparisonActivityScatterRows.length" class="min-w-0">
-          <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">周均 Commit × PR 合并耗时</h4><span class="text-[10.5px] text-muted">点大小表示有效 PR 样本数</span></div>
-          <G2Chart :spec="comparisonActivityScatterSpec" label="每个点代表一个已选择仓库，横轴为完整 UTC 周周均 Commit，纵轴为 PR 合并耗时中位数，点大小代表有效 PR 样本数" :height="320" />
-          <p class="m-0 text-[10.5px] text-muted">显示 {{ comparisonActivityScatterRows.length }} / {{ selectionBasisEntries.length }} 个仓库；点大小表示有效 PR 样本量，部分覆盖会在悬停信息中标出。仅描述指标关系，不作因果解释。</p>
-        </div>
-        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">至少需要一个仓库同时具备完整 UTC 周 Commit 和 PR 合并耗时样本；缺失值不补零。</p>
-      </div>
-    </UiPanel>
+      </UiPanel>
 
-    <UiPanel as="section">
+      <UiPanel as="section" data-testid="comparison-duration-charts">
       <div>
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
@@ -756,7 +715,8 @@ async function exportComparison() {
       <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warnfg">
         没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
       </p>
-    </UiPanel>
+      </UiPanel>
+    </div>
 
     <UiPanel as="section">
       <div class="flex items-start justify-between gap-3">
