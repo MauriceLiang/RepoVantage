@@ -14,6 +14,7 @@
     "test:overview-charts": "node scripts/test-overview-charts.mjs",
     "test:commit-activity": "node scripts/test-commit-activity.mjs",
     "test:duration-histogram": "node scripts/test-duration-histogram.mjs",
+    "test:selection-weight-math": "node scripts/test-selection-weight-math.mjs",
     "test:issue-trend": "node scripts/test-issue-trend.mjs",
     "test:e2e:issue-trend": "node scripts/e2e-issue-trend.mjs",
     "test:e2e:commit-activity": "node scripts/e2e-commit-activity.mjs",

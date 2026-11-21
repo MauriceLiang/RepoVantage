@@ -2,7 +2,6 @@
 import { Download, Plus, TriangleAlert, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
-import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
 import RepositoryComparisonRadar from '@/components/charts/RepositoryComparisonRadar.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -18,6 +17,9 @@ import { useUiStore } from '@/stores/ui'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
 import UiPageHeader from '@/components/ui/UiPageHeader.vue'
 import UiPanel from '@/components/ui/UiPanel.vue'
+import CompactWeightEditor from './components/CompactWeightEditor.vue'
+import CompactRankingTable from './components/CompactRankingTable.vue'
+import { presetWeights, rebalanceWeight, selectionMetrics, type WeightPreset } from './weightMath'
 
 const ui = useUiStore()
 const analysis = useAnalysisStore()
@@ -151,17 +153,7 @@ const comparisonEmptyMessage = computed(() => comparisonBasis.value?.status === 
   ? comparisonBasis.value.reason ?? '没有达到同期比较要求。'
   : '共同窗口内没有可用的完整 UTC Commit 周。可切换到「各自窗口」查看各仓库自身活动。')
 const weights = reactive<Record<SelectionMetric, number>>({ commits_weekly_mean: 0, issue_median_hours: 0, pr_median_hours: 0, release_interval_days: 0 })
-const manualWeights = reactive<Record<SelectionMetric, number>>({ ...weights })
-const manualWeightInputOpen = ref(false)
-type WeightPreset = 'balanced' | 'activity' | 'collaboration' | 'release' | 'custom'
 const weightPreset = ref<WeightPreset>('balanced')
-const selectionMetrics: { key: SelectionMetric; label: string; color: string; direction: string }[] = [
-  { key: 'commits_weekly_mean', label: '每周 Commit', color: '#E2683C', direction: '越多越好' },
-  { key: 'issue_median_hours', label: 'Issue 关闭耗时', color: '#CE3F7C', direction: '越短越好' },
-  { key: 'pr_median_hours', label: 'PR 合并耗时', color: '#2E8FCB', direction: '越短越好' },
-  { key: 'release_interval_days', label: 'Release 间隔', color: '#E5A03A', direction: '越短越好' },
-]
-const selectionLabel = (key: string) => selectionMetrics.find((metric) => metric.key === key)?.label ?? key
 const selectionInput = computed<SelectionRequest>(() => ({
   repositoryIds: [...analysis.compareIds], scenario: '自定义权重对比', candidateGroup: '当前所选仓库', candidatesConfirmed: true,
   windowDays: analysis.timeWindow, allowedLanguages: [], allowedLicenses: [],
@@ -188,30 +180,7 @@ const metricReadiness = computed(() => Object.fromEntries(selectionMetrics.map((
   const total = analysis.compareIds.length
   return [metric.key, { ready, total, partial, comparableForAll: total > 0 && ready === total }]
 })) as Record<SelectionMetric, { ready: number; total: number; partial: number; comparableForAll: boolean }>)
-const availableMetricCount = computed(() => selectionMetrics.filter((metric) => metricReadiness.value[metric.key].comparableForAll).length)
 const totalWeight = computed(() => selectionMetrics.reduce((sum, metric) => sum + weights[metric.key], 0))
-const manualWeightTotal = computed(() => selectionMetrics.reduce((sum, metric) => {
-  const value = Number(manualWeights[metric.key])
-  return Number.isFinite(value) ? sum + value : Number.NaN
-}, 0))
-const manualWeightsValid = computed(() => selectionMetrics.every((metric) => {
-  const value = Number(manualWeights[metric.key])
-  return Number.isFinite(value) && value >= 0 && value <= 100
-}) && Math.abs(manualWeightTotal.value - 100) < 0.005)
-const activeWeightCount = computed(() => selectionMetrics.filter((metric) => weights[metric.key] > 0).length)
-const weightShare = (key: SelectionMetric) => totalWeight.value > 0 ? weights[key] / totalWeight.value * 100 : 0
-const formatWeight = (value: number) => value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })
-const weightGradient = computed(() => {
-  if (totalWeight.value <= 0) return 'conic-gradient(var(--gd-track) 0% 100%)'
-  let current = 0
-  const stops = selectionMetrics.filter((metric) => weights[metric.key] > 0).map((metric) => {
-    const next = current + weightShare(metric.key)
-    const stop = `${metric.color} ${current.toFixed(3)}% ${next.toFixed(3)}%`
-    current = next
-    return stop
-  })
-  return `conic-gradient(from -90deg, ${stops.join(', ')})`
-})
 const weightsInitializedFor = ref('')
 watch(
   () => [analysis.compareIds.join(','), selectionBasisEntries.value.map((entry) => entry.id).join(','), selectionBasisLoading.value] as const,
@@ -219,113 +188,45 @@ watch(
     if (!compareKey || isLoading || !weightsReady.value || weightsInitializedFor.value === compareKey) return
     const loadedSet = new Set(loadedIds.split(',').filter(Boolean))
     if (!compareKey.split(',').every((id) => loadedSet.has(id))) return
-    selectionMetrics.forEach((metric) => { weights[metric.key] = 0 })
-    const initialMetrics = selectionMetrics
-    const equalShare = initialMetrics.length ? 100 / initialMetrics.length : 0
-    initialMetrics.forEach((metric, index) => {
-      weights[metric.key] = index === initialMetrics.length - 1 ? 100 - equalShare * index : equalShare
-    })
-    syncManualWeights()
+    Object.assign(weights, presetWeights('balanced'))
     weightsInitializedFor.value = compareKey
     weightPreset.value = 'balanced'
   },
   { immediate: true },
 )
-const weightPresetOptions: { key: Exclude<WeightPreset, 'custom'>; label: string }[] = [
-  { key: 'balanced', label: '均衡' },
-  { key: 'activity', label: '开发活跃' },
-  { key: 'collaboration', label: '协作效率' },
-  { key: 'release', label: '发布节奏' },
-]
 function applyWeightPreset(preset: Exclude<WeightPreset, 'custom'>) {
   if (!weightsReady.value) return
   weightPreset.value = preset
-  selectionMetrics.forEach((metric) => { weights[metric.key] = 0 })
-  if (preset === 'balanced') selectionMetrics.forEach((metric) => { weights[metric.key] = 5 })
-  else if (preset === 'activity') weights.commits_weekly_mean = 10
-  else if (preset === 'collaboration') {
-    weights.issue_median_hours = 5
-    weights.pr_median_hours = 5
-  } else weights.release_interval_days = 10
-  normalizeConfiguredWeights()
-  syncManualWeights()
+  Object.assign(weights, presetWeights(preset))
 }
-function normalizeConfiguredWeights() {
-  const configured = selectionMetrics.filter((metric) => weights[metric.key] > 0)
-  const total = configured.reduce((sum, metric) => sum + weights[metric.key], 0)
-  let assigned = 0
-  configured.forEach((metric, index) => {
-    const share = index === configured.length - 1 ? 100 - assigned : weights[metric.key] / total * 100
-    weights[metric.key] = share
-    assigned += share
-  })
-}
-function syncManualWeights() {
-  selectionMetrics.forEach((metric) => { manualWeights[metric.key] = weights[metric.key] })
-}
-function updateMetricWeight(key: SelectionMetric, event: Event) {
-  const requestedWeight = Math.max(0, Math.min(100, Number((event.target as HTMLInputElement).value)))
-  const siblings = selectionMetrics.filter((metric) => metric.key !== key)
-  weights[key] = requestedWeight
-  if (!siblings.length) {
-    weights[key] = 100
-  } else {
-    const remaining = 100 - requestedWeight
-    const siblingTotal = siblings.reduce((sum, metric) => sum + weights[metric.key], 0)
-    let assigned = 0
-    siblings.forEach((metric, index) => {
-      const proportion = siblingTotal > 0 ? weights[metric.key] / siblingTotal : 1 / siblings.length
-      const share = index === siblings.length - 1 ? remaining - assigned : remaining * proportion
-      weights[metric.key] = share
-      assigned += share
-    })
-  }
+function updateMetricWeight(payload: { metric: SelectionMetric; value: number }) {
+  Object.assign(weights, rebalanceWeight(weights, payload.metric, payload.value))
   weightPreset.value = 'custom'
-  syncManualWeights()
 }
-function toggleManualWeightInput() {
-  if (!manualWeightInputOpen.value) syncManualWeights()
-  manualWeightInputOpen.value = !manualWeightInputOpen.value
-}
-function applyManualWeights() {
-  if (!manualWeightsValid.value) return
-  selectionMetrics.forEach((metric) => { weights[metric.key] = Number(manualWeights[metric.key]) })
-  const lastMetric = selectionMetrics[selectionMetrics.length - 1]
-  if (lastMetric) {
-    weights[lastMetric.key] = 100 - selectionMetrics.slice(0, -1).reduce((sum, metric) => sum + weights[metric.key], 0)
-  }
-  weightPreset.value = 'custom'
-  syncManualWeights()
-  manualWeightInputOpen.value = false
-}
-const scorePercent = (score: number) => Math.max(0, Math.min(100, score))
 const selectionResult = ref<SelectionResult | null>(null)
 const selectionLoading = ref(false)
 const selectionError = ref<string | null>(null)
-const selectionContextKey = computed(() => JSON.stringify({ repositoryIds: analysis.compareIds, windowDays: analysis.timeWindow }))
-const selectionResultContextKey = ref('')
+const selectionContextKey = computed(() => JSON.stringify({ repositoryIds: [...analysis.compareIds], windowDays: analysis.timeWindow }))
 const selectionResultInputKey = ref('')
 const selectionResultIsStale = computed(() => !!selectionResult.value && selectionResultInputKey.value !== selectionKey.value)
-const selectionScoreRows = computed(() => {
-  const result = selectionResult.value
-  if (!result || result.status !== 'available') return []
-  return result.ranking.map((row, index) => ({
-    id: row.id,
-    name: row.name,
-    score: row.score,
-    rank: index + 1,
-    color: selectionBasisEntries.value.find((entry) => entry.id === row.id)?.color ?? '#73808a',
-  }))
-})
+const expandedRepositoryId = ref<string | null>(null)
+function toggleEvidence(repositoryId: string) {
+  expandedRepositoryId.value = expandedRepositoryId.value === repositoryId ? null : repositoryId
+}
 let selectionRequestId = 0
 let selectionTimer: ReturnType<typeof setTimeout> | null = null
+watch(selectionContextKey, () => {
+  selectionRequestId++
+  if (selectionTimer) clearTimeout(selectionTimer)
+  selectionTimer = null
+  selectionResult.value = null
+  selectionResultInputKey.value = ''
+  expandedRepositoryId.value = null
+  selectionError.value = null
+  selectionLoading.value = false
+}, { flush: 'sync' })
 watch(selectionKey, () => {
   selectionRequestId++
-  if (selectionResultContextKey.value !== selectionContextKey.value) {
-    selectionResult.value = null
-    selectionResultContextKey.value = ''
-    selectionResultInputKey.value = ''
-  }
   selectionError.value = null
   selectionLoading.value = false
   if (selectionTimer) clearTimeout(selectionTimer)
@@ -345,15 +246,17 @@ async function generateSelection() {
   if (Object.values(input.weights).some((value) => !Number.isFinite(value) || value < 0 || value > 10) || !Object.values(input.weights).some((value) => value > 0)) {
     selectionError.value = '请至少给一个指标设置大于 0 的权重。'; return
   }
+  const requestedContextKey = selectionContextKey.value
+  const requestedInputKey = JSON.stringify(input)
   const current = ++selectionRequestId
   selectionLoading.value = true
   selectionError.value = null
   try {
     const result = await source.getSelection(input)
-    if (current === selectionRequestId) {
+    if (current === selectionRequestId && requestedContextKey === selectionContextKey.value && requestedInputKey === selectionKey.value) {
       selectionResult.value = result
-      selectionResultContextKey.value = selectionContextKey.value
-      selectionResultInputKey.value = selectionKey.value
+      selectionResultInputKey.value = requestedInputKey
+      if (result.status !== 'available' || !result.ranking.some((row) => row.id === expandedRepositoryId.value)) expandedRepositoryId.value = null
     }
   } catch (cause) {
     if (current === selectionRequestId) selectionError.value = cause instanceof Error ? cause.message : '生成比较失败'
@@ -424,172 +327,49 @@ async function exportComparison() {
       <span>{{ error ?? comparisonNotes.join(' ') }}</span>
     </div>
 
-    <UiPanel as="section" data-testid="selection-report">
-      <section class="space-y-3">
+    <UiPanel as="section" tight data-testid="selection-report">
+      <section class="space-y-2">
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="space-y-1">
             <h3 class="m-0 text-[15.5px] font-semibold">权重与综合分</h3>
-            <p class="m-0 text-[12px] leading-relaxed text-muted">拖动指标权重，系统会按已采集数据计算当前所选仓库的相对得分。</p>
+            <p class="m-0 text-[12px] leading-relaxed text-muted">比较所选仓库的相对分；调整权重后自动重新计算。</p>
           </div>
+          <span class="text-[11px] text-muted">{{ analysis.compareIds.length }} 个仓库 · 4 项评价指标</span>
         </header>
 
-        <div class="grid min-w-0 gap-4 rounded-lg border border-line bg-soft/20 p-3 sm:p-4 lg:grid-cols-[190px_minmax(0,1fr)]">
-          <div class="flex flex-col items-center justify-center gap-2">
-            <div class="relative size-36 rounded-full p-[13px]" :style="{ background: weightGradient }" role="img" :aria-label="`当前权重分布，${activeWeightCount} 项指标参与`" data-testid="weight-donut">
-              <div class="flex size-full flex-col items-center justify-center rounded-full bg-panel text-center">
-                <strong class="text-[22px] leading-none">{{ activeWeightCount }}</strong>
-                <span class="mt-1 text-[11px] text-muted">项指标参与</span>
-                <span class="mt-1 font-mono text-[10px] text-muted">总权重 {{ formatWeight(totalWeight) }}%</span>
-              </div>
-            </div>
-            <p class="m-0 text-center text-[10.5px] text-muted">环图表示归一化后的权重占比</p>
-          </div>
+        <CompactWeightEditor
+          :metrics="selectionMetrics"
+          :weights="weights"
+          :readiness="metricReadiness"
+          :enabled="weightsReady"
+          :updating="selectionBasisLoading"
+          :preset="weightPreset"
+          @change-weight="updateMetricWeight"
+          @select-preset="applyWeightPreset"
+        />
 
-          <div class="min-w-0 space-y-3">
-            <div class="flex flex-wrap items-center gap-2" role="group" aria-label="权重预设">
-              <button v-for="preset in weightPresetOptions" :key="preset.key" type="button" :disabled="!weightsReady" :aria-pressed="weightPreset === preset.key" class="rounded-md border px-2.5 py-1.5 text-[11.5px] transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-45" :class="weightPreset === preset.key ? 'border-[var(--gd-primary-button)] bg-soft font-semibold text-ink' : 'border-line bg-panel text-muted hover:text-ink'" @click="applyWeightPreset(preset.key)">{{ preset.label }}</button>
-              <span v-if="weightPreset === 'custom'" class="text-[11px] text-muted">自定义</span>
-              <button type="button" class="rounded-md border border-line bg-panel px-2.5 py-1.5 text-[11.5px] text-muted hover:text-ink disabled:cursor-not-allowed disabled:opacity-45" :disabled="!weightsReady" :aria-expanded="manualWeightInputOpen" data-testid="manual-weight-toggle" @click="toggleManualWeightInput">{{ manualWeightInputOpen ? '收起手动输入' : '手动输入' }}</button>
-            </div>
-
-            <div v-if="manualWeightInputOpen" class="space-y-3 rounded-md border border-line bg-panel p-3" data-testid="manual-weight-editor">
-              <div class="flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                <p class="m-0 text-muted">填写各项百分比，权重合计必须为 100%。</p>
-                <span class="font-mono text-ink">当前合计 {{ formatWeight(manualWeightTotal) }}%</span>
-              </div>
-              <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                <label v-for="metric in selectionMetrics" :key="metric.key" class="min-w-0 space-y-1 text-[10.5px] text-muted" :data-testid="`manual-weight-field-${metric.key}`">
-                  <span>{{ metric.label }}</span>
-                  <span class="flex items-center gap-2">
-                    <input v-model.number="manualWeights[metric.key]" type="number" min="0" max="100" step="any" :aria-label="`${metric.label}百分比权重`" :disabled="!weightsReady" class="block w-full min-w-0 rounded-md border border-line bg-panel px-2 py-1.5 text-[12px] text-ink disabled:cursor-not-allowed disabled:opacity-50" :data-testid="`manual-weight-input-${metric.key}`" />
-                    <span>%</span>
-                  </span>
-                </label>
-              </div>
-              <div class="flex flex-wrap items-center justify-between gap-2">
-                <span class="text-[10.5px]" :class="manualWeightsValid ? 'text-muted' : 'text-warnfg'" role="status" aria-live="polite">{{ manualWeightsValid ? '权重合计为 100%，可以应用。' : '请调整输入值，使权重合计为 100%。' }}</span>
-                <button type="button" class="rounded-md bg-[var(--gd-primary-button)] px-3 py-1.5 text-[11px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-45" :disabled="!weightsReady || !manualWeightsValid" data-testid="apply-manual-weights" @click="applyManualWeights">应用权重</button>
-              </div>
-            </div>
-
-            <fieldset class="m-0 grid min-w-0 gap-2 border-0 p-0 lg:grid-cols-2 xl:grid-cols-4">
-              <legend class="sr-only">拖动每项指标的权重</legend>
-              <label v-for="metric in selectionMetrics" :key="metric.key" class="block min-w-0 rounded-md border border-line bg-panel px-3 py-2" :data-testid="`weight-metric-${metric.key}`">
-                <span class="flex min-w-0 items-center justify-between gap-2">
-                  <span class="flex min-w-0 items-center gap-2 text-[12px] font-medium text-ink">
-                    <i class="size-2.5 shrink-0 rounded-full" :style="{ background: metric.color }" aria-hidden="true" />
-                    <span class="truncate">{{ metric.label }}</span>
-                    <span class="shrink-0 text-[10px] font-normal text-muted">{{ metric.direction }}</span>
-                  </span>
-                  <span class="shrink-0 font-mono text-[11px] text-ink">{{ formatWeight(weightShare(metric.key)) }}%</span>
-                </span>
-                <span class="mt-1.5 flex items-center gap-3">
-                  <input :value="weights[metric.key]" :aria-label="`${metric.label}权重`" :aria-valuetext="`${formatWeight(weights[metric.key])}% 权重`" :disabled="!weightsReady" type="range" min="0" max="100" step="any" class="h-2 min-w-0 flex-1 cursor-pointer disabled:cursor-not-allowed" :style="{ accentColor: metric.color }" @input="updateMetricWeight(metric.key, $event)" />
-                  <span class="w-12 shrink-0 text-right font-mono text-[10.5px] text-muted">{{ formatWeight(weights[metric.key]) }}/100</span>
-                </span>
-                <span class="mt-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-muted">
-                  <span>{{ weightsReady ? metricReadiness[metric.key].ready : '—' }}/{{ metricReadiness[metric.key].total }} 仓库有可用数据</span>
-                  <span v-if="!weightsReady">等待数据</span>
-                  <span v-else-if="metricReadiness[metric.key].ready === 0">暂无可计算数据</span>
-                  <span v-else-if="metricReadiness[metric.key].ready < metricReadiness[metric.key].total">{{ metricReadiness[metric.key].total - metricReadiness[metric.key].ready }} 个仓库无有效值，按中性 50 分计</span>
-                  <span v-else-if="metricReadiness[metric.key].partial">含部分覆盖样本，按已观察数据计分</span>
-                  <span v-else>所选仓库均可比</span>
-                </span>
-              </label>
-            </fieldset>
-          </div>
+        <p v-if="selectionBasisError" class="m-0 text-[11.5px] text-warnfg" role="alert">无法读取评分所需的比较数据：{{ selectionBasisError }}</p>
+        <div v-if="selectionError" class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-warnbg px-3 py-2 text-[11.5px] text-warnfg" role="alert">
+          <span>综合分更新失败：{{ selectionError }}<span v-if="selectionResult">；页面保留上次成功结果。</span></span>
+          <button type="button" class="rounded border border-line bg-panel px-2 py-1 font-medium text-ink hover:bg-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gd-primary-button)]" :disabled="!weightsReady" data-testid="selection-retry" @click="generateSelection">重试</button>
         </div>
 
-        <div class="flex flex-wrap items-center justify-between gap-2 rounded-md bg-soft/40 px-3 py-2 text-[11px] leading-relaxed text-muted">
-          <span>四项权重始终合计 100%；拖动一项后其余三项按现有比例分摊。无有效值的单项按中性 50 分计入并明确标注，不作为实际表现事实；部分覆盖按已观察数据计分。调整只重算本地数据。</span>
-          <span v-if="selectionBasisLoading" role="status" aria-live="polite">正在读取同期数据…</span>
-          <span v-else-if="selectionLoading" role="status" aria-live="polite">正在更新综合分…</span>
-          <span v-else-if="selectionResult?.status === 'available'" role="status" aria-live="polite">已按当前权重自动计算</span>
-          <span v-else-if="availableMetricCount === 0">当前没有实测指标，综合分按中性基准显示</span>
-          <span v-else-if="totalWeight === 0">为可用指标分配权重，合计须为 100%</span>
-          <span v-else>权重变化后自动更新</span>
-        </div>
-        <p v-if="selectionBasisError" class="m-0 text-[12px] text-warnfg" role="alert">无法读取综合分所需的同期数据：{{ selectionBasisError }}</p>
-        <p v-if="selectionError" class="m-0 text-[12px] text-warnfg" role="alert">综合分更新失败：{{ selectionError }}</p>
+        <div v-if="selectionResult || selectionLoading" class="space-y-2 border-t border-line pt-2 text-[12px]" :aria-busy="selectionLoading" data-testid="selection-result">
+          <CompactRankingTable
+            :result="selectionResult"
+            :metrics="selectionMetrics"
+            :stale="selectionResultIsStale"
+            :updating="selectionLoading"
+            :expanded-repository-id="expandedRepositoryId"
+            @toggle-details="toggleEvidence"
+          >
+            <template #methodDetails>
+              <p class="m-0 text-[10.5px] leading-relaxed text-muted">综合分是当前候选间的相对分（0–100），不是代码质量或健康评分。每周 Commit 使用 log(1+x) 缓和极大值；Issue、PR 耗时和 Release 间隔按较短值优先。同一指标数值相同记为 50 分。</p>
+              <p class="m-0 text-[10.5px] leading-relaxed text-muted">系统优先按所选 {{ analysis.timeWindow }} 天同期窗口计分；共同窗口不可用时回退各仓库自身窗口，此时不代表同期表现。Release 使用独立近 365 天窗口。无有效样本按中性 50 分计入但不标为实测，部分覆盖只使用已观察数据。</p>
+            </template>
+          </CompactRankingTable>
 
-        <details class="rounded-md border border-line px-3 py-2" data-testid="selection-scoring-explanation">
-          <summary class="cursor-pointer text-[11.5px] font-medium">评分口径与限制</summary>
-          <div class="mt-2 space-y-1.5">
-            <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前所选仓库中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
-            <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。缺少有效样本时按中性 50 分计入，不作为实际表现；部分覆盖按已观察样本计算。</p>
-          </div>
-        </details>
-
-        <div v-if="selectionResult || selectionLoading" class="space-y-3 border-t border-line pt-4 text-[12px]" :aria-busy="selectionLoading" data-testid="selection-result">
-          <div v-if="selectionLoading" key="ranking-loading" class="space-y-3" role="status" aria-live="polite" aria-label="正在按当前权重更新综合排名">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h4 class="m-0 text-[13px] font-semibold">综合排名</h4>
-                <p class="mb-0 mt-1 text-[10.5px] text-muted">正在按当前权重重新计算…</p>
-              </div>
-              <span class="h-5 w-16 animate-pulse rounded bg-track/60 motion-reduce:animate-none" aria-hidden="true" />
-            </div>
-            <div class="grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-              <div v-for="repositoryId in analysis.compareIds" :key="repositoryId" class="space-y-3 rounded-lg border border-line p-3" aria-hidden="true">
-                <div class="flex items-center gap-2.5">
-                  <span class="size-7 shrink-0 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
-                  <span class="h-4 w-44 max-w-[55%] animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
-                  <span class="ml-auto h-7 w-16 animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
-                </div>
-                <div class="h-2 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
-                <div class="grid min-w-0 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
-                  <div v-for="metric in selectionMetrics" :key="metric.key" class="h-[58px] animate-pulse rounded-md bg-track/50 motion-reduce:animate-none" />
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else-if="selectionResult" key="ranking-result" class="space-y-3" aria-live="polite">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h4 class="m-0 text-[13px] font-semibold">综合排名</h4>
-              <p v-if="selectionResult.sharedWindow" class="mb-0 mt-1 text-[10.5px] text-muted">共同窗口：{{ selectionResult.sharedWindow.start.slice(0, 10) }} 至 {{ selectionResult.sharedWindow.end.slice(0, 10) }} UTC</p>
-              <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">按各仓库自身可用窗口计分，时间范围不同，不代表同期表现。</p>
-            </div>
-            <GdBadge v-if="selectionResultIsStale" variant="warn">上次结果</GdBadge>
-            <GdBadge v-else :variant="selectionResult.status === 'available' ? 'default' : 'warn'">{{ selectionResult.status === 'available' ? '可比较' : '筛选未通过' }}</GdBadge>
-          </div>
-          <ComparisonScoreChart v-if="selectionScoreRows.length" :rows="selectionScoreRows" :height="Math.min(200, Math.max(160, selectionScoreRows.length * 36))" />
-          <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">当前所选仓库中符合语言或许可证条件的不足两个，请调整筛选条件。</p>
-          <div class="grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-          <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-2.5 rounded-lg border border-line p-3" :data-testid="`selection-score-${row.id}`">
-            <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
-              <div class="flex min-w-0 items-start gap-2.5">
-                <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold">{{ index + 1 }}</span>
-                <div class="min-w-0">
-                  <h5 class="m-0 break-all text-[13px] font-semibold">{{ row.name }}</h5>
-                  <p class="mb-0 mt-1 text-[10.5px] text-muted">{{ row.evidence.length }} 项指标参与 · 所选仓库中的相对分</p>
-                </div>
-              </div>
-              <div class="shrink-0 text-right">
-                <strong class="font-mono text-[23px] leading-none">{{ row.score.toFixed(1) }}</strong>
-                <span class="ml-1 text-[11px] text-muted">/100</span>
-              </div>
-            </div>
-            <div class="h-2 overflow-hidden rounded-full bg-track" role="progressbar" :aria-label="`${row.name} 综合分`" :aria-valuenow="scorePercent(row.score)" aria-valuemin="0" aria-valuemax="100">
-              <div class="h-full rounded-full bg-[var(--gd-primary-button)] transition-[width] duration-300 motion-reduce:transition-none" :style="{ width: `${scorePercent(row.score)}%` }" />
-            </div>
-            <div class="grid min-w-0 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
-              <div v-for="item in row.evidence" :key="item.metric" class="min-w-0 rounded-md bg-soft/35 px-2.5 py-2">
-                <p class="m-0 flex min-w-0 items-center justify-between gap-2 text-[10.5px] text-muted">
-                  <span class="truncate">{{ selectionLabel(item.metric) }}{{ item.missingPolicy === 'neutral_50' ? ' · 无有效样本' : item.quality === 'partial' ? ' · 部分覆盖' : '' }}</span>
-                  <span class="shrink-0 font-mono">权重 {{ formatWeight(item.weight * 100) }}%</span>
-                </p>
-                <p class="mb-0 mt-1 break-words font-mono text-[12px] font-medium text-ink">{{ item.value === null ? '中性 50 分（无样本）' : `${item.value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${item.unit}` }}</p>
-                <p class="mb-0 mt-1 text-[10px] text-muted">单项 {{ (item.normalized * 100).toFixed(0) }} 分 · 贡献 {{ item.contribution.toFixed(1) }} 分</p>
-              </div>
-            </div>
-          </div>
-          </div>
-          <div v-if="selectionResult.excluded.length" class="space-y-1 rounded-md bg-warnbg px-3 py-2.5 text-[11px] text-warnfg" data-testid="selection-excluded">
-            <p class="m-0 font-medium">未参与排名</p>
-            <p v-for="item in selectionResult.excluded" :key="item.id" class="m-0 break-words">{{ item.name }}：{{ item.reasons.join('；') }}</p>
-          </div>
-          <details v-if="selectionResult.maintenance.repositories.length" class="rounded-md border border-line px-3 py-2.5" data-testid="selection-maintenance">
+          <details v-if="selectionResult?.maintenance.repositories.length" class="rounded-md border border-line px-3 py-2.5" data-testid="selection-maintenance">
             <summary class="cursor-pointer text-[11.5px] font-medium">近期维护行为与预测证据（不参与综合分）</summary>
             <p v-if="selectionResult.maintenance.dataAsOf" class="mb-2 mt-2 text-[10.5px] text-muted">课程仓库资料来自历史快照，截至 {{ selectionResult.maintenance.dataAsOf }}。</p>
             <div v-for="item in selectionResult.maintenance.repositories" :key="item.id" class="space-y-1 border-t border-line py-2 text-[10.5px] leading-relaxed text-muted">
@@ -608,11 +388,10 @@ async function exportComparison() {
               </template>
             </div>
           </details>
-          </div>
         </div>
+
       </section>
     </UiPanel>
-
     <UiPanel as="section">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div>
