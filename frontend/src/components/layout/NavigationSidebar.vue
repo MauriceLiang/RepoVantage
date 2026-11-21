@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { CSSProperties } from 'vue'
-import { Database, Folder, Gauge, ListChecks, Settings } from 'lucide-vue-next'
+import { Folder, Gauge, ListChecks, Settings } from 'lucide-vue-next'
 
 const props = defineProps<{ active: string; dataMode?: 'http' | 'mock'; mobile?: boolean }>()
 const emit = defineEmits<{ select: [page: string] }>()
@@ -13,7 +13,6 @@ let resizeObserver: ResizeObserver | undefined
 const items = [
   { id: 'overview', label: '概览', icon: Gauge, to: '/' },
   { id: 'repositories', label: '仓库', icon: Folder, to: '/repositories' },
-  { id: 'machine-learning', label: '机器学习数据', icon: Database, to: '/machine-learning' },
 ]
 const utilities = [
   { id: 'tasks', label: '任务中心', icon: ListChecks, to: '/tasks' },

@@ -136,13 +136,39 @@ const comparisonHeatSpec = computed<G2Spec>(() => ({
   style: { inset: 1, radius: 3 },
   tooltip: { title: (datum: { repository: string; metric: string }) => `${datum.repository} · ${datum.metric}`, items: [{ field: 'rawValue', name: '原始值' }, { field: 'normalized', name: '归一值（0–100）' }, { field: 'sampleSize', name: '有效样本数' }] },
 }))
-const comparisonParallelSpec = computed<G2Spec>(() => ({
-  type: 'line', coordinate: { type: 'parallel' }, data: comparisonRadarRows.value,
-  encode: { position: comparisonRadarFields, color: 'repository' },
-  scale: Object.fromEntries(comparisonRadarFields.map((field) => [field, { domain: [0, 100], nice: false }])),
-  style: { lineWidth: 1.4, strokeOpacity: 0.56 },
-  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
-  tooltip: { title: 'repository', items: radarAxes.map((axis) => ({ field: `${axis.key}Score`, name: `${axis.label}归一值（0–100）` })) },
+const comparisonActivityScatterRows = computed(() => selectionBasisEntries.value.flatMap((entry) => {
+  const completeWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
+  if (!completeWeeks.length || entry.prP50 === null || entry.prSample < 1) return []
+  return [{
+    repository: entry.label,
+    commitsWeekly: completeWeeks.reduce((sum, value) => sum + value, 0) / completeWeeks.length,
+    prP50Days: entry.prP50,
+    prSamples: entry.prSample,
+    prCoverage: entry.prQuality === 'partial' ? '部分覆盖' : '完整覆盖',
+    completeWeeks: completeWeeks.length,
+    color: entry.color,
+  }]
+}))
+const comparisonActivityScatterSpec = computed<G2Spec>(() => ({
+  type: 'point', data: comparisonActivityScatterRows.value,
+  encode: { x: 'commitsWeekly', y: 'prP50Days', color: 'repository', size: 'prSamples' },
+  scale: {
+    color: {
+      domain: comparisonActivityScatterRows.value.map((row) => row.repository),
+      range: comparisonActivityScatterRows.value.map((row) => row.color),
+    },
+    size: { range: [6, 17] },
+  },
+  axis: { x: { title: '周均 Commit（次 / 完整 UTC 周）' }, y: { title: 'PR 合并耗时 P50（天）' } },
+  legend: { color: { position: 'bottom', title: '仓库' }, size: { title: '有效 PR 样本数' } },
+  style: { fillOpacity: 0.8, stroke: '#fff', lineWidth: 1.5 },
+  tooltip: { title: 'repository', items: [
+    { field: 'commitsWeekly', name: '周均 Commit' },
+    { field: 'prP50Days', name: 'PR 合并耗时 P50（天）' },
+    { field: 'prSamples', name: '有效 PR 样本数' },
+    { field: 'prCoverage', name: 'PR 覆盖状态' },
+    { field: 'completeWeeks', name: '有效完整周数' },
+  ] },
 }))
 const missingReason = (quality: string) => ({
   partial: '覆盖不完整',
@@ -663,13 +689,20 @@ async function exportComparison() {
     </UiPanel>
 
     <UiPanel as="section" data-testid="comparison-diverse-charts">
-      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标结构</h3><p class="mt-0.5 text-[12px] text-muted">同一可用子集内按 min–max 归一到 0–100；耗时和发布间隔反向，Commit 与有效周占比正向。此图仅作相对比较，不代表健康评分。</p></div>
-      <div v-if="comparisonRadarRows.length" class="mt-3 grid gap-4 xl:grid-cols-2">
-        <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><G2Chart :spec="comparisonRadarSpec" label="当前共同可用仓库的归一化指标雷达图" :height="340" /><p class="m-0 text-[10.5px] text-muted">纳入 {{ comparisonRadarRows.length }} / {{ selectionBasisEntries.length }} 个仓库；缺失任一轴的仓库不会补零。样本量与原始单位见下方对照表。</p></div>
-        <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库 × 指标热力矩阵</h4><G2Chart :spec="comparisonHeatSpec" label="仓库与比较指标的归一值热力矩阵，悬停查看原值与样本" :height="340" /></div>
-        <div class="min-w-0 xl:col-span-2"><h4 class="m-0 text-[12px] font-semibold">平行坐标</h4><G2Chart :spec="comparisonParallelSpec" label="归一化仓库指标平行坐标图" :height="300" /></div>
+      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">雷达与热力矩阵使用同一可用子集，按 min–max 归一到 0–100；耗时和发布间隔反向。图表用于描述相对差异，不代表健康评分。</p></div>
+      <div class="mt-3 grid gap-4 xl:grid-cols-2">
+        <template v-if="comparisonRadarRows.length">
+          <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><G2Chart :spec="comparisonRadarSpec" label="当前共同可用仓库的归一化指标雷达图" :height="340" /><p class="m-0 text-[10.5px] text-muted">纳入 {{ comparisonRadarRows.length }} / {{ selectionBasisEntries.length }} 个仓库；缺失任一轴的仓库不会补零。样本量与原始单位见下方对照表。</p></div>
+          <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库 × 指标热力矩阵</h4><G2Chart :spec="comparisonHeatSpec" label="仓库与比较指标的归一值热力矩阵，悬停查看原值与样本" :height="340" /></div>
+        </template>
+        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">完整多维指标不足，暂不显示雷达与热力矩阵；单项数据仍保留在下方对照表。</p>
+        <div v-if="comparisonActivityScatterRows.length" class="min-w-0 xl:col-span-2">
+          <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">周均 Commit × PR 合并耗时</h4><span class="text-[10.5px] text-muted">点大小表示有效 PR 样本数</span></div>
+          <G2Chart :spec="comparisonActivityScatterSpec" label="每个点代表一个已选择仓库，横轴为完整 UTC 周周均 Commit，纵轴为 PR 合并耗时中位数，点大小代表有效 PR 样本数" :height="320" />
+          <p class="m-0 text-[10.5px] text-muted">显示 {{ comparisonActivityScatterRows.length }} / {{ selectionBasisEntries.length }} 个仓库；点大小表示有效 PR 样本量，部分覆盖会在悬停信息中标出。仅描述指标关系，不作因果解释。</p>
+        </div>
+        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted xl:col-span-2">至少需要一个仓库同时具备完整 UTC 周 Commit 和 PR 合并耗时样本；缺失值不补零。</p>
       </div>
-      <p v-else class="mt-3 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前仓库缺少完整的周均 Commit、Issue P50、PR P50 或 Release 间隔数据，无法构造同轴多维比较；下方表格保留各指标各自的有效值与样本说明。</p>
     </UiPanel>
 
     <UiPanel as="section">
