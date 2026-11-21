@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { Activity, ArrowRight, Database, GitFork, RefreshCw, Search, Star } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import type { G2Spec } from '@antv/g2'
-import G2Chart from '@/components/charts/G2Chart.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
+import { useOverviewChartFilters } from '@/composables/useOverviewChartFilters'
+import { buildOverviewChartData } from '@/lib/overviewChartData'
 import type { RepositoryDataStatus, RepositoryStatus, RepositorySummary, TaskItem } from '@/services/types'
 import { useUiStore } from '@/stores/ui'
+import OverviewCharts from './OverviewCharts.vue'
 
 const source = useDataSource()
 const router = useRouter()
@@ -19,15 +20,15 @@ const hasRepositoryData = computed(() => repositories.value.length > 0)
 const loading = computed(() => repositoryRequest.loading.value || taskRequest.loading.value)
 const repositoryError = computed(() => repositoryRequest.error.value)
 const dataCoverageCount = computed(() => repositories.value.filter((repository) => repository.status === 'ready' || repository.status === 'partial').length)
-const recentActivityCount = computed(() => repositories.value.filter((repository) => {
-  const pushedAt = dateValue(repository.pushedAt)
-  return pushedAt !== null && pushedAt >= Date.now() - 30 * 24 * 60 * 60 * 1000
-}).length)
-const chartPalette = ['#3478f6', '#42a88a', '#e3a63b', '#9672c5', '#e16d7d', '#7d8997', '#37a9bd']
-const axisColor = computed(() => ui.isDark ? '#a0a8b0' : '#6e7781')
-const gridColor = computed(() => ui.isDark ? '#2b3238' : '#e8ebed')
-const axisBase = computed(() => ({ labelFill: axisColor.value, labelFontSize: 10, lineStroke: gridColor.value, tickStroke: gridColor.value, titleFill: axisColor.value }))
-const gridStyle = computed(() => ({ stroke: gridColor.value, lineDash: [3, 3] }))
+const asOfMs = ref(Date.now())
+watch(repositories, () => { asOfMs.value = Date.now() })
+const chartData = computed(() => buildOverviewChartData({ repositories: repositories.value, asOfMs: asOfMs.value }))
+const chartFilters = useOverviewChartFilters(repositories, asOfMs)
+const chartFilterState = chartFilters.filterState
+const selectedRepositoryId = chartFilters.selectedRepositoryId
+const chartFilteredRepositories = chartFilters.filteredRepositories
+const chartFilteredIds = computed(() => chartFilteredRepositories.value.map((repository) => repository.id))
+const recentActivityCount = computed(() => chartData.value.active30Count)
 
 const repositorySearch = ref('')
 const statusFilter = ref('all')
@@ -50,130 +51,6 @@ const sortOptions = [
   { value: 'name', label: '仓库名称' },
 ]
 
-const languageGroups = computed(() => {
-  const counts = new Map<string, number>()
-  for (const repository of repositories.value) {
-    const language = repository.language?.trim() || '未知语言'
-    counts.set(language, (counts.get(language) ?? 0) + 1)
-  }
-  return [...counts.entries()]
-    .map(([language, repositoryCount]) => ({ language, repositoryCount }))
-    .sort((left, right) => right.repositoryCount - left.repositoryCount || left.language.localeCompare(right.language))
-})
-const languageRows = computed(() => {
-  const known = languageGroups.value.filter((group) => group.language !== '未知语言')
-  const rows = known.slice(0, 5)
-  const otherCount = known.slice(5).reduce((sum, group) => sum + group.repositoryCount, 0)
-  const unknownCount = languageGroups.value.find((group) => group.language === '未知语言')?.repositoryCount ?? 0
-  const result = rows.map((group) => ({ label: group.language, count: group.repositoryCount }))
-  if (otherCount) result.push({ label: '其他语言', count: otherCount })
-  if (unknownCount) result.push({ label: '未知语言', count: unknownCount })
-  return result
-})
-const languageSpec = computed<G2Spec>(() => ({
-  type: 'interval',
-  data: languageRows.value,
-  coordinate: { transform: [{ type: 'transpose' }] },
-  encode: { x: 'label', y: 'count', color: 'label' },
-  scale: { color: { domain: languageRows.value.map((row) => row.label), range: chartPalette } },
-  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
-  legend: false,
-  tooltip: { title: 'label', items: [{ field: 'count', name: '仓库数' }] },
-}))
-
-const starBuckets = computed(() => {
-  const buckets = [
-    { label: '0', min: 0, max: 0, count: 0 },
-    { label: '1–100', min: 1, max: 100, count: 0 },
-    { label: '101–1k', min: 101, max: 1_000, count: 0 },
-    { label: '1k–10k', min: 1_001, max: 10_000, count: 0 },
-    { label: '10k–100k', min: 10_001, max: 100_000, count: 0 },
-    { label: '100k+', min: 100_001, max: Number.POSITIVE_INFINITY, count: 0 },
-  ]
-  for (const repository of repositories.value) {
-    if (repository.stars === null) continue
-    const bucket = buckets.find((item) => repository.stars! >= item.min && repository.stars! <= item.max)
-    if (bucket) bucket.count += 1
-  }
-  return buckets.map(({ label, count }) => ({ label, count }))
-})
-const starSampleCount = computed(() => repositories.value.filter((repository) => repository.stars !== null).length)
-const starSpec = computed<G2Spec>(() => ({
-  type: 'interval',
-  data: starBuckets.value,
-  coordinate: { transform: [{ type: 'transpose' }] },
-  encode: { x: 'label', y: 'count', color: 'label' },
-  scale: { color: { domain: starBuckets.value.map((item) => item.label), range: chartPalette } },
-  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
-  legend: false,
-  tooltip: { title: 'label', items: [{ field: 'count', name: '仓库数' }] },
-}))
-
-const topLanguageNames = computed(() => new Set(languageGroups.value.filter((group) => group.language !== '未知语言').slice(0, 5).map((group) => group.language)))
-const scatterData = computed(() => repositories.value.flatMap((repository) => {
-  if (repository.stars === null || repository.forks == null) return []
-  const language = repository.language?.trim() || '未知语言'
-  return [{
-    fullName: repository.fullName,
-    language: language === '未知语言' ? language : topLanguageNames.value.has(language) ? language : '其他语言',
-    stars: repository.stars,
-    forks: repository.forks,
-    starsPlot: Math.max(1, repository.stars),
-    forksPlot: Math.max(1, repository.forks),
-  }]
-}))
-const scatterLanguages = computed(() => [...new Set(scatterData.value.map((row) => row.language))])
-const scatterSpec = computed<G2Spec>(() => ({
-  type: 'point',
-  data: scatterData.value,
-  scale: {
-    x: { type: 'log', base: 10 },
-    y: { type: 'log', base: 10 },
-    color: { domain: scatterLanguages.value, range: chartPalette },
-  },
-  encode: { x: 'starsPlot', y: 'forksPlot', color: 'language' },
-  style: { r: 5, fillOpacity: 0.78, stroke: ui.isDark ? '#20262b' : '#fff', lineWidth: 1 },
-  axis: {
-    x: { ...axisBase.value, title: 'Stars（对数刻度，0 按 1 定位）', grid: false },
-    y: { ...axisBase.value, title: 'Forks（对数刻度，0 按 1 定位）', grid: gridStyle.value },
-  },
-  legend: { color: { position: 'bottom', itemLabelFill: axisColor.value, itemLabelFontSize: 9 } },
-  tooltip: { title: 'fullName', items: [
-    { field: 'language', name: '主语言' },
-    { field: 'stars', name: 'Stars', valueFormatter: (value: number) => formatNumber(value) },
-    { field: 'forks', name: 'Forks', valueFormatter: (value: number) => formatNumber(value) },
-  ] },
-  interaction: { tooltip: { shared: false } },
-}))
-
-const pushRecencyBuckets = computed(() => {
-  const buckets = [
-    { label: '近 7 天', count: 0 },
-    { label: '8–30 天', count: 0 },
-    { label: '31–90 天', count: 0 },
-    { label: '91–365 天', count: 0 },
-    { label: '超过 1 年', count: 0 },
-    { label: '无日期', count: 0 },
-  ]
-  const now = Date.now()
-  for (const repository of repositories.value) {
-    const pushedAt = dateValue(repository.pushedAt)
-    if (pushedAt === null) { buckets[5].count += 1; continue }
-    const days = Math.max(0, Math.floor((now - pushedAt) / (24 * 60 * 60 * 1000)))
-    const index = days <= 7 ? 0 : days <= 30 ? 1 : days <= 90 ? 2 : days <= 365 ? 3 : 4
-    buckets[index].count += 1
-  }
-  return buckets
-})
-const pushRecencySpec = computed<G2Spec>(() => ({
-  type: 'interval',
-  data: pushRecencyBuckets.value,
-  encode: { x: 'label', y: 'count' },
-  style: { fill: '#3989c8' },
-  axis: { x: { ...axisBase.value, title: false }, y: { ...axisBase.value, title: '仓库数', grid: gridStyle.value } },
-  tooltip: { title: 'label', items: [{ field: 'count', name: '仓库数' }] },
-}))
-
 function needsAttention(repository: RepositorySummary) {
   return repository.status === 'failed'
     || repository.status === 'idle'
@@ -192,6 +69,7 @@ const attentionRepositories = computed(() => [...repositories.value]
 const filteredRepositories = computed(() => {
   const query = repositorySearch.value.trim().toLocaleLowerCase()
   const filtered = repositories.value.filter((repository) => {
+    if (!chartFilters.matchesRepository(repository)) return false
     const searchable = `${repository.fullName} ${repository.description ?? ''} ${repository.language ?? ''}`.toLocaleLowerCase()
     const matchesQuery = !query || searchable.includes(query)
     const matchesStatus = statusFilter.value === 'all'
@@ -210,9 +88,43 @@ const pageCount = computed(() => Math.max(1, Math.ceil(filteredRepositories.valu
 const pageRepositories = computed(() => filteredRepositories.value.slice((currentPage.value - 1) * pageSize, currentPage.value * pageSize))
 const rangeStart = computed(() => filteredRepositories.value.length ? (currentPage.value - 1) * pageSize + 1 : 0)
 const rangeEnd = computed(() => Math.min(currentPage.value * pageSize, filteredRepositories.value.length))
+const selectedRepository = computed(() => repositories.value.find((repository) => repository.id === chartFilters.selectedRepositoryId.value) ?? null)
+const selectedRepositoryOutsideList = computed(() => !!selectedRepository.value && !filteredRepositories.value.some((repository) => repository.id === selectedRepository.value?.id))
 
 watch([repositorySearch, statusFilter, sortBy], () => { currentPage.value = 1 })
+watch([chartFilters.selectedLanguageKeys, chartFilters.selectedStarsBucket, chartFilters.selectedPushBucket], () => { currentPage.value = 1 }, { deep: true })
 watch(pageCount, (count) => { if (currentPage.value > count) currentPage.value = count })
+
+function selectChartRepository(id: string) {
+  chartFilters.selectedRepositoryId.value = chartFilters.selectedRepositoryId.value === id ? null : id
+  const index = filteredRepositories.value.findIndex((repository) => repository.id === id)
+  if (index >= 0) currentPage.value = Math.floor(index / pageSize) + 1
+}
+
+function clearSelectedRepository() {
+  chartFilters.selectedRepositoryId.value = null
+}
+
+function clearChartFilters() {
+  chartFilters.clearFilters()
+  currentPage.value = 1
+}
+
+async function locateSelectedRepository() {
+  const id = chartFilters.selectedRepositoryId.value
+  if (!id) return
+  chartFilters.clearFilters()
+  chartFilters.selectedRepositoryId.value = id
+  repositorySearch.value = ''
+  statusFilter.value = 'all'
+  await nextTick()
+  const index = filteredRepositories.value.findIndex((repository) => repository.id === id)
+  if (index < 0) return
+  currentPage.value = Math.floor(index / pageSize) + 1
+  await nextTick()
+  const row = [...document.querySelectorAll<HTMLElement>('[data-repository-id]')].find((element) => element.dataset.repositoryId === id)
+  row?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' })
+}
 
 const activeTasks = computed(() => (taskRequest.data.value ?? []).filter((task) => ['queued', 'running', 'analyzing'].includes(task.status)))
 const taskModuleLabel: Record<string, string> = {
@@ -367,33 +279,18 @@ onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTi
         <UiMetricCard label="需要关注" :value="formatNumber(attentionCount)" note="失败、待采集、覆盖不全或快照过期" />
       </section>
 
-      <section class="overview-chart-grid" aria-label="仓库组合数据可视化">
-        <UiPanel as="article" class="chart-panel">
-          <div class="panel-heading"><div><h2 class="panel-title">主语言构成</h2><p class="panel-description">前五种语言、其他与未知 · {{ repositories.length }} 个项目</p></div></div>
-          <G2Chart v-if="languageRows.length" :spec="languageSpec" label="已加入仓库的主语言数量横向条形图" :height="225" />
-          <div v-else class="chart-empty">暂无语言快照</div>
-        </UiPanel>
-
-        <UiPanel as="article" class="chart-panel">
-          <div class="panel-heading"><div><h2 class="panel-title">Stars 分布</h2><p class="panel-description">按受欢迎程度区间统计 · n={{ starSampleCount }} / {{ repositories.length }}</p></div></div>
-          <G2Chart v-if="starSampleCount" :spec="starSpec" label="已加入仓库的 Stars 区间数量横向条形图" :height="225" />
-          <div v-else class="chart-empty">暂无 Stars 快照</div>
-          <p class="chart-note">{{ repositories.length - starSampleCount }} 个项目缺少 Stars 快照，未按 0 计入。</p>
-        </UiPanel>
-
-        <UiPanel as="article" class="chart-panel">
-          <div class="panel-heading"><div><h2 class="panel-title">Stars 与 Forks 关系</h2><p class="panel-description">每个点代表一个仓库 · 对数刻度展示长尾分布</p></div><span class="chart-sample mono">{{ scatterData.length }} / {{ repositories.length }}</span></div>
-          <G2Chart v-if="scatterData.length" :spec="scatterSpec" label="已加入仓库 Stars 与 Forks 对数关系散点图" :height="245" />
-          <div v-else class="chart-empty">需要同时有 Stars 和 Forks 快照才能绘制</div>
-          <p class="chart-note">悬停可查看仓库、主语言、Stars 和 Forks；0 值仅在图上按 1 定位。</p>
-        </UiPanel>
-
-        <UiPanel as="article" class="chart-panel">
-          <div class="panel-heading"><div><h2 class="panel-title">最近 Push 活跃度</h2><p class="panel-description">按每个仓库最近一次 Push 距今天数分组</p></div><span class="chart-sample mono">{{ recentActivityCount }} 个近 30 天</span></div>
-          <G2Chart :spec="pushRecencySpec" label="各仓库最近 Push 时间距今天数分布柱状图" :height="245" />
-          <p class="chart-note">展示仓库数量，不代表区间内的 Push 次数；无日期项目单独列出。</p>
-        </UiPanel>
-      </section>
+      <OverviewCharts
+        :data="chartData"
+        :filters="chartFilterState"
+        :filtered-ids="chartFilteredIds"
+        :filtered-count="chartFilteredRepositories.length"
+        @toggle-languages="chartFilters.toggleLanguages($event)"
+        @toggle-stars-bucket="chartFilters.toggleStarsBucket($event)"
+        @toggle-push-bucket="chartFilters.togglePushBucket($event)"
+        @select-repository="selectChartRepository"
+        @clear-selected-repository="clearSelectedRepository"
+        @clear-filters="clearChartFilters"
+      />
 
       <section class="portfolio-grid" aria-label="仓库组合详情">
         <UiPanel as="article" class="repository-panel">
@@ -408,11 +305,16 @@ onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTi
             <UiSelect v-model="sortBy" label="排序仓库" :options="sortOptions" class="repository-sort" />
           </div>
 
+          <div v-if="selectedRepositoryOutsideList && selectedRepository" class="selection-notice" role="status">
+            <span>所选 {{ selectedRepository.fullName }} 被当前图表或列表条件隐藏。</span>
+            <button type="button" @click="locateSelectedRepository">清除筛选并定位</button>
+          </div>
+
           <div v-if="pageRepositories.length" class="repository-table-wrap" role="region" aria-label="已加入仓库清单" tabindex="0">
             <table class="portfolio-table">
               <thead><tr><th scope="col">仓库</th><th scope="col">主语言</th><th scope="col">Stars / Forks</th><th scope="col">最近 Push</th><th scope="col">本地数据</th></tr></thead>
               <tbody>
-                <tr v-for="repository in pageRepositories" :key="repository.id">
+                <tr v-for="repository in pageRepositories" :key="repository.id" :data-repository-id="repository.id" :class="{ 'is-selected': selectedRepositoryId === repository.id }">
                   <td class="repository-name-cell">
                     <RouterLink :to="`/repositories/${repository.id}/overview`" class="repository-name">{{ repository.fullName }}</RouterLink>
                     <p class="repository-description" :title="repository.description ?? ''">{{ repository.description || '暂无仓库说明' }}</p>
@@ -485,12 +387,9 @@ onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTi
 .onboarding-steps strong { font-size: 11px; }
 .onboarding-steps p { margin: 4px 0 0; color: var(--muted); font-size: 10.5px; line-height: 1.55; }
 .add-repository-form .search-field { flex: 1 1 360px; }
-.overview-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
-.chart-panel { min-width: 0; }
-.chart-panel :deep(.chart-canvas) { min-height: 210px; }
-.chart-sample { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
-.chart-note { margin: 2px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
-.chart-empty { display: grid; min-height: 210px; place-items: center; color: var(--muted); font-size: 11px; }
+.selection-notice { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin: 12px 0; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--line)); border-radius: 7px; color: var(--muted); background: var(--primary-soft); font-size: 10.5px; }
+.selection-notice button { padding: 4px 7px; border: 0; border-radius: 5px; color: var(--primary-ink); background: transparent; font: inherit; font-weight: 600; cursor: pointer; }
+.selection-notice button:hover { background: color-mix(in srgb, var(--primary) 10%, transparent); }
 .portfolio-grid { display: grid; grid-template-columns: minmax(0, 1.85fr) minmax(285px, .8fr); gap: 12px; align-items: start; }
 .repository-panel { min-width: 0; }
 .repository-heading { align-items: flex-start; }
@@ -504,6 +403,7 @@ onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTi
 .portfolio-table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; text-align: left; }
 .portfolio-table th { padding: 10px 9px; color: var(--muted); font-size: 10.5px; font-weight: 600; white-space: nowrap; }
 .portfolio-table td { padding: 12px 9px; border-top: 1px solid var(--line); vertical-align: middle; font-size: 11.5px; }
+.portfolio-table tr.is-selected td { background: var(--primary-soft); }
 .portfolio-table th:first-child, .portfolio-table td:first-child { padding-left: 2px; }
 .portfolio-table th:nth-child(1) { width: 31%; }
 .portfolio-table th:nth-child(2) { width: 16%; }
@@ -562,7 +462,6 @@ onBeforeUnmount(() => { if (pollTimer !== undefined) window.clearInterval(pollTi
 @media (max-width: 860px) {
   .onboarding-heading { flex-direction: column; }
   .onboarding-steps { grid-template-columns: 1fr; gap: 10px; }
-  .overview-chart-grid { grid-template-columns: 1fr; }
   .portfolio-grid { grid-template-columns: 1fr; }
   .portfolio-aside { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
   .task-panel { grid-column: 1 / -1; }

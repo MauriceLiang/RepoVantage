@@ -79,7 +79,11 @@ try {
     assert.ok(await page.$('.atlas-trend-panel canvas, .atlas-trend-panel svg'), '选中仓库应显示 G2 周轨迹')
     await page.screenshot({ path: `/tmp/repovantage-v45-research-${theme}-desktop.png`, fullPage: true })
 
-    await page.click('.atlas-list-row:nth-of-type(2)')
+    await page.$$eval('.atlas-list-row', (rows) => {
+      const row = rows.find((item) => item.textContent?.includes('example/beta'))
+      if (!(row instanceof HTMLButtonElement)) throw new Error('缺少 example/beta 样本行')
+      row.click()
+    })
     await page.waitForFunction(() => document.querySelector('.atlas-repo-title strong')?.textContent === 'example/beta')
     assert.match(await page.$eval('.atlas-measures', (node) => node.textContent), /5\.00.*1\.00/s)
 
@@ -111,7 +115,10 @@ try {
 
     for (const width of [1440, 390, 320]) {
       await page.setViewport({ width, height: 844 })
-      await page.waitForFunction(() => document.querySelector('.research-g2-chart canvas')?.width > 0)
+      await page.waitForFunction(() => [...document.querySelectorAll('.research-g2-chart, .g2-chart__canvas')].every((host) => {
+        const canvas = host.querySelector('canvas')
+        return canvas instanceof HTMLCanvasElement && canvas.clientWidth <= host.clientWidth + 2
+      }))
       const geometry = await page.evaluate(() => ({
         pageWidth: document.documentElement.scrollWidth,
         viewportWidth: document.documentElement.clientWidth,
