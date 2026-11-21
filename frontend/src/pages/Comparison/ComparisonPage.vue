@@ -112,10 +112,17 @@ const comparisonRadarRows = computed(() => {
 })
 const comparisonRadarFields = radarAxes.map((axis) => `${axis.key}Score`)
 const comparisonRadarSpec = computed<G2Spec>(() => ({
-  type: 'line', coordinate: { type: 'radar' }, data: comparisonRadarRows.value,
+  type: 'line', coordinate: { type: 'radar', outerRadius: 0.78 }, data: comparisonRadarRows.value,
   encode: { position: comparisonRadarFields, color: 'repository' },
   scale: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, { domain: [0, 100], nice: false }])),
-  axis: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, { label: true, labelFontSize: 9, titleFontSize: 9, line: true, grid: true }])),
+  axis: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, {
+    label: false,
+    title: radarAxes[index].label,
+    titleFontSize: 10,
+    titleSpacing: 10,
+    line: true,
+    grid: true,
+  }])),
   legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
   style: { lineWidth: 1.8, strokeOpacity: 0.74 },
   interaction: { tooltip: { series: false } },
