@@ -36,7 +36,9 @@ const spec = computed<G2Spec>(() => {
       x: { labelFill: axisColor, labelFontSize: 10, title: false },
       y: { labelFill: axisColor, labelFontSize: 10, title: '天', gridStroke: gridColor, gridLineDash: [3, 3] },
     },
-    legend: { color: { position: 'bottom', itemLabelFill: axisColor, itemLabelFontSize: 9 } },
+    // The comparison card already renders a wrapping repository legend above
+    // the chart; a second G2 legend gets clipped in the half-width layout.
+    legend: false,
     tooltip: { title: 'repository', items: [
       { field: 'metric', name: '指标' }, { field: 'days', name: 'P50（天）' },
       { field: 'sample', name: '有效样本数' }, { field: 'quality', name: '覆盖状态' },

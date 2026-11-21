@@ -124,12 +124,6 @@ const basisWindowLabel = computed(() => comparisonBasis.value?.sharedWindow
 const comparisonEmptyMessage = computed(() => comparisonBasis.value?.status === 'not_comparable'
   ? comparisonBasis.value.reason ?? '没有达到同期比较要求。'
   : '共同窗口内没有可用的完整 UTC Commit 周。可切换到「各自窗口」查看各仓库自身活动。')
-const totalCommits = (entry: (typeof entries.value)[number]) => entry.points.length && entry.points.every((point) => point.value !== null)
-  ? entry.points.reduce((sum, point) => sum + (point.value ?? 0), 0).toLocaleString('en-US')
-  : '—'
-const entryWindow = (entry: (typeof entries.value)[number]) => entry.windowStart && entry.windowEnd
-  ? `${entry.windowStart} 至 ${entry.windowEnd}`
-  : '—'
 const durationQualityLabel = (quality: string, windowAvailable: boolean) => windowAvailable ? missingReason(quality) : '范围未覆盖'
 const durationValueLabel = (value: number | null, samples: number, quality: string, windowAvailable: boolean) => value === null
   ? `— · ${durationQualityLabel(quality, windowAvailable)} · 有效样本 n=${samples}`
@@ -627,7 +621,7 @@ async function exportComparison() {
       </div>
     </UiPanel>
 
-    <div class="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+    <div class="grid min-w-0 items-start gap-4 xl:grid-cols-2">
       <UiPanel as="section" data-testid="comparison-diverse-charts">
         <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
         <div class="mt-3">
@@ -641,123 +635,81 @@ async function exportComparison() {
       </UiPanel>
 
       <UiPanel as="section" data-testid="comparison-duration-charts">
-      <div>
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
-          <p class="mt-0.5 text-[12px] leading-relaxed text-muted">按处理事项分行、按仓库分色；柱长直接比较同一指标。差值以第一个仓库为参照，正负方向描述耗时变化。</p>
-        </div>
-        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted" aria-label="仓库颜色图例">
-          <span v-for="entry in entries" :key="entry.id" class="inline-flex min-w-0 items-center gap-1.5">
-            <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-            <span class="break-all">{{ entry.label }}</span>
-            <GdBadge v-if="entry.id === durationReference?.id" variant="plain">参照</GdBadge>
-          </span>
-        </div>
-      </div>
-      <ComparisonDurationChart v-if="entries.some((entry) => entry.issueP50 !== null || entry.prP50 !== null)" :items="durationItems" :height="216" />
-      <p v-else class="py-6 text-center text-[12px] text-muted">当前选择的仓库没有可比较的 Issue 或 PR 处理耗时。</p>
-      <p v-if="entries.some((entry) => (entry.issueP50 !== null && entry.issueQuality === 'partial') || (entry.prP50 !== null && entry.prQuality === 'partial'))" class="m-0 text-[11px] text-muted">浅色条表示部分覆盖，数值依据已观察样本计算。</p>
-      <div v-if="durationReference" class="hidden min-w-0 overflow-x-auto overscroll-x-contain rounded-md border border-line sm:block">
-        <table class="hidden w-full min-w-[650px] border-collapse text-[11.5px] sm:table" data-testid="duration-comparison-values">
-          <thead>
-            <tr class="bg-soft/50 text-left text-[10.5px] text-muted">
-              <th class="px-3 py-2 font-medium">仓库</th>
-              <th class="px-3 py-2 font-medium">Issue 关闭 P50</th>
-              <th class="px-3 py-2 font-medium">PR 合并 P50</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(entry, index) in entries" :key="entry.id" class="border-t border-line align-top">
-              <td class="px-3 py-2.5">
-                <span class="inline-flex min-w-0 items-center gap-2">
-                  <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-                  <span class="break-all font-medium">{{ entry.label }}</span>
-                  <GdBadge v-if="index === 0" variant="plain">参照</GdBadge>
-                </span>
-              </td>
-              <td class="px-3 py-2.5">
-                <p class="m-0 font-mono text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
-                <p v-if="index > 0" class="mb-0 mt-1 text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-              </td>
-              <td class="px-3 py-2.5">
-                <p class="m-0 font-mono text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
-                <p v-if="index > 0" class="mb-0 mt-1 text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="durationReference" class="space-y-2 sm:hidden" data-testid="duration-comparison-values-mobile">
-        <div v-for="(entry, index) in entries" :key="entry.id" class="rounded-md border border-line bg-soft/20 p-3">
-          <div class="flex min-w-0 items-start gap-2">
-            <i class="mt-1 size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-            <p class="m-0 min-w-0 break-all text-[11.5px] font-medium">{{ entry.label }}</p>
-            <GdBadge v-if="index === 0" class="ml-auto shrink-0" variant="plain">参照</GdBadge>
-          </div>
-          <div class="mt-2 space-y-2">
-            <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
-              <span class="text-[10.5px] text-muted">Issue 关闭 P50</span>
-              <div class="min-w-0">
-                <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
-                <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-              </div>
-            </div>
-            <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
-              <span class="text-[10.5px] text-muted">PR 合并 P50</span>
-              <div class="min-w-0">
-                <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
-                <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-              </div>
-            </div>
+          <p class="mt-0.5 text-[12px] leading-relaxed text-muted">按仓库分色，柱长比较耗时；下方直接列出 P50、样本数与相对参照差值。</p>
+          <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted" aria-label="仓库颜色图例">
+            <span v-for="entry in entries" :key="entry.id" class="inline-flex min-w-0 items-center gap-1.5">
+              <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+              <span class="break-all">{{ entry.label }}</span>
+              <GdBadge v-if="entry.id === durationReference?.id" variant="plain">参照</GdBadge>
+            </span>
           </div>
         </div>
-      </div>
-      <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[11px] leading-relaxed text-warnfg">
-        没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
-      </p>
+        <ComparisonDurationChart v-if="entries.some((entry) => entry.issueP50 !== null || entry.prP50 !== null)" :items="durationItems" :height="190" />
+        <p v-else class="py-6 text-center text-[12px] text-muted">当前选择的仓库没有可比较的 Issue 或 PR 处理耗时。</p>
+        <p v-if="entries.some((entry) => (entry.issueP50 !== null && entry.issueQuality === 'partial') || (entry.prP50 !== null && entry.prQuality === 'partial'))" class="m-0 text-[10.5px] text-muted">浅色条表示部分覆盖，数值依据已观察样本计算。</p>
+        <div v-if="durationReference" class="hidden min-w-0 rounded-md border border-line sm:block">
+          <table class="w-full table-fixed border-collapse text-[10px] leading-relaxed" data-testid="duration-comparison-values">
+            <colgroup><col class="w-[28%]"><col class="w-[36%]"><col class="w-[36%]"></colgroup>
+            <thead>
+              <tr class="bg-soft/50 text-left text-[10px] text-muted">
+                <th class="px-2 py-2 font-medium">仓库</th>
+                <th class="px-2 py-2 font-medium">Issue 关闭 P50</th>
+                <th class="px-2 py-2 font-medium">PR 合并 P50</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(entry, index) in entries" :key="entry.id" class="border-t border-line align-top">
+                <td class="px-2 py-2">
+                  <div class="flex min-w-0 items-start gap-1.5">
+                    <i class="mt-1 size-2 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+                    <span class="min-w-0 break-all font-medium">{{ entry.label }}</span>
+                  </div>
+                  <GdBadge v-if="index === 0" class="mt-1" variant="plain">参照</GdBadge>
+                </td>
+                <td class="break-words px-2 py-2 align-top">
+                  <p class="m-0 break-words font-mono text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
+                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+                </td>
+                <td class="break-words px-2 py-2 align-top">
+                  <p class="m-0 break-words font-mono text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
+                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="durationReference" class="space-y-2 sm:hidden" data-testid="duration-comparison-values-mobile">
+          <div v-for="(entry, index) in entries" :key="entry.id" class="rounded-md border border-line bg-soft/20 p-3">
+            <div class="flex min-w-0 items-start gap-2">
+              <i class="mt-1 size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
+              <p class="m-0 min-w-0 break-all text-[11.5px] font-medium">{{ entry.label }}</p>
+              <GdBadge v-if="index === 0" class="ml-auto shrink-0" variant="plain">参照</GdBadge>
+            </div>
+            <div class="mt-2 space-y-2">
+              <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
+                <span class="text-[10.5px] text-muted">Issue 关闭 P50</span>
+                <div class="min-w-0">
+                  <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
+                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+                </div>
+              </div>
+              <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
+                <span class="text-[10.5px] text-muted">PR 合并 P50</span>
+                <div class="min-w-0">
+                  <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
+                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[10.5px] leading-relaxed text-warnfg">
+          没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
+        </p>
       </UiPanel>
     </div>
-
-    <UiPanel as="section">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">综合对照表</h3>
-          <p class="mt-0.5 text-[12px] text-muted">指标、单位、有效样本与采集时间</p>
-        </div>
-        <button class="gd-link text-[11.5px]" :disabled="exporting" @click="exportComparison">下载</button>
-      </div>
-      <div class="min-w-0 overflow-x-auto overscroll-x-contain">
-      <table class="w-full min-w-[860px] border-collapse text-[12.5px]">
-        <thead>
-          <tr class="text-left text-[11.5px] text-muted">
-            <th class="border-b border-line px-2.5 pb-2 font-medium">仓库</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">提交数</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">Issue P50</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">PR P50</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">发布间隔 P50</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">覆盖状态</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">观察窗口</th>
-            <th class="border-b border-line px-2.5 pb-2 font-medium">采集时间</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="entry in entries" :key="entry.id" data-testid="comparison-row" :data-repository-id="entry.id" :data-window-available="entry.windowAvailable">
-            <td class="border-b border-line px-2.5 py-2.5">{{ entry.label }}<GdBadge v-if="entry.sampleRole" class="ml-2" variant="plain">{{ entry.sampleRole === 'train' ? '训练组' : '测试组' }}</GdBadge><div v-if="entry.sourceKind === 'course_research_historical_snapshot'" class="mt-1 text-[10px] text-muted">课程研究历史快照</div></td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ totalCommits(entry) }}</td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.issueP50 === null ? '—' : `${entry.issueP50} 天` }}<span v-if="entry.issueP50 !== null && entry.issueQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.prP50 === null ? '—' : `${entry.prP50} 天` }}<span v-if="entry.prP50 !== null && entry.prQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono">{{ entry.releaseMedianDays === null ? '—' : `${entry.releaseMedianDays.toLocaleString('en-US', { maximumFractionDigits: 1 })} 天` }}<span v-if="entry.releaseMedianDays !== null && entry.releaseQuality === 'partial'" class="text-muted"> · 部分覆盖</span></td>
-            <td class="border-b border-line px-2.5 py-2.5">
-              <GdBadge :variant="entry.coverage.state === 'complete' ? 'default' : 'warn'">{{ entry.windowAvailable ? entry.coverage.label : '范围未覆盖' }}</GdBadge>
-            </td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono text-muted">{{ entryWindow(entry) }}</td>
-            <td class="border-b border-line px-2.5 py-2.5 font-mono text-muted">{{ entry.collectedAt }}</td>
-          </tr>
-        </tbody>
-      </table>
-      </div>
-    </UiPanel>
-
     </template>
   </div>
 </template>
