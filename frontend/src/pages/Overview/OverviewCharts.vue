@@ -34,7 +34,7 @@ const selectedRepository = () => props.data.repositories.find((repository) => re
 <template>
   <div class="overview-charts" data-testid="overview-visualizations">
     <div v-if="filters.languageKeys.length || filters.starsBucket || filters.pushBucket || filters.selectedRepositoryId" class="overview-filter-bar" role="region" aria-label="当前图表筛选条件">
-      <div class="overview-filter-summary"><strong>已筛选 {{ filteredCount }} / {{ data.repositories.length }} 个仓库</strong><span>图表筛选同步到仓库列表；顶部指标仍按全部仓库统计</span></div>
+      <div class="overview-filter-summary"><strong>已筛选 {{ filteredCount }} / {{ data.repositories.length }} 个仓库</strong><span>图表互相联动；顶部指标仍按全部仓库统计</span></div>
       <div class="overview-filter-chips">
         <button v-if="filters.languageKeys.length" type="button" class="filter-chip" @click="emit('toggleLanguages', filters.languageKeys)">语言 · {{ filters.languageKeys.length }} 种 <span aria-hidden="true">×</span></button>
         <button v-if="filters.starsBucket" type="button" class="filter-chip" @click="emit('toggleStarsBucket', filters.starsBucket!)">{{ starsLabels[filters.starsBucket] ?? filters.starsBucket }} <span aria-hidden="true">×</span></button>
@@ -43,7 +43,7 @@ const selectedRepository = () => props.data.repositories.find((repository) => re
         <button type="button" class="clear-filters" @click="emit('clearFilters')">清除全部</button>
       </div>
     </div>
-    <div v-else class="overview-filter-hint"><span>四种视角：语言构成、Stars 分层、受欢迎程度关联、最近 Push 活跃度</span><span>点击图例或数据点筛选仓库</span></div>
+    <div v-else class="overview-filter-hint"><span>四种视角：语言构成、Stars 分层、受欢迎程度关联、最近 Push 活跃度</span><span>点击图例或数据点联动筛选四张图</span></div>
     <div class="overview-chart-grid overview-chart-grid--top">
       <PortfolioLanguageChart :rows="data.languageRows" :total="data.repositories.length" :filtered-count="filteredCount" :selected-language-keys="filters.languageKeys" @toggle-languages="emit('toggleLanguages', $event)" />
       <PortfolioStarsDistribution :buckets="data.starsBuckets" :points="data.starsPoints" :total="data.repositories.length" :valid-count="data.validStarsCount" :invalid-count="data.invalidStarsCount" :selected-bucket="filters.starsBucket" :selected-repository-id="filters.selectedRepositoryId" :filtered-ids="filteredIds" :filtered-count="filteredCount" @toggle-bucket="emit('toggleStarsBucket', $event)" @select-repository="emit('selectRepository', $event)" />
