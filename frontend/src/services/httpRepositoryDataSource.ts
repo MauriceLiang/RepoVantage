@@ -1,5 +1,5 @@
 import type {
-  ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, GitHubTokenSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
+  ActivityTrend, ActivityTrendPrediction, GitHubTokenSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
   IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
   FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
@@ -187,19 +187,6 @@ function recentActivityChange(raw: unknown): RecentActivityChange {
     previousWindowStart: textOrNull(value.previous_window_start_utc), previousWindowEndExclusive: textOrNull(value.previous_window_end_exclusive_utc),
     recentWindowStart: textOrNull(value.recent_window_start_utc), recentWindowEndExclusive: textOrNull(value.recent_window_end_exclusive_utc),
     notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
-}
-function activityAnomalySummary(raw: unknown): ActivityAnomalySummary {
-  const value = object(raw)
-  const status = ['baseline_only', 'partial_data', 'temporarily_unavailable'].includes(value.status)
-    ? value.status as ActivityAnomalySummary['status'] : 'insufficient_data'
-  return { status, method: value.method === 'statistical_baseline' ? 'statistical_baseline' : 'none',
-    suspected: value.suspected === true, reasonCode: textOrNull(value.reason_code),
-    weeks: array(value.weeks).map((rawWeek) => {
-      const week = object(rawWeek)
-      const direction = week.direction === 'up' || week.direction === 'down' ? week.direction : null
-      return { weekStart: String(week.week_start_utc ?? ''), commitCount: Number(week.commit_count ?? 0),
-        robustZ: Number(week.commit_robust_z ?? 0), direction }
-    }), notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
 }
 function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysisMode, insights: Record<string, any>, quality: Record<string, any>): ResearchDataset {
   const datasetId = String(selected.dataset_id)
@@ -862,7 +849,6 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       maintenancePattern: maintenancePattern(result.maintenance_pattern),
       recentActivityChange: recentActivityChange(result.recent_activity_change),
       activityTrend: activityTrendPrediction(result.activity_trend),
-      activityAnomaly: activityAnomalySummary(result.activity_anomaly),
     }
   }
 
@@ -1165,7 +1151,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         dataAsOf: textOrNull(maintenance.data_as_of),
         repositories: array(maintenance.repositories).map((row) => ({ id: String(row.repository_id), name: String(row.full_name), sampleRole: row.sample_role === 'train' || row.sample_role === 'test' ? row.sample_role : null, pattern: maintenancePattern(row.pattern),
           recentActivityChange: recentActivityChange(row.recent_activity_change),
-          activityTrend: activityTrendPrediction(row.activity_trend), activityAnomaly: activityAnomalySummary(row.activity_anomaly) })) },
+          activityTrend: activityTrendPrediction(row.activity_trend) })) },
       notes: Array.isArray(result.notes) ? result.notes.map(String) : [],
       reportMarkdown: String(result.report_markdown ?? ''),
       resultSignature: String(result.result_signature ?? ''),

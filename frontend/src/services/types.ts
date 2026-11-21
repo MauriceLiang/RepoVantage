@@ -403,7 +403,6 @@ export interface RepositoryEvaluation {
   maintenancePattern: MaintenancePattern
   recentActivityChange: RecentActivityChange
   activityTrend: ActivityTrendPrediction
-  activityAnomaly: ActivityAnomalySummary
 }
 
 export interface ActivityTrendPrediction {
@@ -432,15 +431,6 @@ export interface RecentActivityChange {
   previousWindowEndExclusive: string | null
   recentWindowStart: string | null
   recentWindowEndExclusive: string | null
-  notes: string[]
-}
-
-export interface ActivityAnomalySummary {
-  status: 'baseline_only' | 'insufficient_data' | 'partial_data' | 'temporarily_unavailable'
-  method: 'statistical_baseline' | 'none'
-  suspected: boolean
-  reasonCode: string | null
-  weeks: { weekStart: string; commitCount: number; robustZ: number; direction: 'up' | 'down' | null }[]
   notes: string[]
 }
 
@@ -493,7 +483,7 @@ export interface SelectionResult {
   ranking: { id: string; name: string; score: number; evidence: { metric: SelectionMetric; value: number | null; unit: string; normalized: number; weight: number; contribution: number; quality: string; validSamples: number; windowStart: string | null; windowEnd: string | null; sourceRunId: string | null; sourceKind: string | null; missingPolicy: 'observed' | 'neutral_50' }[] }[]
   excluded: { id: string; name: string; reasons: string[] }[]
   sensitivity: { criterion: string; repositoryIds: string[] }[]
-  maintenance: { commonWindow: { start: string; end: string } | null; dataAsOf: string | null; repositories: { id: string; name: string; sampleRole: 'train' | 'test' | null; pattern: MaintenancePattern; recentActivityChange: RecentActivityChange; activityTrend: ActivityTrendPrediction; activityAnomaly: ActivityAnomalySummary }[] }
+  maintenance: { commonWindow: { start: string; end: string } | null; dataAsOf: string | null; repositories: { id: string; name: string; sampleRole: 'train' | 'test' | null; pattern: MaintenancePattern; recentActivityChange: RecentActivityChange; activityTrend: ActivityTrendPrediction }[] }
   notes: string[]
   reportMarkdown: string
   resultSignature: string

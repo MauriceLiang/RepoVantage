@@ -1,11 +1,11 @@
 # RepoVantage 课程设计版机器学习实验结果与选型解释
 
-更新日期：2026-11-10
+更新日期：2026-11-21
 最新收尾需求基线：`RepoVantage_机器学习课程设计收尾实施方案_v4.1.md`（训练背景沿用 v4.0）
 
 ## 结论
 
-课程版只实现三个任务。维护模式聚类和未来 4 周活跃趋势分类通过本轮基础评估并接入产品；活动异常任务在产品中使用可解释的 MAD 规则，仅给出“疑似”提示。IsolationForest 作为对照实验保留，不作为正式异常预测。
+课程版当前产品只保留两个任务：维护模式聚类和未来 4 周活跃趋势分类。此前试验过的 MAD 活动异常提示已从产品页面、接口和训练流程移除；相关历史实验结果仅作为研究档案保留。IsolationForest 也只作为历史对照实验，不作为产品功能。
 
 这里的“可用”表示模型在既有样本的留仓验证上达到了课程演示的基础条件，不代表商业生产准入、对所有仓库都可靠或对未来分布有保证。趋势模型不输出概率或精确 Commit 数量。
 
@@ -60,18 +60,18 @@
 
 模型版本：`ml01-trend-12w-v1`。预测时点、特征、真实标签、基线预测和混淆矩阵保存在训练结果及 `ml/course/evaluations/ml01-activity-trend.json`。
 
-## M3：近期活动异常检测
+## 已退役研究：近期活动异常检测
 
-使用前 11 个完整周的 `log1p` 中位数和 MAD 作为稳健基线，当前周绝对稳健 Z 分数达到 3 时标记方向；产品结果状态为 `baseline_only`，显示“疑似”并提示结合项目事件人工核查。该规则不是已验证准确率的 ML 模型。
+历史实现使用前 11 个完整周的 `log1p` 中位数和 MAD 作为稳健基线，当前周绝对稳健 Z 分数达到 3 时标记方向。该规则不是已验证准确率的 ML 模型，现已从产品中移除；以下数字只记录当时的研究实验，不代表当前功能或能力。
 
 训练集含 6,090 个周上下文，测试集含 540 个上下文（来自 210/45 个仓库）。IsolationForest 测试标记 27 条、MAD 规则标记 45 条、重合 21 条、Jaccard 重合率 0.4118。这些数值只是触发量与重合度，不是准确率。30 条真实留出样例的人工复核表已生成，但复核列尚为空；因此 IsolationForest 只保留研究，不接入产品。
 
 ## 产品接入与降级
 
-- 仓库详情展示近 12 周维护画像、未来 4 周趋势类别和最近完整周异常提示；采集默认 12 周，必要时可请求最多 24 周。
-- 仓库比较与 Markdown 选型报告并列展示维护模式、趋势、异常、覆盖与来源；ML 证据不进入规则排序得分。
+- 仓库详情展示近 12 周维护画像、最近 4 周实际变化和未来 4 周趋势类别；采集默认 12 周，必要时可请求最多 24 周。
+- 仓库比较与 Markdown 选型报告展示仍保留的维护模式、趋势、覆盖与来源；维护分析证据不进入规则排序得分。
 - 低活跃仓库仍显示可核验事实。短历史、不完整 Commit、过期数据或归档校验失败时，相关模型停用并返回明确原因；PR 缺失只影响 PR 证据，不阻断 Commit-only 特征。
-- 模型状态是任务独立的：M1/M2 可用时使用训练产物，M3 明确为统计基线。无概率、无精确数量、无“健康分/成功率”。
+- 模型状态是任务独立的：M1/M2 可用时使用训练产物。无概率、无精确数量、无“健康分/成功率”。
 
 核心代码：`backend/app/analytics/course_ml_features.py`、`backend/app/services/course_ml.py`、`backend/app/services/maintenance_collection.py`、`backend/app/services/maintenance.py`、`backend/app/worker/maintenance.py`、`backend/app/services/selection.py`。请求接口为 `POST /api/v1/repositories/{id}/maintenance-collection?lookback_weeks=12|24`，读取接口为 `GET /api/v1/repositories/{id}/evaluation`。
 
@@ -102,4 +102,4 @@ PYTHONPATH=. LOKY_MAX_CPU_COUNT=4 dataprepare/MachineLearn/.venv-ml/bin/python s
   --output dataprepare/MachineLearn/run/course-ml-12w-v2-rerun
 ```
 
-训练脚本会校验输入周数、按固定随机种子切分仓库、重新训练和评估三个任务，并更新 `ml/course/evaluations/` 与 M1/M2 推理 JSON。M3 不生成可供产品调用的模型产物。
+训练脚本会校验输入周数、按固定随机种子切分仓库、重新训练和评估 M1/M2，并更新 `ml/course/evaluations/` 与 M1/M2 推理 JSON。历史 M3 研究产物不再由训练脚本生成。

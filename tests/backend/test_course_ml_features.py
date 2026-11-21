@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from backend.app.analytics.course_ml_features import (
-    FEATURE_SCHEMA_VERSION, InsufficientCourseData, anomaly_context,
+    FEATURE_SCHEMA_VERSION, InsufficientCourseData,
     build_weekly_features, recent_commit_change, trend_label,
 )
 from backend.app.core.clock import iso_z
@@ -49,11 +49,9 @@ def test_short_repository_keeps_facts_without_model_features():
     assert result["trend_features"] is None
 
 
-def test_sparse_trend_boundary_and_mad_suspected_anomaly():
+def test_sparse_trend_boundaries():
     assert trend_label([0, 0, 0, 0], [1, 0, 0, 0]) == "基本稳定"
     assert trend_label([0, 0, 0, 0], [1, 1, 1, 0]) == "上升"
-    result = anomaly_context([2] * 11, 0)
-    assert result["signals"] == [{"metric": "commit", "direction": "down", "robust_z": result["commit_robust_z"]}]
 
 
 def test_recent_commit_change_reports_fact_windows_and_threshold_labels():

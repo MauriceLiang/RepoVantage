@@ -116,18 +116,15 @@ def maintenance_observation(session: Session, repository_id):
                          .order_by(desc(MaintenanceRun.captured_at), desc(MaintenanceRun.run_id)).limit(1))
     if run is None:
         return {"maintenance_pattern": _empty_pattern("not_collected"), "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "not_collected", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "not_collected", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "not_collected", "notes": []}}
     if run.status == "insufficient_history":
         pattern = _empty_pattern("insufficient_history", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "insufficient_history", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "insufficient_history", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "insufficient_history", "notes": []}}
     if not run.archive_path:
         pattern = _empty_pattern("source_archive_unavailable", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []}}
     try:
         details = json.loads(run.details_json)
         if not isinstance(details, dict):
@@ -135,8 +132,7 @@ def maintenance_observation(session: Session, repository_id):
     except (TypeError, ValueError):
         pattern = _empty_pattern("source_archive_unavailable", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []}}
     historical_course_snapshot = (details.get("dataset_id") == "course-research-300-v1"
                                   and details.get("data_source") == "course_research_historical_snapshot")
     now = utc_now()
@@ -144,16 +140,14 @@ def maintenance_observation(session: Session, repository_id):
             (now - run.captured_at > timedelta(hours=get_settings().base_refresh_hours) or run.history_end != _week_end(now)))):
         pattern = _empty_pattern("stale", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "temporarily_unavailable", "method": "none", "reason_code": "stale", "notes": []},
-                "activity_anomaly": {"status": "temporarily_unavailable", "method": "none", "reason_code": "stale", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "temporarily_unavailable", "method": "none", "reason_code": "stale", "notes": []}}
     try:
         if _archive_hash(run.archive_path) != details.get("archive_sha256"):
             raise ValueError("archive hash mismatch")
     except (OSError, TypeError, ValueError):
         pattern = _empty_pattern("source_archive_unavailable", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []}}
     db_rows = session.scalars(select(MaintenanceWeek).where(MaintenanceWeek.run_id == run.run_id).order_by(MaintenanceWeek.week_start)).all()
     weeks = [{"week_start_utc": iso_z(row.week_start), "week_end_exclusive_utc": iso_z(row.week_end),
               "commits": row.commits, "prs_created": row.prs_created, "commit_coverage": row.commit_coverage,
@@ -161,8 +155,7 @@ def maintenance_observation(session: Session, repository_id):
     if _hash_source(weeks, run.head_sha, iso_z(run.history_start), iso_z(run.history_end)) != run.source_sha256:
         pattern = _empty_pattern("source_integrity_mismatch", run=run)
         return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_integrity_mismatch", "notes": []},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": "source_integrity_mismatch", "suspected": False, "weeks": [], "notes": []}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_integrity_mismatch", "notes": []}}
     try:
         features = build_weekly_features(weeks)
     except InsufficientCourseData as exc:
@@ -189,8 +182,7 @@ def maintenance_observation(session: Session, repository_id):
         if budget_exhausted:
             pattern["limitations"].append("近期 Commit 详细采集超过课程版请求预算；未完整覆盖的数据未进入模型。")
         return {"maintenance_pattern": pattern, "weeks": weeks, "features": None,
-                "activity_trend": {"status": "partial_data", "method": "none", "reason_code": reason, "notes": ["Commit 覆盖不完整，不将缺失周计为零。"]},
-                "activity_anomaly": {"status": "partial_data", "method": "none", "reason_code": reason, "suspected": False, "weeks": [], "notes": ["Commit 覆盖不完整，不判断异常。"]}}
+                "activity_trend": {"status": "partial_data", "method": "none", "reason_code": reason, "notes": ["Commit 覆盖不完整，不将缺失周计为零。"]}}
     recent = weeks[-12:]
     counts = [row["commits"] for row in recent]
     prs = [row["prs_created"] for row in recent] if all(row["pr_created_coverage"] in {"complete", "true_zero"} for row in recent) else None
@@ -236,9 +228,8 @@ def maintenance_observation(session: Session, repository_id):
     if historical_course_snapshot:
         pattern["limitations"].append(f"数据来自截至 {details.get('data_as_of') or iso_z(run.history_end)} 的固定课程历史快照；更新的在线维护记录优先。")
         analysis["activity_trend"].setdefault("notes", []).append("预测起点为固定历史快照的观察窗口结束时间，不表示当前实时活动。")
-        analysis["activity_anomaly"].setdefault("notes", []).append("异常提示依据固定历史快照的最新完整周；较新的在线采集数据优先。")
     return {"maintenance_pattern": pattern, "weeks": weeks, "features": features,
-            "activity_trend": analysis["activity_trend"], "activity_anomaly": analysis["activity_anomaly"]}
+            "activity_trend": analysis["activity_trend"]}
 
 
 def maintenance_pattern(session: Session, repository_id):

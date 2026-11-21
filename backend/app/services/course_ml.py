@@ -7,7 +7,7 @@ from datetime import timedelta
 
 from backend.app.analytics.course_ml_features import (
     FEATURE_SCHEMA_VERSION, PATTERN_FEATURES, TREND_FEATURES, InsufficientCourseData,
-    anomaly_context, build_weekly_features, recent_trend_baseline,
+    build_weekly_features, recent_trend_baseline,
 )
 from backend.app.core.clock import iso_z, parse_github_datetime
 
@@ -94,8 +94,7 @@ def analyze_course_models(weeks):
         features = build_weekly_features(weeks)
     except InsufficientCourseData as exc:
         return {"facts": None, "maintenance_pattern": {"status": "insufficient_data", "method": "none", "reason_code": exc.reason},
-                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": exc.reason},
-                "activity_anomaly": {"status": "insufficient_data", "method": "none", "reason_code": exc.reason}}
+                "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": exc.reason}}
     facts, counts = features["facts"], [row["commits"] for row in weeks]
     pattern = {"status": "available", "method": "statistical_baseline", "reason_code": None,
                "model_id": None, "model_version": None, "feature_schema_version": FEATURE_SCHEMA_VERSION,
@@ -144,18 +143,5 @@ def analyze_course_models(weeks):
                 "forecast_end_exclusive_utc": iso_z(as_of + timedelta(weeks=4)),
             })
     trend["feature_schema_version"] = FEATURE_SCHEMA_VERSION
-
-    anomaly = {"status": "insufficient_data", "method": "none", "suspected": False, "weeks": [],
-               "model_id": None, "model_version": None, "reason_code": None,
-               "notes": ["异常提示是待核查信号，不等同于维护失败或项目放弃。"]}
-    if len(weeks) < 12:
-        anomaly["reason_code"] = "short_observation_window"
-    else:
-        detection = anomaly_context(counts[-12:-1], counts[-1])
-        anomaly.update(status="baseline_only", method="statistical_baseline", suspected=bool(detection["signals"]),
-                       reason_code=None, weeks=[{"week_start_utc": weeks[-1]["week_start_utc"],
-                                                 "commit_count": counts[-1], "commit_robust_z": detection["commit_robust_z"],
-                                                 "direction": detection["signals"][0]["direction"] if detection["signals"] else None}])
-    anomaly["feature_schema_version"] = FEATURE_SCHEMA_VERSION
     return {"facts": facts, "features": features, "maintenance_pattern": pattern,
-            "activity_trend": trend, "activity_anomaly": anomaly}
+            "activity_trend": trend}

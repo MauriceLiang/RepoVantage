@@ -153,18 +153,15 @@ onBeforeUnmount(() => {
     <p v-if="maintenanceError" class="m-0 text-[11px] text-warnfg" role="alert">{{ maintenanceError }}</p>
 
     <GdCard padding="sm" :gap="false" data-testid="analysis-summary">
-      <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-2">
-        <div class="min-w-0 flex-1">
-          <p class="m-0 text-[16px] font-semibold">{{ summary.headline }}</p>
-          <p class="mb-0 mt-1 text-[11px] leading-relaxed text-muted">{{ summary.activityLine }}</p>
-        </div>
-        <p class="m-0 max-w-xl text-[11px] leading-relaxed text-muted">{{ summary.anomalyLine }}</p>
+      <div class="min-w-0">
+        <p class="m-0 text-[16px] font-semibold">{{ summary.headline }}</p>
+        <p class="mb-0 mt-1 text-[11px] leading-relaxed text-muted">{{ summary.activityLine }}</p>
       </div>
       <p v-if="evaluationError" class="mb-0 mt-2 text-[11px] text-warnfg" role="alert">读取失败：{{ evaluationError }} <button class="underline" @click="reloadEvaluation">重试</button></p>
       <p v-else-if="evaluationLoading" class="mb-0 mt-2 text-[11px] text-muted" aria-live="polite">正在读取维护信号…</p>
     </GdCard>
 
-    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <article class="min-w-0 rounded-md border border-line bg-panel px-3 py-2.5" data-testid="maintenance-pattern">
         <h4 class="m-0 text-[11px] font-medium text-muted">近期维护模式 <span class="font-normal">· M1</span></h4>
         <p class="mb-0 mt-1 text-[15px] font-semibold leading-snug">
@@ -195,14 +192,6 @@ onBeforeUnmount(() => {
         <p v-else class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">{{ evaluation ? maintenanceReason(evaluation.activityTrend.reasonCode ?? evaluation.activityTrend.status) : '尚未生成预测' }}</p>
       </article>
 
-      <article class="min-w-0 rounded-md border border-line bg-panel px-3 py-2.5" data-testid="activity-anomalies">
-        <h4 class="m-0 text-[11px] font-medium text-muted">近期活动异常 <span class="font-normal">· M3</span></h4>
-        <template v-if="evaluation?.activityAnomaly.status === 'baseline_only' && evaluation.activityAnomaly.method === 'statistical_baseline'">
-          <p class="mb-0 mt-1 text-[15px] font-semibold leading-snug">{{ evaluation.activityAnomaly.suspected ? `疑似${evaluation.activityAnomaly.weeks[0]?.direction === 'up' ? '增加' : evaluation.activityAnomaly.weeks[0]?.direction === 'down' ? '减少' : '偏离'}` : '未见明显异常' }}</p>
-          <p v-if="evaluation.activityAnomaly.suspected && evaluation.activityAnomaly.weeks[0]" class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">{{ evaluation.activityAnomaly.weeks[0].weekStart }} · {{ evaluation.activityAnomaly.weeks[0].commitCount }} Commit</p>
-        </template>
-        <p v-else class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">{{ evaluation ? maintenanceReason(evaluation.activityAnomaly.reasonCode ?? evaluation.activityAnomaly.status) : '尚未生成异常提示' }}</p>
-      </article>
     </div>
 
   </section>

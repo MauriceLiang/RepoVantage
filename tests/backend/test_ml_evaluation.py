@@ -35,7 +35,7 @@ def seed(factory, monkeypatch, *, commits=None, pr_coverage="complete", week_cou
         session.commit()
 
 
-def test_recent_complete_data_exposes_three_independent_course_tasks(backend_client, monkeypatch, tmp_path):
+def test_recent_complete_data_exposes_two_course_tasks(backend_client, monkeypatch, tmp_path):
     client, factory, _ = backend_client
     monkeypatch.tmp_path = tmp_path
     seed(factory, monkeypatch)
@@ -46,7 +46,7 @@ def test_recent_complete_data_exposes_three_independent_course_tasks(backend_cli
     assert data["maintenance_pattern"]["feature_schema_version"] == "course-maintenance-12w-v1"
     assert data["activity_trend"]["horizon_weeks"] == 4
     assert data["activity_trend"]["probabilities"] is None
-    assert data["activity_anomaly"]["status"] == "baseline_only"
+    assert "activity_anomaly" not in data
     assert client.get("/api/v1/repositories/123/evaluation").status_code == 401
 
 
@@ -72,12 +72,11 @@ def test_pr_coverage_is_optional_for_commit_based_facts(backend_client, monkeypa
     assert "pr_created_total_12w" not in pattern["evidence"]
 
 
-def test_model_status_lists_only_the_three_frozen_course_tasks(backend_client):
+def test_model_status_lists_only_the_retained_course_tasks(backend_client):
     client, _, _ = backend_client
     response = client.get("/api/v1/models/status", headers=HEADERS)
     assert response.status_code == 200
     models = response.json()["data"]["models"]
-    assert [item["model_id"] for item in models] == ["M1-maintenance-pattern", "M2-activity-trend", "M3-activity-anomaly"]
+    assert [item["model_id"] for item in models] == ["M1-maintenance-pattern", "M2-activity-trend"]
     assert models[0]["status"] in {"available", "model_unavailable"}
     assert models[1]["status"] in {"available", "model_unavailable"}
-    assert models[2]["status"] == "baseline_only"

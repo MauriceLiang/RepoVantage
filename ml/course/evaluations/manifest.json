@@ -17,8 +17,7 @@
   "status": "course_research",
   "tasks": {
     "M1": "available",
-    "M2": "available",
-    "M3": "baseline_only"
+    "M2": "available"
   },
   "weekly_rows": 15600,
   "weeks_per_repository": [

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { Download, Plus, TriangleAlert, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
-import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart.vue'
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
 import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
 import RepositoryComparisonRadar from '@/components/charts/RepositoryComparisonRadar.vue'
@@ -13,6 +12,7 @@ import { useDataSource } from '@/composables/useDataSource'
 import { downloadBlob } from '@/lib/download'
 import type { ActivityTrendPrediction, ComparisonBundle, ComparisonMode, MaintenancePattern, RecentActivityChange, SelectionMetric, SelectionRequest, SelectionResult, TimeWindow } from '@/services/types'
 import { normalizeMetrics } from '@/lib/chartAnalytics'
+import { maintenanceReason } from '@/lib/maintenanceSummary'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import GdSegmented from '@/components/ui/GdSegmented.vue'
@@ -46,6 +46,17 @@ const { data, loading, error } = useAsyncData(
 
 const canCompare = computed(() => analysis.compareIds.length >= 2)
 const entries = computed(() => data.value?.entries ?? [])
+const { data: maintenanceRows, loading: maintenanceRowsLoading } = useAsyncData(
+  () => Promise.all(analysis.compareIds.map(async (id) => {
+    try {
+      return { id, evaluation: await source.getEvaluation(id), error: null }
+    } catch (cause) {
+      return { id, evaluation: null, error: cause instanceof Error ? cause.message : '维护分析读取失败' }
+    }
+  })),
+  () => analysis.compareIds.join(','),
+)
+const comparisonEntry = (id: string) => entries.value.find((entry) => entry.id === id)
 const { data: scoringComparison, loading: scoringComparisonLoading, error: scoringComparisonError } = useAsyncData(
   () => comparisonMode.value === 'same_period' || analysis.compareIds.length < 2
     ? Promise.resolve(null)
@@ -73,16 +84,40 @@ const forecastLabel = (trend: ActivityTrendPrediction) => trend.method === 'mach
 const maintenancePrLabel = (pattern: MaintenancePattern) => pattern.coverage.pull_requests_created === 'complete'
   ? `PR 创建量 ${pattern.evidence.pr_created_total_12w ?? '—'}（独立统计）`
   : 'PR 覆盖不完整（独立统计）'
-const durationItems = computed(() => entries.value.map((entry) => ({
-  label: entry.label,
-  color: entry.color,
-  issueP50: entry.issueP50,
-  issueSample: entry.issueSample,
-  issueQuality: entry.issueQuality,
-  prP50: entry.prP50,
-  prSample: entry.prSample,
-  prQuality: entry.prQuality,
-})))
+const formatCount = (value: number | null | undefined) => value === null || value === undefined
+  ? '—'
+  : value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+const maintenancePatternValue = (pattern: MaintenancePattern) => pattern.method === 'machine_learning' && pattern.status === 'available'
+  ? pattern.displayName ?? pattern.patternName ?? '模式未分类'
+  : pattern.coverage.commits === 'partial' ? 'Commit 覆盖不完整'
+    : pattern.status === 'temporarily_unavailable' ? '数据暂不可用'
+      : pattern.reasonCode === 'not_collected' ? '尚未采集' : '仅显示事实'
+const maintenancePatternDetail = (pattern: MaintenancePattern) => {
+  const evidence = pattern.evidence
+  const total = evidence.commit_total_12w ?? evidence.commit_total_window ?? evidence.commit_observed_partial_lower_bound
+  const activeWeeks = evidence.commit_active_weeks_12w ?? evidence.active_weeks_12w ?? evidence.commit_active_weeks_in_complete_weeks
+  if (total === undefined) return pattern.reasonCode ? maintenanceReason(pattern.reasonCode) : '等待可用 Commit 数据'
+  return `${pattern.coverage.commits === 'partial' ? '至少 ' : ''}${formatCount(total)} 次 Commit${activeWeeks === undefined ? '' : ` · 活跃 ${formatCount(activeWeeks)}/${pattern.windowWeeks || 12} 周`}`
+}
+const maintenanceChangeValue = (change: RecentActivityChange) => change.status === 'available'
+  ? `${change.trend ?? '变化已统计'} · ${formatCount(change.recent4wCommits)} vs ${formatCount(change.previous4wCommits)} 次 Commit`
+  : '暂不可判定'
+const maintenanceChangeDetail = (change: RecentActivityChange) => change.status === 'available'
+  ? '最近 4 周 vs 此前 4 周'
+  : maintenanceReason(change.reasonCode ?? change.status)
+const maintenanceForecastValue = (trend: ActivityTrendPrediction) => trend.status === 'available' && trend.method === 'machine_learning' && trend.trend
+  ? trend.trend : '暂不可用'
+const maintenanceForecastDetail = (trend: ActivityTrendPrediction) => trend.status === 'available' && trend.method === 'machine_learning'
+  ? 'M2 模型预测，可能存在误差'
+  : maintenanceReason(trend.reasonCode ?? trend.status)
+const maintenanceSnapshot = (evaluation: { researchSample: { sampleRole: 'train' | 'test'; dataAsOf: string | null } | null; maintenancePattern: MaintenancePattern }) => {
+  if (evaluation.researchSample) {
+    const role = evaluation.researchSample.sampleRole === 'train' ? '训练组' : '测试组'
+    const asOf = evaluation.researchSample.dataAsOf?.slice(0, 10)
+    return asOf ? `历史样本 · ${role} · 截至 ${asOf}` : `历史样本 · ${role}`
+  }
+  return evaluation.maintenancePattern.asOf ? `截至 ${evaluation.maintenancePattern.asOf.slice(0, 10)} UTC` : ''
+}
 const radarAxes = [
   { key: 'commitsWeekly', label: '每周 Commit', direction: 'higher' as const },
   { key: 'issueP50Days', label: 'Issue P50', direction: 'lower' as const },
@@ -109,37 +144,12 @@ const comparisonRadarRows = computed(() => {
   })
   return normalizeMetrics(raw, radarAxes.map((axis) => ({ key: axis.key, direction: axis.direction })))
 })
-const missingReason = (quality: string) => ({
-  partial: '覆盖不完整',
-  insufficient_samples: '样本不足',
-  missing: '未采集',
-  failed: '采集失败',
-}[quality] ?? (comparisonMode.value === 'same_period' ? '观察窗口不一致' : '当前口径不可比'))
-const issueMissing = computed(() => entries.value.filter((e) => e.issueP50 === null).map((e) => `${short(e.label)}：${e.windowAvailable ? missingReason(e.issueQuality) : '范围未覆盖'}`))
-const prMissing = computed(() => entries.value.filter((e) => e.prP50 === null).map((e) => `${short(e.label)}：${e.windowAvailable ? missingReason(e.prQuality) : '范围未覆盖'}`))
-const durationReference = computed(() => entries.value[0] ?? null)
 const basisWindowLabel = computed(() => comparisonBasis.value?.sharedWindow
   ? `${comparisonBasis.value.sharedWindow.start.replace('T', ' ').replace('Z', ' UTC')} — ${comparisonBasis.value.sharedWindow.end.replace('T', ' ').replace('Z', ' UTC')}`
   : '无共同窗口')
 const comparisonEmptyMessage = computed(() => comparisonBasis.value?.status === 'not_comparable'
   ? comparisonBasis.value.reason ?? '没有达到同期比较要求。'
   : '共同窗口内没有可用的完整 UTC Commit 周。可切换到「各自窗口」查看各仓库自身活动。')
-const durationQualityLabel = (quality: string, windowAvailable: boolean) => windowAvailable ? missingReason(quality) : '范围未覆盖'
-const durationValueLabel = (value: number | null, samples: number, quality: string, windowAvailable: boolean) => value === null
-  ? `— · ${durationQualityLabel(quality, windowAvailable)} · 有效样本 n=${samples}`
-  : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天 · 有效样本 n=${samples}${quality === 'partial' ? ' · 部分覆盖' : ''}`
-const durationDifferenceLabel = (value: number | null, baselineValue: number | null, quality: string, baselineQuality: string, windowAvailable: boolean, baselineWindowAvailable: boolean) => {
-  if (value === null) return `差值不可用：${durationQualityLabel(quality, windowAvailable)}`
-  if (baselineValue === null) return `差值不可用：参照仓库${durationQualityLabel(baselineQuality, baselineWindowAvailable)}`
-  const difference = value - baselineValue
-  if (difference === 0) return '与参照相同'
-  const percentage = baselineValue === 0 ? null : Math.abs(difference / baselineValue * 100)
-  const direction = difference > 0 ? '更长' : '更短'
-  const percentageLabel = percentage === null ? '' : `（${percentage.toLocaleString('zh-CN', { maximumFractionDigits: 1 })}%）`
-  const partial = quality === 'partial' || baselineQuality === 'partial'
-  return `${partial ? '已观察样本' : ''}比参照${direction} ${Math.abs(difference).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} 天${percentageLabel}${partial ? '（部分覆盖）' : ''}`
-}
-
 const weights = reactive<Record<SelectionMetric, number>>({ commits_weekly_mean: 0, issue_median_hours: 0, pr_median_hours: 0, release_interval_days: 0 })
 const manualWeights = reactive<Record<SelectionMetric, number>>({ ...weights })
 const manualWeightInputOpen = ref(false)
@@ -415,7 +425,7 @@ async function exportComparison() {
     </div>
 
     <UiPanel as="section" data-testid="selection-report">
-      <section class="space-y-4">
+      <section class="space-y-3">
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="space-y-1">
             <h3 class="m-0 text-[15.5px] font-semibold">权重与综合分</h3>
@@ -462,9 +472,9 @@ async function exportComparison() {
               </div>
             </div>
 
-            <fieldset class="m-0 grid min-w-0 gap-2 border-0 p-0">
+            <fieldset class="m-0 grid min-w-0 gap-2 border-0 p-0 lg:grid-cols-2 xl:grid-cols-4">
               <legend class="sr-only">拖动每项指标的权重</legend>
-              <label v-for="metric in selectionMetrics" :key="metric.key" class="block min-w-0 rounded-md border border-line bg-panel px-3 py-2.5" :data-testid="`weight-metric-${metric.key}`">
+              <label v-for="metric in selectionMetrics" :key="metric.key" class="block min-w-0 rounded-md border border-line bg-panel px-3 py-2" :data-testid="`weight-metric-${metric.key}`">
                 <span class="flex min-w-0 items-center justify-between gap-2">
                   <span class="flex min-w-0 items-center gap-2 text-[12px] font-medium text-ink">
                     <i class="size-2.5 shrink-0 rounded-full" :style="{ background: metric.color }" aria-hidden="true" />
@@ -502,11 +512,13 @@ async function exportComparison() {
         <p v-if="selectionBasisError" class="m-0 text-[12px] text-warnfg" role="alert">无法读取综合分所需的同期数据：{{ selectionBasisError }}</p>
         <p v-if="selectionError" class="m-0 text-[12px] text-warnfg" role="alert">综合分更新失败：{{ selectionError }}</p>
 
-        <section class="space-y-2 rounded-md border border-line px-3 py-2.5" data-testid="selection-scoring-explanation">
-          <h4 class="m-0 text-[11.5px] font-medium">评分说明</h4>
-          <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前所选仓库中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
-          <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。某仓库缺少有效样本时该项按中性 50 分计入，避免把未知数据误算成 0 分或删除仓库；此分只用于并列查看所选仓库，不代表实际表现。部分覆盖按已观察样本计算。</p>
-        </section>
+        <details class="rounded-md border border-line px-3 py-2" data-testid="selection-scoring-explanation">
+          <summary class="cursor-pointer text-[11.5px] font-medium">评分口径与限制</summary>
+          <div class="mt-2 space-y-1.5">
+            <p class="m-0 text-[11px] leading-relaxed text-muted">每项有数据的指标在当前所选仓库中归一化为 0–100：Commit 使用 log(1+x) 缓和极大值，耗时指标越短分越高；同项数值相同则都记 50 分。综合分为四项分数按用户权重加权后的结果。</p>
+            <p class="m-0 text-[11px] leading-relaxed text-muted">综合分优先使用 {{ analysis.timeWindow }} 天同期窗口，窗口不重合时使用各仓库自身窗口；Release 使用近 365 天窗口。缺少有效样本时按中性 50 分计入，不作为实际表现；部分覆盖按已观察样本计算。</p>
+          </div>
+        </details>
 
         <div v-if="selectionResult || selectionLoading" class="space-y-3 border-t border-line pt-4 text-[12px]" :aria-busy="selectionLoading" data-testid="selection-result">
           <div v-if="selectionLoading" key="ranking-loading" class="space-y-3" role="status" aria-live="polite" aria-label="正在按当前权重更新综合排名">
@@ -517,15 +529,17 @@ async function exportComparison() {
               </div>
               <span class="h-5 w-16 animate-pulse rounded bg-track/60 motion-reduce:animate-none" aria-hidden="true" />
             </div>
-            <div v-for="repositoryId in analysis.compareIds" :key="repositoryId" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" aria-hidden="true">
-              <div class="flex items-center gap-2.5">
-                <span class="size-7 shrink-0 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
-                <span class="h-4 w-44 max-w-[55%] animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
-                <span class="ml-auto h-7 w-16 animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
-              </div>
-              <div class="h-2 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
-              <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                <div v-for="metric in selectionMetrics" :key="metric.key" class="h-[58px] animate-pulse rounded-md bg-track/50 motion-reduce:animate-none" />
+            <div class="grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+              <div v-for="repositoryId in analysis.compareIds" :key="repositoryId" class="space-y-3 rounded-lg border border-line p-3" aria-hidden="true">
+                <div class="flex items-center gap-2.5">
+                  <span class="size-7 shrink-0 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
+                  <span class="h-4 w-44 max-w-[55%] animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
+                  <span class="ml-auto h-7 w-16 animate-pulse rounded bg-track/70 motion-reduce:animate-none" />
+                </div>
+                <div class="h-2 animate-pulse rounded-full bg-track/70 motion-reduce:animate-none" />
+                <div class="grid min-w-0 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+                  <div v-for="metric in selectionMetrics" :key="metric.key" class="h-[58px] animate-pulse rounded-md bg-track/50 motion-reduce:animate-none" />
+                </div>
               </div>
             </div>
           </div>
@@ -539,9 +553,10 @@ async function exportComparison() {
             <GdBadge v-if="selectionResultIsStale" variant="warn">上次结果</GdBadge>
             <GdBadge v-else :variant="selectionResult.status === 'available' ? 'default' : 'warn'">{{ selectionResult.status === 'available' ? '可比较' : '筛选未通过' }}</GdBadge>
           </div>
-          <ComparisonScoreChart v-if="selectionScoreRows.length" :rows="selectionScoreRows" :height="Math.max(180, selectionScoreRows.length * 44)" />
+          <ComparisonScoreChart v-if="selectionScoreRows.length" :rows="selectionScoreRows" :height="Math.min(200, Math.max(160, selectionScoreRows.length * 36))" />
           <p v-if="selectionResult.status !== 'available'" class="m-0 rounded-md bg-warnbg px-3 py-2.5 leading-relaxed text-warnfg">当前所选仓库中符合语言或许可证条件的不足两个，请调整筛选条件。</p>
-          <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-3 rounded-lg border border-line p-3 sm:p-4" :data-testid="`selection-score-${row.id}`">
+          <div class="grid min-w-0 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
+          <div v-for="(row, index) in selectionResult.ranking" :key="row.id" class="space-y-2.5 rounded-lg border border-line p-3" :data-testid="`selection-score-${row.id}`">
             <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
               <div class="flex min-w-0 items-start gap-2.5">
                 <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-soft font-mono text-[11px] font-semibold">{{ index + 1 }}</span>
@@ -551,14 +566,14 @@ async function exportComparison() {
                 </div>
               </div>
               <div class="shrink-0 text-right">
-                <strong class="font-mono text-[25px] leading-none">{{ row.score.toFixed(1) }}</strong>
+                <strong class="font-mono text-[23px] leading-none">{{ row.score.toFixed(1) }}</strong>
                 <span class="ml-1 text-[11px] text-muted">/100</span>
               </div>
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-track" role="progressbar" :aria-label="`${row.name} 综合分`" :aria-valuenow="scorePercent(row.score)" aria-valuemin="0" aria-valuemax="100">
               <div class="h-full rounded-full bg-[var(--gd-primary-button)] transition-[width] duration-300 motion-reduce:transition-none" :style="{ width: `${scorePercent(row.score)}%` }" />
             </div>
-            <div class="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid min-w-0 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
               <div v-for="item in row.evidence" :key="item.metric" class="min-w-0 rounded-md bg-soft/35 px-2.5 py-2">
                 <p class="m-0 flex min-w-0 items-center justify-between gap-2 text-[10.5px] text-muted">
                   <span class="truncate">{{ selectionLabel(item.metric) }}{{ item.missingPolicy === 'neutral_50' ? ' · 无有效样本' : item.quality === 'partial' ? ' · 部分覆盖' : '' }}</span>
@@ -568,6 +583,7 @@ async function exportComparison() {
                 <p class="mb-0 mt-1 text-[10px] text-muted">单项 {{ (item.normalized * 100).toFixed(0) }} 分 · 贡献 {{ item.contribution.toFixed(1) }} 分</p>
               </div>
             </div>
+          </div>
           </div>
           <div v-if="selectionResult.excluded.length" class="space-y-1 rounded-md bg-warnbg px-3 py-2.5 text-[11px] text-warnfg" data-testid="selection-excluded">
             <p class="m-0 font-medium">未参与排名</p>
@@ -584,7 +600,6 @@ async function exportComparison() {
                 <p class="m-0">{{ maintenancePrLabel(item.pattern) }}<span v-if="item.pattern.evidence.commit_total_12w === 0 && item.pattern.coverage.pull_requests_created === 'complete' && (item.pattern.evidence.pr_created_total_12w ?? 0) > 0">；0 Commit 不表示没有 PR 或社区协作活动</span></p>
                 <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
                 <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
-                <p class="m-0">异常提示：{{ item.activityAnomaly.method === 'statistical_baseline' ? `MAD 规则${item.activityAnomaly.suspected ? '疑似偏离，待核查' : '未标记'}` : `未运行（${item.activityAnomaly.reasonCode ?? item.activityAnomaly.status}）` }} · 窗口 {{ item.pattern.historyStart ?? '—' }} 至 {{ item.pattern.asOf ?? '—' }} · 来源 {{ item.pattern.sourceRunId ?? '—' }}</p>
               </template>
               <template v-else>
                 <p class="m-0">Commit 事实证据不足（{{ item.pattern.reasonCode ?? '未采集' }}）。</p>
@@ -621,93 +636,59 @@ async function exportComparison() {
       </div>
     </UiPanel>
 
-    <div class="grid min-w-0 items-start gap-4 xl:grid-cols-2">
-      <UiPanel as="section" data-testid="comparison-diverse-charts">
+    <div class="grid min-w-0 items-stretch gap-4 xl:h-[clamp(560px,62vh,680px)] xl:grid-cols-2">
+      <UiPanel as="section" class="flex min-h-0 flex-col" data-testid="comparison-diverse-charts">
         <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
-        <div class="mt-3">
+        <div class="mt-3 flex min-h-0 flex-1 flex-col">
           <div v-if="comparisonRadarRows.length" class="min-w-0">
             <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
             <RepositoryComparisonRadar :rows="comparisonRadarRows" :dimensions="radarAxes" />
-            <p class="m-0 mt-2 text-[10.5px] text-muted">所有已选仓库均列入图例；完整数据绘制为填充多边形，部分数据只连接相邻的可用指标。归一值按各指标的有效样本单独计算，悬停数据点可查看原始值。</p>
+            <p class="m-0 mt-1 text-[10.5px] leading-relaxed text-muted">点位轻微错开仅用于分辨仓库，连线仍按原值绘制；悬停查看原始值，缺失指标不补值。</p>
           </div>
-          <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
+          <p v-else class="m-0 flex-1 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
         </div>
       </UiPanel>
 
-      <UiPanel as="section" data-testid="comparison-duration-charts">
-        <div>
-          <h3 class="m-0 text-[15.5px] font-semibold">Issue / PR 处理耗时对比</h3>
-          <p class="mt-0.5 text-[12px] leading-relaxed text-muted">按仓库分色，柱长比较耗时；下方直接列出 P50、样本数与相对参照差值。</p>
-          <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted" aria-label="仓库颜色图例">
-            <span v-for="entry in entries" :key="entry.id" class="inline-flex min-w-0 items-center gap-1.5">
-              <i class="size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-              <span class="break-all">{{ entry.label }}</span>
-              <GdBadge v-if="entry.id === durationReference?.id" variant="plain">参照</GdBadge>
-            </span>
+      <UiPanel as="section" class="flex min-h-0 max-h-[min(68vh,680px)] flex-col xl:h-full xl:max-h-full" data-testid="comparison-maintenance-analysis">
+        <div class="shrink-0">
+          <h3 class="m-0 text-[15.5px] font-semibold">各仓库近期维护分析</h3>
+          <p class="mt-0.5 text-[12px] leading-relaxed text-muted">按仓库展示 M1 维护模式、最近 4 周实际变化和 M2 趋势预测；颜色与左侧雷达图一致。</p>
+        </div>
+        <div v-if="maintenanceRowsLoading" class="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1" role="status" aria-live="polite" aria-label="正在读取各仓库近期维护分析" tabindex="0">
+          <div v-for="id in analysis.compareIds" :key="id" class="space-y-3 rounded-md border border-line p-3">
+            <div class="h-4 w-2/5 animate-pulse rounded bg-track/60 motion-reduce:animate-none" />
+            <div class="grid gap-2 sm:grid-cols-3"><div v-for="slot in 3" :key="slot" class="h-[76px] animate-pulse rounded bg-track/40 motion-reduce:animate-none" /></div>
           </div>
         </div>
-        <ComparisonDurationChart v-if="entries.some((entry) => entry.issueP50 !== null || entry.prP50 !== null)" :items="durationItems" :height="190" />
-        <p v-else class="py-6 text-center text-[12px] text-muted">当前选择的仓库没有可比较的 Issue 或 PR 处理耗时。</p>
-        <p v-if="entries.some((entry) => (entry.issueP50 !== null && entry.issueQuality === 'partial') || (entry.prP50 !== null && entry.prQuality === 'partial'))" class="m-0 text-[10.5px] text-muted">浅色条表示部分覆盖，数值依据已观察样本计算。</p>
-        <div v-if="durationReference" class="hidden min-w-0 rounded-md border border-line sm:block">
-          <table class="w-full table-fixed border-collapse text-[10px] leading-relaxed" data-testid="duration-comparison-values">
-            <colgroup><col class="w-[28%]"><col class="w-[36%]"><col class="w-[36%]"></colgroup>
-            <thead>
-              <tr class="bg-soft/50 text-left text-[10px] text-muted">
-                <th class="px-2 py-2 font-medium">仓库</th>
-                <th class="px-2 py-2 font-medium">Issue 关闭 P50</th>
-                <th class="px-2 py-2 font-medium">PR 合并 P50</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(entry, index) in entries" :key="entry.id" class="border-t border-line align-top">
-                <td class="px-2 py-2">
-                  <div class="flex min-w-0 items-start gap-1.5">
-                    <i class="mt-1 size-2 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-                    <span class="min-w-0 break-all font-medium">{{ entry.label }}</span>
-                  </div>
-                  <GdBadge v-if="index === 0" class="mt-1" variant="plain">参照</GdBadge>
-                </td>
-                <td class="break-words px-2 py-2 align-top">
-                  <p class="m-0 break-words font-mono text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
-                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-                </td>
-                <td class="break-words px-2 py-2 align-top">
-                  <p class="m-0 break-words font-mono text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
-                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-if="durationReference" class="space-y-2 sm:hidden" data-testid="duration-comparison-values-mobile">
-          <div v-for="(entry, index) in entries" :key="entry.id" class="rounded-md border border-line bg-soft/20 p-3">
-            <div class="flex min-w-0 items-start gap-2">
-              <i class="mt-1 size-2.5 shrink-0 rounded-sm" :style="{ background: entry.color }" />
-              <p class="m-0 min-w-0 break-all text-[11.5px] font-medium">{{ entry.label }}</p>
-              <GdBadge v-if="index === 0" class="ml-auto shrink-0" variant="plain">参照</GdBadge>
+        <div v-else-if="maintenanceRows?.length" class="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1" role="region" aria-label="各仓库近期维护分析列表" tabindex="0">
+          <article v-for="item in maintenanceRows" :key="item.id" class="space-y-2 rounded-md border border-line p-3" :data-testid="`maintenance-summary-${item.id}`">
+            <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <i v-if="comparisonEntry(item.id)" class="size-2.5 shrink-0 rounded-sm" :style="{ background: comparisonEntry(item.id)?.color }" />
+              <h4 class="m-0 min-w-0 flex-1 break-all text-[12px] font-semibold">{{ comparisonEntry(item.id)?.label ?? item.id }}</h4>
+              <GdBadge v-if="item.evaluation?.researchSample" variant="plain">历史样本</GdBadge>
+              <span v-if="item.evaluation" class="text-[10px] text-muted">{{ maintenanceSnapshot(item.evaluation) }}</span>
             </div>
-            <div class="mt-2 space-y-2">
-              <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
-                <span class="text-[10.5px] text-muted">Issue 关闭 P50</span>
-                <div class="min-w-0">
-                  <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.issueP50, entry.issueSample, entry.issueQuality, entry.windowAvailable) }}</p>
-                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.issueP50, durationReference?.issueP50 ?? null, entry.issueQuality, durationReference?.issueQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-                </div>
+            <p v-if="item.error" class="m-0 rounded bg-warnbg px-2.5 py-2 text-[11px] text-warnfg">维护分析读取失败：{{ item.error }}</p>
+            <div v-else-if="item.evaluation" class="grid min-w-0 gap-2 sm:grid-cols-3">
+              <div class="min-w-0 rounded bg-soft/35 px-2.5 py-2">
+                <p class="m-0 text-[10px] text-muted">维护模式 · M1</p>
+                <p class="mb-0 mt-1 break-words text-[12px] font-semibold">{{ maintenancePatternValue(item.evaluation.maintenancePattern) }}</p>
+                <p class="mb-0 mt-1 text-[10px] leading-relaxed text-muted">{{ maintenancePatternDetail(item.evaluation.maintenancePattern) }}</p>
               </div>
-              <div class="grid min-w-0 grid-cols-[86px_minmax(0,1fr)] gap-2 border-t border-line pt-2">
-                <span class="text-[10.5px] text-muted">PR 合并 P50</span>
-                <div class="min-w-0">
-                  <p class="m-0 break-words font-mono text-[10.5px] text-ink">{{ durationValueLabel(entry.prP50, entry.prSample, entry.prQuality, entry.windowAvailable) }}</p>
-                  <p v-if="index > 0" class="mb-0 mt-1 break-words text-[10.5px] text-muted">{{ durationDifferenceLabel(entry.prP50, durationReference?.prP50 ?? null, entry.prQuality, durationReference?.prQuality ?? 'missing', entry.windowAvailable, durationReference?.windowAvailable ?? false) }}</p>
-                </div>
+              <div class="min-w-0 rounded bg-soft/35 px-2.5 py-2">
+                <p class="m-0 text-[10px] text-muted">最近 4 周实际变化</p>
+                <p class="mb-0 mt-1 break-words text-[12px] font-semibold">{{ maintenanceChangeValue(item.evaluation.recentActivityChange) }}</p>
+                <p class="mb-0 mt-1 text-[10px] leading-relaxed text-muted">{{ maintenanceChangeDetail(item.evaluation.recentActivityChange) }}</p>
+              </div>
+              <div class="min-w-0 rounded bg-soft/35 px-2.5 py-2">
+                <p class="m-0 text-[10px] text-muted">未来 4 周趋势 · M2</p>
+                <p class="mb-0 mt-1 break-words text-[12px] font-semibold">{{ maintenanceForecastValue(item.evaluation.activityTrend) }}</p>
+                <p class="mb-0 mt-1 text-[10px] leading-relaxed text-muted">{{ maintenanceForecastDetail(item.evaluation.activityTrend) }}</p>
               </div>
             </div>
-          </div>
+          </article>
         </div>
-        <p v-if="issueMissing.length || prMissing.length" class="m-0 rounded-md bg-warnbg px-3 py-2 text-[10.5px] leading-relaxed text-warnfg">
-          没有有效耗时记录的指标不计算 P50，也不会按 0 处理。<span v-if="issueMissing.length">Issue：{{ issueMissing.join(' / ') }}。</span><span v-if="prMissing.length">PR：{{ prMissing.join(' / ') }}。</span>
-        </p>
+        <p v-else class="mt-3 flex-1 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">选择至少两个仓库后，这里会显示各仓库的近期维护分析。</p>
       </UiPanel>
     </div>
     </template>

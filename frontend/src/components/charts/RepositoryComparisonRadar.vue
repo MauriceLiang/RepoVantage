@@ -9,13 +9,14 @@ const props = defineProps<{
   dimensions: Dimension[]
 }>()
 
-const width = 620
-const height = 410
-const centerX = 310
-const centerY = 198
-const radius = 132
-const labelRadius = radius + 27
+const width = 580
+const height = 400
+const centerX = 290
+const centerY = 200
+const radius = 145
+const labelRadius = radius + 28
 const gridLevels = [20, 40, 60, 80, 100]
+const linePatterns = ['none', '6 3', '2 2', '8 2 1.5 2', '1 3']
 
 function axisPoint(index: number, level = 100) {
   const angle = (Math.PI * 2 * index) / props.dimensions.length - Math.PI / 2
@@ -46,18 +47,22 @@ const axes = computed(() => props.dimensions.map((dimension, index) => {
   }
 }))
 
-const series = computed(() => props.rows.map((row) => {
+const series = computed(() => props.rows.map((row, seriesIndex) => {
+  const pointOffset = (seriesIndex - (props.rows.length - 1) / 2) * 2.5
   const points = props.dimensions.map((dimension, index) => {
     const raw = row[dimension.key]
     const score = row[`${dimension.key}Score`]
     const coordinates = typeof score === 'number' && Number.isFinite(score)
       ? axisPoint(index, Math.max(0, Math.min(100, score)))
       : null
+    const angle = (Math.PI * 2 * index) / props.dimensions.length - Math.PI / 2
     return {
       index,
       label: dimension.label,
       raw,
       score: typeof score === 'number' && Number.isFinite(score) ? score : null,
+      markerX: coordinates ? coordinates.x - Math.sin(angle) * pointOffset : undefined,
+      markerY: coordinates ? coordinates.y + Math.cos(angle) * pointOffset : undefined,
       ...coordinates,
     }
   })
@@ -74,8 +79,8 @@ const series = computed(() => props.rows.map((row) => {
     points,
     complete,
     edges,
+    strokeDasharray: linePatterns[seriesIndex % linePatterns.length],
     polygonPoints: complete ? points.map((point) => `${point.x},${point.y}`).join(' ') : '',
-    available: points.filter((point) => point.score !== null).length,
   }
 }))
 
@@ -112,14 +117,17 @@ function formatRaw(key: string, value: unknown) {
         </g>
 
         <g v-for="item in series" :key="item.label" class="comparison-radar__series">
-          <polygon v-if="item.complete" :points="item.polygonPoints" :fill="item.color" fill-opacity="0.09" :stroke="item.color" stroke-width="2.2" stroke-linejoin="round" />
+          <polygon v-if="item.complete" :points="item.polygonPoints" :fill="item.color" fill-opacity="0.045" :stroke="item.color" :stroke-dasharray="item.strokeDasharray" stroke-width="2.2" stroke-linejoin="round" />
           <g v-else>
-            <line v-for="edge in item.edges" :key="edge.key" :x1="edge.x1" :y1="edge.y1" :x2="edge.x2" :y2="edge.y2" :stroke="item.color" stroke-width="2.4" stroke-linecap="round" />
+            <line v-for="edge in item.edges" :key="edge.key" :x1="edge.x1" :y1="edge.y1" :x2="edge.x2" :y2="edge.y2" :stroke="item.color" :stroke-dasharray="item.strokeDasharray" stroke-width="2.4" stroke-linecap="round" />
           </g>
           <template v-for="point in item.points" :key="point.index">
-            <circle v-if="point.score !== null && point.x !== undefined && point.y !== undefined" :cx="point.x" :cy="point.y" r="4.5" :fill="item.color" stroke="white" stroke-width="1.8">
-              <title>{{ item.label }} · {{ point.label }} · 归一值 {{ point.score.toFixed(1) }} / 100 · 原值 {{ formatRaw(props.dimensions[point.index].key, point.raw) }}</title>
-            </circle>
+            <g v-if="point.score !== null && point.x !== undefined && point.y !== undefined && point.markerX !== undefined && point.markerY !== undefined">
+              <line v-if="point.markerX !== point.x || point.markerY !== point.y" :x1="point.x" :y1="point.y" :x2="point.markerX" :y2="point.markerY" :stroke="item.color" stroke-opacity="0.5" stroke-width="0.8" />
+              <circle :cx="point.markerX" :cy="point.markerY" r="4.3" :fill="item.color" stroke="white" stroke-width="1.8">
+                <title>{{ item.label }} · {{ point.label }} · 归一值 {{ point.score.toFixed(1) }} / 100 · 原值 {{ formatRaw(props.dimensions[point.index].key, point.raw) }} · 点位轻微错位仅用于分辨仓库 }}</title>
+              </circle>
+            </g>
           </template>
         </g>
       </svg>
@@ -127,29 +135,31 @@ function formatRaw(key: string, value: unknown) {
 
     <ul class="comparison-radar__legend" aria-label="参与对比的仓库">
       <li v-for="item in series" :key="item.label" :title="item.label">
-        <span class="comparison-radar__swatch" :style="{ '--series-color': item.color }" aria-hidden="true" />
+        <svg class="comparison-radar__legend-mark" viewBox="0 0 20 10" aria-hidden="true">
+          <line x1="0.5" y1="5" x2="19.5" y2="5" :stroke="item.color" :stroke-dasharray="item.strokeDasharray" />
+          <circle cx="10" cy="5" r="2.5" :fill="item.color" />
+        </svg>
         <span class="comparison-radar__legend-name">{{ item.label }}</span>
-        <span class="comparison-radar__coverage">{{ item.available }} / {{ dimensions.length }} 项</span>
       </li>
     </ul>
   </div>
 </template>
 
 <style scoped>
-.comparison-radar { display: grid; gap: 8px; min-width: 0; }
+.comparison-radar { display: grid; align-content: start; gap: 6px; min-width: 0; }
 .comparison-radar__stage { display: flex; justify-content: center; min-width: 0; }
-.comparison-radar__svg { display: block; width: min(100%, 760px); height: auto; overflow: visible; }
+.comparison-radar__svg { display: block; width: min(100%, 640px); height: auto; overflow: visible; }
 .comparison-radar__grid polygon { fill: none; stroke: var(--line, #dce2e7); stroke-width: 1; stroke-dasharray: 4 5; }
 .comparison-radar__grid line { stroke: var(--line, #dce2e7); stroke-width: 1; }
 .comparison-radar__scale text { fill: var(--muted, #78838d); font-size: 10px; }
 .comparison-radar__axis-label text { fill: var(--ink, #27313a); font-size: 12px; font-weight: 600; }
-.comparison-radar__legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 7px 12px; margin: 0; padding: 0; list-style: none; }
-.comparison-radar__legend li { display: flex; min-width: 0; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--line, #dce2e7); border-radius: 8px; background: var(--surface-soft, #f8f9fa); font-size: 11px; }
-.comparison-radar__swatch { width: 11px; height: 11px; flex: 0 0 auto; border: 2px solid var(--series-color); border-radius: 50%; background: color-mix(in srgb, var(--series-color) 18%, white); }
-.comparison-radar__legend-name { overflow: hidden; flex: 1 1 auto; color: var(--ink, #27313a); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.comparison-radar__coverage { flex: 0 0 auto; color: var(--muted, #78838d); font-variant-numeric: tabular-nums; font-size: 10px; }
+.comparison-radar__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0; padding: 0; list-style: none; }
+.comparison-radar__legend li { display: inline-flex; min-width: 0; max-width: 100%; align-items: center; gap: 6px; padding: 2px 0; font-size: 11px; }
+.comparison-radar__legend-mark { width: 20px; height: 10px; flex: 0 0 auto; overflow: visible; }
+.comparison-radar__legend-mark line { stroke-width: 1.8; }
+.comparison-radar__legend-name { overflow: hidden; max-width: 180px; color: var(--ink, #27313a); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 520px) {
   .comparison-radar__axis-label text { font-size: 11px; }
-  .comparison-radar__legend { grid-template-columns: 1fr; }
+  .comparison-radar__legend { gap: 5px 12px; }
 }
 </style>

@@ -564,8 +564,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         recent4wCommits: null, changeCount: null, threshold: null, trend: null, previousWindowStart: null, previousWindowEndExclusive: null,
         recentWindowStart: null, recentWindowEndExclusive: null, notes: ['演示数据没有最近 8 个完整 UTC 周。'] },
       activityTrend: { status: 'insufficient_data', method: 'none', trend: null, modelId: null, modelVersion: null, horizonWeeks: 4,
-        probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] },
-      activityAnomaly: { status: 'insufficient_data', method: 'none', suspected: false, reasonCode: 'not_collected', weeks: [], notes: ['演示数据没有异常检测输入。'] } }
+        probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] } }
   }
 
   async collectMaintenance(): Promise<import('./types').MaintenanceCollectionResult> { throw new Error('演示模式不能采集真实维护活动。') }

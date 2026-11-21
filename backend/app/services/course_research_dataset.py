@@ -608,7 +608,7 @@ def course_research_insights(session: Session, dataset_id: str) -> dict:
         "course_summary": course_summary,
         "limitations": [
             "这是固定历史快照，不是实时仓库状态；若存在更新的在线采集，仓库分析使用更新数据。",
-            "提交趋势模型只输出未来四周类别；M1 反映提交模式，M3 是 MAD 统计提示。",
+            "提交趋势模型只输出未来四周类别；M1 反映提交模式。",
             "train/test 标签仅说明本次历史回测角色；测试组不是全新外部样本。",
             *( ["当前标准数据只包含固定的留出测试组；训练组仅保留在完整 300 仓库实验数据集中。"] if source.get("selected_sample_role") == "test" else [] ),
             "Commit 使用最近 12 个完整周；Issue、PR 使用事件快照中的 90 天窗口，Release 使用 365 天窗口。部分覆盖指标按已观察样本统计。",

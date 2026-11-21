@@ -65,7 +65,6 @@ class RepositoryEvaluation(DTO):
     maintenance_pattern: MaintenancePattern
     recent_activity_change: dict[str, Any]
     activity_trend: dict[str, Any]
-    activity_anomaly: dict[str, Any]
     research_sample: CourseResearchSample | None = None
 
 

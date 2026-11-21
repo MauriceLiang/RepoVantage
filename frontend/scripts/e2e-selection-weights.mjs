@@ -75,7 +75,6 @@ try {
               status: 'insufficient_data', method: 'none', trend: null, modelId: null, modelVersion: null, horizonWeeks: 4,
               probabilities: null, reasonCode: 'insufficient_data', evidence: {}, notes: [],
             },
-            activityAnomaly: { status: 'insufficient_data', method: 'none', suspected: false, reasonCode: 'insufficient_data', weeks: [], notes: [] },
           })),
         },
         notes: ['浏览器交互测试替身，不是实际分析结果。'],

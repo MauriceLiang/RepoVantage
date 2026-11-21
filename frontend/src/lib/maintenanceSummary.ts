@@ -4,7 +4,6 @@ export interface MaintenanceSummaryView {
   status: 'available' | 'partial' | 'waiting' | 'limited' | 'error'
   headline: string
   activityLine: string
-  anomalyLine: string
 }
 
 const REASON_LABELS: Record<string, string> = {
@@ -43,8 +42,7 @@ export function buildMaintenanceSummary(
     return {
       status: 'error',
       headline: '近期分析数据读取失败',
-      activityLine: '没有根据读取失败的请求生成任何趋势或异常判断。',
-      anomalyLine: '请重试读取，或在任务页核对近期采集任务。',
+      activityLine: '没有根据读取失败的请求生成趋势判断。',
     }
   }
 
@@ -53,7 +51,6 @@ export function buildMaintenanceSummary(
       status: 'waiting',
       headline: '尚未生成近期分析',
       activityLine: '采集完成后，这里会显示最近 4 周实际变化和未来 4 周模型预测。',
-      anomalyLine: '异常提示也需要完整的近期 Commit 数据。',
     }
   }
 
@@ -65,11 +62,9 @@ export function buildMaintenanceSummary(
     && Boolean(patternLabel)
   const recent = evaluation.recentActivityChange
   const trend = evaluation.activityTrend
-  const anomaly = evaluation.activityAnomaly
   const incomplete = pattern.coverage.commits === 'partial'
     || recent.status === 'partial_data'
     || trend.status === 'partial_data'
-    || anomaly.status === 'partial_data'
 
   const headline = patternAvailable
     ? `近 12 周默认分支为「${patternLabel}」`
@@ -87,14 +82,9 @@ export function buildMaintenanceSummary(
   const forecastLine = isMachineLearningTrend(evaluation)
     ? `未来 4 周活动趋势预测：${trend.trend}，可能存在预测误差。`
     : `未来 4 周预测暂不可用：${maintenanceReason(trend.reasonCode ?? trend.status)} `
-  const anomalyLine = anomaly.status === 'baseline_only' && anomaly.method === 'statistical_baseline'
-    ? anomaly.suspected ? 'MAD 统计规则提示疑似偏离，需结合项目事件人工核查。' : 'MAD 统计规则未发现明显异常。'
-    : `异常提示暂无法判定：${maintenanceReason(anomaly.reasonCode ?? anomaly.status)}`
-
   return {
     status: incomplete ? 'partial' : patternAvailable || recent.status === 'available' ? 'available' : hasPatternEvidence ? 'limited' : 'waiting',
     headline,
     activityLine: `${actualLine}${forecastLine}`,
-    anomalyLine,
   }
 }

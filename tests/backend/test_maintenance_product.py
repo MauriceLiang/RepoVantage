@@ -80,8 +80,7 @@ def test_api_uses_the_shared_course_features_and_keeps_independent_task_statuses
     assert payload["activity_trend"]["horizon_weeks"] == 4
     assert payload["activity_trend"]["probabilities"] is None
     assert any("历史留仓回测" in note for note in payload["activity_trend"]["notes"])
-    assert payload["activity_anomaly"]["method"] == "statistical_baseline"
-    assert payload["activity_anomaly"]["status"] == "baseline_only"
+    assert "activity_anomaly" not in payload
     (tmp_path / archive).unlink()
     pattern = client.get("/api/v1/repositories/123/evaluation", headers=HEADERS).json()["data"]["maintenance_pattern"]
     assert pattern["status"] == "insufficient_data" and pattern["reason_code"] == "source_archive_unavailable"
