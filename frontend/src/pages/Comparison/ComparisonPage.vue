@@ -5,6 +5,7 @@ import ComparisonDurationChart from '@/components/charts/ComparisonDurationChart
 import ComparisonChart from '@/components/charts/ComparisonChart.vue'
 import ComparisonScoreChart from '@/components/charts/ComparisonScoreChart.vue'
 import G2Chart from '@/components/charts/G2Chart.vue'
+import RepositoryComparisonRadar from '@/components/charts/RepositoryComparisonRadar.vue'
 import GdBadge from '@/components/ui/GdBadge.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
@@ -92,57 +93,24 @@ const radarAxes = [
   { key: 'activeWeekRatio', label: '有效周占比', direction: 'higher' as const },
 ]
 const comparisonRadarRows = computed(() => {
-  const raw = selectionBasisEntries.value.flatMap((entry) => {
+  const raw = selectionBasisEntries.value.map((entry) => {
     const validWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
-    if (!validWeeks.length || entry.issueP50 === null || entry.prP50 === null || entry.releaseMedianDays === null) return []
-    return [{
+    return {
       repository: entry.label,
-      commitsWeekly: validWeeks.reduce((sum, value) => sum + value, 0) / validWeeks.length,
+      color: entry.color,
+      commitsWeekly: validWeeks.length ? validWeeks.reduce((sum, value) => sum + value, 0) / validWeeks.length : null,
       issueP50Days: entry.issueP50,
       prP50Days: entry.prP50,
       releaseIntervalDays: entry.releaseMedianDays,
-      activeWeekRatio: entry.points.length ? validWeeks.length / entry.points.length * 100 : null,
+      activeWeekRatio: entry.points.length && validWeeks.length ? validWeeks.length / entry.points.length * 100 : null,
       commitWeekSamples: validWeeks.length,
       issueSamples: entry.issueSample,
       prSamples: entry.prSample,
       coverage: entry.coverage.label,
-    }]
+    }
   })
   return normalizeMetrics(raw, radarAxes.map((axis) => ({ key: axis.key, direction: axis.direction })))
 })
-const comparisonRadarFields = radarAxes.map((axis) => `${axis.key}Score`)
-const comparisonRadarSpec = computed<G2Spec>(() => ({
-  type: 'line', coordinate: { type: 'radar', outerRadius: 0.78 }, data: comparisonRadarRows.value,
-  encode: { position: comparisonRadarFields, color: 'repository' },
-  scale: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, { domain: [0, 100], nice: false }])),
-  axis: Object.fromEntries(comparisonRadarFields.map((_, index) => [`position${index || ''}`, {
-    label: false,
-    title: radarAxes[index].label,
-    titleFontSize: 10,
-    titleSpacing: 10,
-    line: true,
-    grid: true,
-  }])),
-  legend: { color: { position: 'bottom', itemLabelFontSize: 9 } },
-  style: { lineWidth: 1.8, strokeOpacity: 0.74 },
-  interaction: { tooltip: { series: false } },
-  tooltip: { title: 'repository', items: radarAxes.map((axis) => ({ field: `${axis.key}Score`, name: `${axis.label}归一值（0–100）` })) },
-}))
-const comparisonHeatRows = computed(() => comparisonRadarRows.value.flatMap((row) => radarAxes.map((axis) => ({
-  repository: String(row.repository), metric: axis.label,
-  normalized: typeof row[`${axis.key}Score`] === 'number' ? row[`${axis.key}Score`] : null,
-  rawValue: row[axis.key],
-  sampleSize: axis.key === 'commitsWeekly' ? row.commitWeekSamples : axis.key === 'issueP50Days' ? row.issueSamples : axis.key === 'prP50Days' ? row.prSamples : null,
-}))))
-const comparisonHeatSpec = computed<G2Spec>(() => ({
-  type: 'cell', data: comparisonHeatRows.value.filter((row) => row.normalized !== null),
-  encode: { x: 'metric', y: 'repository', color: 'normalized' },
-  scale: { color: { domain: [0, 100], range: ['#e7edf1', '#59778b'] }, x: { padding: 0.08 }, y: { padding: 0.08 } },
-  axis: { x: { labelFontSize: 9 }, y: { labelFontSize: 9 } },
-  legend: { color: { position: 'bottom', title: '归一值（0–100）' } },
-  style: { inset: 1, radius: 3 },
-  tooltip: { title: (datum: { repository: string; metric: string }) => `${datum.repository} · ${datum.metric}`, items: [{ field: 'rawValue', name: '原始值' }, { field: 'normalized', name: '归一值（0–100）' }, { field: 'sampleSize', name: '有效样本数' }] },
-}))
 const comparisonActivityScatterRows = computed(() => selectionBasisEntries.value.flatMap((entry) => {
   const completeWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
   if (!completeWeeks.length || entry.prP50 === null || entry.prSample < 1) return []
@@ -696,19 +664,20 @@ async function exportComparison() {
     </UiPanel>
 
     <UiPanel as="section" data-testid="comparison-diverse-charts">
-      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">雷达与热力矩阵使用同一可用子集，按 min–max 归一到 0–100；耗时和发布间隔反向。图表用于描述相对差异，不代表健康评分。</p></div>
-      <div class="mt-3 grid gap-4 xl:grid-cols-2">
-        <template v-if="comparisonRadarRows.length">
-          <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><G2Chart :spec="comparisonRadarSpec" label="当前共同可用仓库的归一化指标雷达图" :height="340" /><p class="m-0 text-[10.5px] text-muted">纳入 {{ comparisonRadarRows.length }} / {{ selectionBasisEntries.length }} 个仓库；缺失任一轴的仓库不会补零。样本量与原始单位见下方对照表。</p></div>
-          <div class="min-w-0"><h4 class="m-0 text-[12px] font-semibold">仓库 × 指标热力矩阵</h4><G2Chart :spec="comparisonHeatSpec" label="仓库与比较指标的归一值热力矩阵，悬停查看原值与样本" :height="340" /></div>
-        </template>
-        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">完整多维指标不足，暂不显示雷达与热力矩阵；单项数据仍保留在下方对照表。</p>
-        <div v-if="comparisonActivityScatterRows.length" class="min-w-0 xl:col-span-2">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
+      <div class="mt-3 grid gap-6">
+        <div v-if="comparisonRadarRows.length" class="min-w-0">
+          <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
+          <RepositoryComparisonRadar :rows="comparisonRadarRows" :dimensions="radarAxes" />
+          <p class="m-0 mt-2 text-[10.5px] text-muted">所有已选仓库均列入图例；完整数据绘制为填充多边形，部分数据只连接相邻的可用指标。归一值按各指标的有效样本单独计算，悬停数据点可查看原始值。</p>
+        </div>
+        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
+        <div v-if="comparisonActivityScatterRows.length" class="min-w-0">
           <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">周均 Commit × PR 合并耗时</h4><span class="text-[10.5px] text-muted">点大小表示有效 PR 样本数</span></div>
           <G2Chart :spec="comparisonActivityScatterSpec" label="每个点代表一个已选择仓库，横轴为完整 UTC 周周均 Commit，纵轴为 PR 合并耗时中位数，点大小代表有效 PR 样本数" :height="320" />
           <p class="m-0 text-[10.5px] text-muted">显示 {{ comparisonActivityScatterRows.length }} / {{ selectionBasisEntries.length }} 个仓库；点大小表示有效 PR 样本量，部分覆盖会在悬停信息中标出。仅描述指标关系，不作因果解释。</p>
         </div>
-        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted xl:col-span-2">至少需要一个仓库同时具备完整 UTC 周 Commit 和 PR 合并耗时样本；缺失值不补零。</p>
+        <p v-else class="m-0 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">至少需要一个仓库同时具备完整 UTC 周 Commit 和 PR 合并耗时样本；缺失值不补零。</p>
       </div>
     </UiPanel>
 
