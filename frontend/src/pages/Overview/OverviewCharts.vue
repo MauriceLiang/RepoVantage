@@ -47,7 +47,7 @@ const selectedRepository = () => props.data.repositories.find((repository) => re
 
 <style scoped>
 .overview-charts { display: grid; gap: 12px; min-width: 0; }
-.overview-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.overview-chart-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: stretch; }
 .overview-filter-bar { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
 .overview-filter-summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; }
 .overview-filter-summary strong { color: var(--ink); font-size: 11px; font-weight: 650; }
