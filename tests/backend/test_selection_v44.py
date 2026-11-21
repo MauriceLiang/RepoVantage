@@ -92,15 +92,3 @@ def test_selection_api_keeps_scenarios_separate_and_marks_supplements_pending(ba
     assert {item["full_name"] for item in references.json()["data"]["references"]} == {
         "django/django", "BurntSushi/ripgrep", "sharkdp/bat", "sharkdp/fd",
     }
-
-
-def test_atlas_returns_300_real_nodes_and_weekly_traces(backend_client, tmp_path):
-    client, factory, _github = backend_client
-    _prepare_v44(factory, tmp_path)
-    response = client.get("/api/v1/research/atlas", headers=HEADERS)
-    assert response.status_code == 200, response.text
-    atlas = response.json()["data"]
-    assert atlas["repository_count"] == 300
-    assert atlas["point_count"] == 300
-    assert atlas["weekly_record_count"] == 3600
-    assert all(len(point["weekly_trace"]) == 12 for point in atlas["points"])

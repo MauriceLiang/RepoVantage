@@ -132,14 +132,19 @@ async function renderChart() {
         const datum = (Array.isArray(eventData) ? eventData[0] : eventData) as Record<string, unknown> | undefined
         if (!datum) return
         const rawIndex = datum.dataIndex ?? datum.sourceIndex ?? event.data?.index
-        const dataIndex = typeof rawIndex === 'number' && Number.isFinite(rawIndex) ? rawIndex : 0
+        if (typeof rawIndex !== 'number' || !Number.isFinite(rawIndex)) return
+        const dataIndex = rawIndex
         const seriesName = String(datum.seriesName ?? datum.series ?? datum.label ?? '')
-        const name = String(datum.name ?? datum.date ?? datum.week ?? datum.metric ?? '')
+        const name = String(datum.name ?? datum.fullName ?? datum.label ?? datum.date ?? datum.week ?? datum.metric ?? '')
         emit('select', { dataIndex, seriesName, name, value: datum.value ?? datum.plotted ?? datum.count ?? null, datum })
       })
     }
     chart.options(withAxisDensity(props.spec, container.clientWidth) as G2Spec)
-    await chart.render()
+    // `render()` can retain the previous canvas dimensions after a CSS-only
+    // layout change (for example, a desktop-to-mobile grid breakpoint). Force
+    // G2 to read the current host dimensions so the canvas cannot overflow its
+    // responsive panel.
+    await chart.forceFit()
     if (sequence === renderSequence) error.value = ''
   } catch (cause) {
     if (sequence === renderSequence) {
