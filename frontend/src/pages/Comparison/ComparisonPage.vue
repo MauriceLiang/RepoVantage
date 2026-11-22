@@ -71,21 +71,6 @@ const selectionBasisError = computed(() => comparisonMode.value === 'same_period
 const comparisonBasis = computed(() => data.value?.comparisonBasis)
 const comparisonNotes = computed(() => (data.value?.notes ?? []).filter((note) => !entries.value.some((entry) => entry.windowReason && note === `${entry.label}：${entry.windowReason}`)))
 const short = (label: string) => label.split('/')[1]
-const utcRange = (start: string | null, end: string | null) => start && end
-  ? `${start.slice(0, 10)} 至 ${end.slice(0, 10)} UTC`
-  : '时间范围不可用'
-const maintenancePatternLabel = (pattern: MaintenancePattern) => pattern.method === 'machine_learning'
-  ? pattern.displayName ?? pattern.patternName ?? '模式未分类'
-  : pattern.coverage.commits === 'partial' ? '模式暂不可用（Commit 覆盖不完整）' : '仅显示事实'
-const actualChangeLabel = (change: RecentActivityChange) => change.status === 'available'
-  ? `${change.trend} · 最近 ${change.recent4wCommits} vs 此前 ${change.previous4wCommits} Commit · 此前 ${utcRange(change.previousWindowStart, change.previousWindowEndExclusive)} · 最近 ${utcRange(change.recentWindowStart, change.recentWindowEndExclusive)}`
-  : `无法判定（${change.reasonCode ?? change.status}）；缺失数据不补零`
-const forecastLabel = (trend: ActivityTrendPrediction) => trend.method === 'machine_learning' && trend.status === 'available'
-  ? `预测 ${trend.trend} · ${utcRange(typeof trend.evidence.forecast_start_utc === 'string' ? trend.evidence.forecast_start_utc : null, typeof trend.evidence.forecast_end_exclusive_utc === 'string' ? trend.evidence.forecast_end_exclusive_utc : null)} · ${trend.modelVersion ?? ''}`
-  : `暂不提供未来预测（${trend.reasonCode ?? trend.status}）`
-const maintenancePrLabel = (pattern: MaintenancePattern) => pattern.coverage.pull_requests_created === 'complete'
-  ? `PR 创建量 ${pattern.evidence.pr_created_total_12w ?? '—'}（独立统计）`
-  : 'PR 覆盖不完整（独立统计）'
 const formatCount = (value: number | null | undefined) => value === null || value === undefined
   ? '—'
   : value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
@@ -363,31 +348,8 @@ async function exportComparison() {
             :expanded-repository-id="expandedRepositoryId"
             @toggle-details="toggleEvidence"
           >
-            <template #methodDetails>
-              <p class="m-0 text-[10.5px] leading-relaxed text-muted">综合分是当前候选间的相对分（0–100），不是代码质量或健康评分。每周 Commit 使用 log(1+x) 缓和极大值；Issue、PR 耗时和 Release 间隔按较短值优先。同一指标数值相同记为 50 分。</p>
-              <p class="m-0 text-[10.5px] leading-relaxed text-muted">系统优先按所选 {{ analysis.timeWindow }} 天同期窗口计分；共同窗口不可用时回退各仓库自身窗口，此时不代表同期表现。Release 使用独立近 365 天窗口。无有效样本按中性 50 分计入但不标为实测，部分覆盖只使用已观察数据。</p>
-            </template>
           </CompactRankingTable>
 
-          <details v-if="selectionResult?.maintenance.repositories.length" class="rounded-md border border-line px-3 py-2.5" data-testid="selection-maintenance">
-            <summary class="cursor-pointer text-[11.5px] font-medium">近期维护行为与预测证据（不参与综合分）</summary>
-            <p v-if="selectionResult.maintenance.dataAsOf" class="mb-2 mt-2 text-[10.5px] text-muted">课程仓库资料来自历史快照，截至 {{ selectionResult.maintenance.dataAsOf }}。</p>
-            <div v-for="item in selectionResult.maintenance.repositories" :key="item.id" class="space-y-1 border-t border-line py-2 text-[10.5px] leading-relaxed text-muted">
-              <p class="m-0 font-medium text-ink">{{ item.name }}<GdBadge v-if="item.sampleRole" class="ml-2" variant="plain">{{ item.sampleRole === 'train' ? '训练组' : '测试组' }}</GdBadge> · {{ maintenancePatternLabel(item.pattern) }}</p>
-              <template v-if="Object.keys(item.pattern.evidence).length">
-                <p v-if="item.pattern.coverage.commits === 'partial'" class="m-0">Commit 覆盖不完整：已观察到 {{ item.pattern.evidence.commit_observed_partial_lower_bound ?? '—' }} 次（下限）；分页 {{ item.pattern.evidence.commit_pages_fetched ?? '—' }}/{{ item.pattern.evidence.commit_page_budget ?? '—' }} 页，请求估算 {{ item.pattern.evidence.github_request_estimate ?? '—' }} 次。</p>
-                <p v-else class="m-0">默认分支 Commit {{ item.pattern.evidence.commit_total_12w ?? item.pattern.evidence.commit_total_window ?? '—' }} · {{ item.pattern.windowWeeks }} 个完整周。</p>
-                <p class="m-0">{{ maintenancePrLabel(item.pattern) }}<span v-if="item.pattern.evidence.commit_total_12w === 0 && item.pattern.coverage.pull_requests_created === 'complete' && (item.pattern.evidence.pr_created_total_12w ?? 0) > 0">；0 Commit 不表示没有 PR 或社区协作活动</span></p>
-                <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
-                <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
-              </template>
-              <template v-else>
-                <p class="m-0">Commit 事实证据不足（{{ item.pattern.reasonCode ?? '未采集' }}）。</p>
-                <p class="m-0">最近 4 周实际变化：{{ actualChangeLabel(item.recentActivityChange) }}。</p>
-                <p class="m-0">未来 4 周活动趋势预测：{{ forecastLabel(item.activityTrend) }}。</p>
-              </template>
-            </div>
-          </details>
         </div>
 
       </section>

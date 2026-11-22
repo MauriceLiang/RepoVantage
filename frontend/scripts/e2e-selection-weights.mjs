@@ -126,8 +126,9 @@ try {
     preciseInputCount: [...document.querySelectorAll('[data-testid="selection-report"] input[type="text"]')].length,
     donutVisible: Boolean(document.querySelector('[data-testid="weight-donut"]')),
     manualPanelVisible: Boolean(document.querySelector('[data-testid="manual-weight-toggle"], [data-testid="manual-weight-editor"]')),
-    explanationVisible: Boolean(document.querySelector('[data-testid="selection-scoring-explanation"]')),
-    maintenanceVisible: Boolean(document.querySelector('[data-testid="selection-maintenance"]')),
+    scoringExplanationRemoved: !Boolean(document.querySelector('[data-testid="selection-scoring-explanation"]')),
+    maintenanceEvidenceRemoved: !Boolean(document.querySelector('[data-testid="selection-maintenance"]')),
+    maintenanceAnalysisRetained: Boolean(document.querySelector('[data-testid="comparison-maintenance-analysis"]')),
     sampleSourceCount: [...document.querySelectorAll('[data-testid^="selection-score-"] summary')].filter((summary) => summary.textContent.includes('样本与来源')).length,
     calls: window.__selectionCalls.length,
     requestWeights: window.__selectionCalls[0],
@@ -148,8 +149,9 @@ try {
   assert.equal(initial.preciseInputCount, 4, '四项指标均应提供常驻精确输入')
   assert.equal(initial.donutVisible, false, '权重环图应移除')
   assert.equal(initial.manualPanelVisible, false, '不应保留额外手动输入面板')
-  assert.equal(initial.explanationVisible, true)
-  assert.equal(initial.maintenanceVisible, true, '近期维护证据没有保留')
+  assert.equal(initial.scoringExplanationRemoved, true, '评分口径折叠区应移除')
+  assert.equal(initial.maintenanceEvidenceRemoved, true, '近期维护证据折叠区应移除')
+  assert.equal(initial.maintenanceAnalysisRetained, true, '各仓库近期维护分析模块应保留')
   assert.equal(initial.sampleSourceCount, 0, '默认视图不应展开样本与来源详情')
   assert.ok(Math.abs(initial.sliderTotal - 100) < 0.005, `初始权重未合计为 100%：${initial.sliderTotal}`)
   assert.ok(Math.abs(Object.values(initial.requestWeights).reduce((sum, weight) => sum + weight, 0) - 10) < 0.005, '初始 API 权重应合计为 10')

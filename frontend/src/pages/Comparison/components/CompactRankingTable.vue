@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, useSlots } from 'vue'
+import { computed } from 'vue'
 import { ChevronDown, ChevronRight } from 'lucide-vue-next'
 import type { SelectionResult } from '@/services/types'
 import type { SelectionMetricOption } from '../weightMath'
@@ -14,7 +14,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ toggleDetails: [repositoryId: string] }>()
-const slots = useSlots()
 
 const rows = computed(() => props.result?.status === 'available' ? props.result.ranking : [])
 const activeMetricCount = computed(() => Object.values(props.result?.weights ?? {}).filter((weight) => Number.isFinite(weight) && weight > 0).length)
@@ -161,17 +160,5 @@ function formatWindow(window: SelectionResult['sharedWindow']) {
       <p v-for="item in result.excluded" :key="item.id" class="m-0 mt-0.5 break-words">{{ item.name }}：{{ item.reasons.join('；') }}</p>
     </div>
 
-    <details v-if="result || slots.methodDetails" class="rounded-md border border-line px-3 py-2" data-testid="selection-scoring-explanation">
-      <summary class="cursor-pointer text-[10.5px] font-medium text-muted">评分口径、限制与补充说明</summary>
-      <ul v-if="result && result.notes.length" class="mb-0 mt-2 space-y-1 pl-4 text-[10.5px] leading-relaxed text-muted">
-        <li v-for="(note, index) in result.notes" :key="index">{{ note }}</li>
-      </ul>
-      <ul v-if="result && result.sensitivity.length" class="mb-0 mt-2 space-y-1 pl-4 text-[10.5px] leading-relaxed text-muted">
-        <li v-for="item in result.sensitivity" :key="item.criterion">权重敏感性：{{ item.criterion }}；排序靠前：{{ item.repositoryIds.join('、') || '无' }}</li>
-      </ul>
-      <div class="mt-2 space-y-1.5">
-        <slot name="methodDetails" />
-      </div>
-    </details>
   </section>
 </template>
