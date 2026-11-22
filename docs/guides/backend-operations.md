@@ -24,7 +24,7 @@ cp .env.example .env
 uv run --locked --all-extras python -m scripts.start
 ```
 
-启动器会分别构建两套前端，自动升级数据库，并启动 FastAPI、Worker、普通用户页面和独立机器学习控制台。访问地址分别为 `http://127.0.0.1:8501` 和 `http://127.0.0.1:8502`；两套前端共享 FastAPI 的本机浏览器会话/API 层。首次运行会创建 `.env` 并生成本机随机 `INTERNAL_API_KEY`。按 `Ctrl+C` 会一并停止所有服务。新前端仅允许绑定本机回环地址；完整使用说明见 [README.md](README.md)。
+启动器会分别构建两套前端，自动升级数据库，并启动 FastAPI、Worker、普通用户页面和独立机器学习控制台。访问地址分别为 `http://127.0.0.1:8501` 和 `http://127.0.0.1:8502`；两套前端共享 FastAPI 的本机浏览器会话/API 层。首次运行会创建 `.env` 并生成本机随机 `INTERNAL_API_KEY`。按 `Ctrl+C` 会一并停止所有服务。新前端仅允许绑定本机回环地址；完整使用说明见[项目首页](../../README.md)。
 
 若 API 已由其他方式启动，也可单独运行 `uv run --locked --all-extras python -m scripts.start_ml_console` 启动 8502 控制台；日常启动完整项目无需使用该命令。
 
@@ -55,7 +55,7 @@ python -m backend.app.worker.main
 
 ## API
 
-契约为 `docs/03_API接口契约_v1.0.md`。实现覆盖 API-01 至 API-20（API-01 为 `/healthz`）：搜索/解析、分析库、仓库快照与分析、任务/重试、数据集、总览/研究统计/质量、比较和 CSV 导出。JSON 成功响应采用 `data`/`meta`，错误采用 `error`/`request_id`；删除成员关系返回空的 204，CSV 为 UTF-8 文本。
+完整接口定义以运行中的 `/docs` OpenAPI 文档为准。实现覆盖 API-01 至 API-20（API-01 为 `/healthz`）：搜索/解析、分析库、仓库快照与分析、任务/重试、数据集、总览/研究统计/质量、比较和 CSV 导出。JSON 成功响应采用 `data`/`meta`，错误采用 `error`/`request_id`；删除成员关系返回空的 204，CSV 为 UTF-8 文本。
 
 Worker 对基础仓库档案采集真实快照。深度任务支持 `quick`、`window` 和人工排队的 `backfill`，所有范围都读取 `.env` 的 `GITHUB_MAX_PAGES` 配置。Commit/Issue 使用时间查询，PR 按更新时间倒序并在重叠边界停止，Release 端点逐次复核并按数字 ID 去重。系统不再定时排队仓库刷新或增量采集；新加入的仓库会自动排队完整 180 天窗口采集，后续仅在用户点击详情页的更新数据操作时排队同样的 180 天更新。页面仍可切换 30、90、180 天分析窗口。
 
@@ -117,7 +117,7 @@ python -m scripts.check_data_integrity
 - `POST /api/v1/comparisons/insights`：`{"repository_ids":[1,2],"depth":"deep"}`；提交仅使用共同完整周，耗时窗口不一致则不给可比值。
 - `GET /api/v1/research/insights?dataset_id=...`：研究成员活动分组、分布与相关，排除非 ready 输入。
 
-无事件返回 missing，不返回伪造零值；单模块 partial 不影响其他 ready 模块。旧 `/analysis`、`/series`、比较和导出合同不变。完整合同见运行中的 `/docs`，离线快照见 [OpenAPI](docs/insights/openapi-insights.json)。指标字典与来源限制见 [指标文档](docs/insights/01_metric_dictionary.md)。
+无事件返回 missing，不返回伪造零值；单模块 partial 不影响其他 ready 模块。旧 `/analysis`、`/series`、比较和导出合同不变。完整合同见运行中的 `/docs`；数据采集和窗口覆盖边界见[采集合同](../insights/02_collection_contract.md)与[窗口验收规则](../insights/06_window_acceptance.md)。
 
 ## 机器学习观测 API
 

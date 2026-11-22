@@ -1,6 +1,6 @@
 # RepoVantage 前端
 
-RepoVantage 唯一正式前端使用 Vue 3、TypeScript、Vite 与 AntV G2 5。生产构建由 FastAPI 提供；默认通过本机浏览器网关读取和修改真实后端数据。Mock 数据仅在显式启用的演示模式使用。
+普通用户工作台使用 Vue 3、TypeScript、Vite 与 AntV G2 5。机器学习观测台是独立前端，源码位于 `ml-console/`。8501 生产页面由 FastAPI 提供；普通用户前端通过本机浏览器网关读取和修改真实后端数据。Mock 数据仅在显式启用的演示模式使用。
 
 ## 本地开发
 
@@ -36,10 +36,10 @@ npm run build:ml
 - `/repositories` 仓库管理：搜索、添加、筛选、移除、批量删除与比较入口
 - `/repositories/:id/:tab?` 仓库详情：`overview`（含维护行为与模型信号）、`activity`、`issues`、`prs`、`releases`；旧 `analysis` 地址会跳转到 `overview`
 - `/compare` 项目比较：2–5 个仓库、共同/独立时间窗、维度权重与 CSV
-- `/research` 300 仓库研究图谱
-- `/selection` 技术选型工作台
 - `/tasks` 真实任务状态、筛选和失败重试
 - `/settings` GitHub 深度采集页数设置
+
+旧 `/research`、`/selection` 和 `/machine-learning` 地址保留为兼容重定向，不代表当前存在对应的独立页面。当前可见页面以 `src/router/index.ts` 和侧栏导航为准。
 
 ## 数据边界
 

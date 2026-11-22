@@ -19,13 +19,14 @@ RepoVantage 将仓库数据采集、活动指标、项目比较和机器学习�
 | **总览** | 查看仓库活动、近期维护信号和任务进度。 |
 | **仓库与分析** | 管理仓库；分析 Commit、Issue、PR、Release 的活动与处理耗时。 |
 | **项目比较** | 比较 2–5 个仓库，查看共同时间窗、指标差异和加权排名。 |
-| **研究** | 查看固定研究样本及其分组统计；研究样本不会混入普通仓库列表。 |
 | **任务与设置** | 管理采集任务、分页预算和可选的 GitHub Token。 |
 | **机器学习观测台** | 查看 M1 维护模式聚类、M2 活动趋势分类的训练/验证/留出结果与运行诊断。 |
 
 ## 系统结构
 
 普通用户工作台与机器学习观测台分别运行在 **8501** 和 **8502**。8501 提供 FastAPI 与普通用户页面；8502 是独立前端，通过本地代理读取 8501 的模型评估接口，内部密钥由服务端保管，不进入前端构建产物。采集 Worker 负责与 GitHub 通信并保存观测记录。
+
+目录职责和依赖边界见[项目结构说明](docs/architecture/project-layout.md)。
 
 ```mermaid
 flowchart LR
@@ -56,7 +57,7 @@ uv run --locked --all-extras python -m scripts.start
 
 启动器会准备 Python 依赖；首次运行时安装前端依赖；构建两套前端；创建本机 `.env` 和随机 `INTERNAL_API_KEY`；升级数据库；然后启动 FastAPI、Worker、8501 用户页面和 8502 机器学习观测台。按 `Ctrl+C` 可统一停止所有服务。
 
-GitHub Token 可选。未配置时使用 GitHub 匿名请求额度；需要更高额度时，可在设置页配置个人 Token。详细环境变量、数据导入与 API 说明见[后端文档](README_backend.md)。
+GitHub Token 可选。未配置时使用 GitHub 匿名请求额度；需要更高额度时，可在设置页配置个人 Token。详细环境变量、数据导入与 API 说明见[后端文档](docs/guides/backend-operations.md)。
 
 ## 机器学习评估边界
 
@@ -66,7 +67,7 @@ GitHub Token 可选。未配置时使用 GitHub 匿名请求额度；需要更�
 - **M2 · 活动趋势分类**：逻辑回归；在训练组内滚动验证，并使用独立的 150 个留出仓库评估未来四周活动类别。
 - 聚类描述活动形态，趋势分类评估历史切分上的预测表现；两者都不构成仓库质量评分或推荐结论。
 
-样本版本、来源指纹、覆盖情况和限制见[数据资产清单](reports/数据资产清单.md)及[模型实验说明](ML_实验结果与选型解释.md)。
+样本版本、来源指纹、覆盖情况和限制见[数据资产清单](reports/数据资产清单.md)及[150/150 留仓评估记录](reports/course-150-150/p2-training-and-evaluation.md)。
 
 ## 数据与本机状态
 
@@ -101,8 +102,8 @@ VITE_DATA_MODE=mock npm run dev
 uv run --locked --all-extras python -m scripts.start_ml_console
 ```
 
-前端开发说明见 [`frontend/README.md`](frontend/README.md)。指标定义、采集合同、覆盖规则和图表说明见 [`docs/insights/`](docs/insights/)。
+前端开发说明见 [`frontend/README.md`](frontend/README.md)。数据采集与覆盖约定见[采集合同](docs/insights/02_collection_contract.md)和[窗口验收规则](docs/insights/06_window_acceptance.md)。
 
 ---
 
-项目仓库：[MauriceLiang/RepoVantage](https://github.com/MauriceLiang/RepoVantage) · [后端与 API](README_backend.md) · [数据资产清单](reports/数据资产清单.md)
+项目仓库：[MauriceLiang/RepoVantage](https://github.com/MauriceLiang/RepoVantage) · [后端与 API](docs/guides/backend-operations.md) · [数据资产清单](reports/数据资产清单.md)
