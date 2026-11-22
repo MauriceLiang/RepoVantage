@@ -187,7 +187,7 @@ function count(value: number | null | undefined) {
 
 function statusLabel(status: string) {
   const labels: Record<string, string> = {
-    available: '可用于推理',
+    available: '评估文件可用',
     research_only: '仅研究使用',
     disabled: '已停用',
     shadow: '影子验证',
@@ -210,7 +210,7 @@ onMounted(connect)
         <span><strong>RepoVantage</strong><small>机器学习观测台</small></span>
       </a>
       <div class="topbar-actions">
-        <span class="port-label"><i></i>独立前端 · 8502</span>
+        <span class="port-label">研究环境 · 8502</span>
         <a class="main-link" href="http://127.0.0.1:8501/">返回用户主站 <span aria-hidden="true">↗</span></a>
         <button class="refresh" type="button" :disabled="loading" @click="connect">{{ loading ? '读取中…' : '刷新评估' }}</button>
       </div>
@@ -218,7 +218,6 @@ onMounted(connect)
 
     <section class="intro">
       <div class="intro-copy">
-        <p class="eyebrow">MODEL OBSERVABILITY <span>·</span> INTERNAL CONSOLE</p>
         <h1>模型评估与运行观测</h1>
         <p>集中查看离线评估、拟合与泛化表现、基线对比，以及当前运行状态。</p>
       </div>
@@ -240,7 +239,7 @@ onMounted(connect)
       </section>
 
       <section class="dataset-card">
-        <div class="section-heading"><div><p class="eyebrow">DATASET / PROVENANCE</p><h2>数据集与验证切分</h2></div><span class="version-pill">{{ dashboard.dataset.id }}</span></div>
+        <div class="section-heading"><div><h2>数据集与验证切分</h2><p class="section-description">固定研究样本与训练、验证、留出集的划分方式</p></div><span class="version-pill">{{ dashboard.dataset.id }}</span></div>
         <div class="split-row">
           <div class="split-item"><span>训练集 · M1</span><strong>{{ dashboard.dataset.split.train }}</strong><small>仓库</small></div>
           <div class="split-item"><span>验证集 · M1</span><strong>{{ dashboard.dataset.split.validation ?? '—' }}</strong><small>{{ dashboard.dataset.split.validation == null ? '固定切分未单列' : '仓库' }}</small></div>
@@ -253,7 +252,7 @@ onMounted(connect)
 
       <section class="evaluation-card">
         <div class="section-heading evaluation-heading">
-          <div><p class="eyebrow">OFFLINE EVALUATION</p><h2>模型拟合与泛化表现</h2></div>
+          <div><h2>模型拟合与泛化表现</h2><p class="section-description">查看训练结果、验证表现与独立留出集上的模型输出</p></div>
           <div class="model-switch" role="group" aria-label="选择模型">
             <button v-for="model in dashboard.models" :key="model.id" type="button" :aria-pressed="activeModel === model.id" :class="{ active: activeModel === model.id }" @click="activeModel = model.id">{{ model.id }} <span>{{ model.name }}</span></button>
           </div>
@@ -303,7 +302,7 @@ onMounted(connect)
           <div class="detail-grid">
             <div class="detail-panel">
               <div class="panel-heading"><h3>不同簇数的训练表现</h3><span>150 个训练仓库 · 随机种子稳定性</span></div>
-              <div class="candidate-table-wrap"><table class="candidate-table"><thead><tr><th>簇数 K</th><th>聚类模型</th><th>仅按提交规模</th><th>差值</th><th>多种子均值</th></tr></thead><tbody><tr v-for="item in selectedModel.candidates" :key="item.clusters" :class="{ chosen: item.selected }"><td><strong>K={{ item.clusters }}</strong><span v-if="item.selected" class="chosen-tag">当前</span></td><td>{{ item.train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.size_only_train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.train_silhouette != null && item.size_only_train_silhouette != null ? `+${(item.train_silhouette - item.size_only_train_silhouette).toFixed(3)}` : '—' }}</td><td>{{ item.seed_silhouette_mean?.toFixed(3) ?? '—' }}</td></tr></tbody></table></div>
+              <div class="candidate-table-wrap"><span class="table-scroll-hint">可横向滑动查看完整数据</span><table class="candidate-table"><thead><tr><th>簇数 K</th><th>聚类模型</th><th>仅按提交规模</th><th>差值</th><th>多种子均值</th></tr></thead><tbody><tr v-for="item in selectedModel.candidates" :key="item.clusters" :class="{ chosen: item.selected }"><td><strong>K={{ item.clusters }}</strong><span v-if="item.selected" class="chosen-tag">当前</span></td><td>{{ item.train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.size_only_train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.train_silhouette != null && item.size_only_train_silhouette != null ? `+${(item.train_silhouette - item.size_only_train_silhouette).toFixed(3)}` : '—' }}</td><td>{{ item.seed_silhouette_mean?.toFixed(3) ?? '—' }}</td></tr></tbody></table></div>
             </div>
             <div class="detail-panel">
               <div class="panel-heading"><h3>留出集簇分布</h3><span>{{ selectedModel.samples.test_repositories }} 个仓库</span></div>
@@ -360,7 +359,7 @@ onMounted(connect)
           <div class="detail-grid m2-detail-grid">
             <div class="detail-panel">
               <div class="panel-heading"><h3>基线对比</h3><span>越高越好 · 0–100%</span></div>
-              <div class="benchmark-table-wrap"><table class="benchmark-table"><thead><tr><th>模型</th><th>验证 Macro-F1</th><th>测试 Macro-F1</th><th>测试平衡准确率</th></tr></thead><tbody><tr v-for="item in selectedModel.benchmarks" :key="item.id" :class="{ chosen: item.selected }"><td>{{ item.name }}<span v-if="item.selected" class="chosen-tag">当前</span></td><td><div class="table-score"><span>{{ percent(item.validation.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.validation.macro_f1) }"></b></i></div></td><td><div class="table-score"><span>{{ percent(item.test.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.test.macro_f1) }"></b></i></div></td><td>{{ percent(item.test.balanced_accuracy) }}</td></tr></tbody></table></div>
+              <div class="benchmark-table-wrap"><span class="table-scroll-hint">可横向滑动查看完整数据</span><table class="benchmark-table"><thead><tr><th>模型</th><th>验证 Macro-F1</th><th>测试 Macro-F1</th><th>测试平衡准确率</th></tr></thead><tbody><tr v-for="item in selectedModel.benchmarks" :key="item.id" :class="{ chosen: item.selected }"><td>{{ item.name }}<span v-if="item.selected" class="chosen-tag">当前</span></td><td><div class="table-score"><span>{{ percent(item.validation.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.validation.macro_f1) }"></b></i></div></td><td><div class="table-score"><span>{{ percent(item.test.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.test.macro_f1) }"></b></i></div></td><td>{{ percent(item.test.balanced_accuracy) }}</td></tr></tbody></table></div>
             </div>
             <div class="detail-panel">
               <div class="panel-heading"><h3>独立测试集预测结果</h3><span>真实类别 × 模型预测 · 行内占比</span></div>
@@ -373,7 +372,7 @@ onMounted(connect)
       </section>
 
       <section class="runtime-card">
-        <div class="section-heading"><div><p class="eyebrow">RUNTIME / REGISTRY</p><h2>模型部署与服务状态</h2></div><span class="live-pill"><i></i>当前进程</span></div>
+        <div class="section-heading"><div><h2>评估模型与运行诊断</h2><p class="section-description">研究模型文件状态与当前进程内推理指标</p></div><span class="live-pill"><i></i>当前进程</span></div>
         <div class="runtime-grid">
           <article v-for="model in statuses" :key="model.model_id" class="runtime-model">
             <div class="runtime-title"><span>{{ model.model_id }}</span><strong>{{ model.version ?? '未绑定版本' }}</strong></div>
@@ -391,7 +390,7 @@ onMounted(connect)
     </template>
     <div v-else-if="loading" class="loading-card"><span class="spinner"></span><strong>正在读取评估数据</strong><span>连接本机 API 与模型注册表</span></div>
 
-    <footer class="page-footer"><span>RepoVantage Model Observability</span><span>用户主站 <a href="http://127.0.0.1:8501/">127.0.0.1:8501</a> <b>·</b> ML 控制台 127.0.0.1:8502</span></footer>
+    <footer class="page-footer"><span>RepoVantage · 机器学习研究评估</span><span>用户主站 <a href="http://127.0.0.1:8501/">127.0.0.1:8501</a> <b>·</b> ML 控制台 127.0.0.1:8502</span></footer>
   </main>
 </template>
 
