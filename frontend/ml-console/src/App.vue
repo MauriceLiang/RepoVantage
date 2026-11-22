@@ -36,11 +36,11 @@ type ModelEvaluation = {
   feature_schema_version: string
   samples: Record<string, number | null>
   selected_clusters?: number
-  silhouette?: { train: number | null; validation: number | null; test: number | null }
-  size_only_validation_silhouette?: number | null
+  silhouette?: { train: number | null; seed_mean: number | null; test: number | null }
+  size_only_train_silhouette?: number | null
   test_clusters?: { id: string; name: string | null; repositories: number }[]
   profile_points?: ClusterProfilePoint[]
-  candidates?: { clusters: number; validation_silhouette: number | null; size_only_validation_silhouette: number | null; selected: boolean }[]
+  candidates?: { clusters: number; train_silhouette: number | null; size_only_train_silhouette: number | null; seed_silhouette_mean: number | null; selected: boolean }[]
   validation?: Score
   test?: Score
   test_confusion_matrix?: { labels: string[]; values: number[][] } | null
@@ -58,7 +58,8 @@ type Dashboard = {
     repositories: number
     weekly_rows: number
     weeks_per_repository: number
-    split: { train: number; validation: number; test: number }
+    split: { train: number; validation: number | null; test: number }
+    split_version?: string | null
     feature_schema_version: string
     source_sha256: string
     scope: string
@@ -233,12 +234,12 @@ onMounted(connect)
         <div class="section-heading"><div><p class="eyebrow">DATASET / PROVENANCE</p><h2>数据集与验证切分</h2></div><span class="version-pill">{{ dashboard.dataset.id }}</span></div>
         <div class="split-row">
           <div class="split-item"><span>训练集 · M1</span><strong>{{ dashboard.dataset.split.train }}</strong><small>仓库</small></div>
-          <div class="split-item"><span>验证集 · M1</span><strong>{{ dashboard.dataset.split.validation }}</strong><small>仓库</small></div>
+          <div class="split-item"><span>验证集 · M1</span><strong>{{ dashboard.dataset.split.validation ?? '—' }}</strong><small>{{ dashboard.dataset.split.validation == null ? '固定切分未单列' : '仓库' }}</small></div>
           <div class="split-item"><span>留出集 · M1</span><strong>{{ dashboard.dataset.split.test }}</strong><small>仓库</small></div>
-          <div class="split-track" aria-hidden="true"><span :style="{ width: `${dashboard.dataset.split.train / dashboard.dataset.repositories * 100}%` }"></span><span :style="{ width: `${dashboard.dataset.split.validation / dashboard.dataset.repositories * 100}%` }"></span><span :style="{ width: `${dashboard.dataset.split.test / dashboard.dataset.repositories * 100}%` }"></span></div>
+          <div class="split-track" aria-hidden="true"><span :style="{ width: `${dashboard.dataset.split.train / dashboard.dataset.repositories * 100}%` }"></span><span :style="{ width: `${(dashboard.dataset.split.validation ?? 0) / dashboard.dataset.repositories * 100}%` }"></span><span :style="{ width: `${dashboard.dataset.split.test / dashboard.dataset.repositories * 100}%` }"></span></div>
         </div>
-        <div class="dataset-foot"><span>特征规范 <code>{{ dashboard.dataset.feature_schema_version }}</code></span><span>来源指纹 <code>{{ dashboard.dataset.source_sha256?.slice(0, 16) }}…</code></span></div>
-        <p class="scope-note">{{ dashboard.dataset.scope }} M1 使用固定 train / validation / test 切分；M2 另按时间窗口滚动验证并对 45 个仓库做留出评估。</p>
+        <div class="dataset-foot"><span>特征规范 <code>{{ dashboard.dataset.feature_schema_version }}</code></span><span>样本划分 <code>{{ dashboard.dataset.split_version ?? '未注明' }}</code></span><span>来源指纹 <code>{{ dashboard.dataset.source_sha256?.slice(0, 16) }}…</code></span></div>
+        <p class="scope-note">{{ dashboard.dataset.scope }} 本页按冻结的 150 / 150 分组展示：M1 用 150 个仓库训练、150 个独立留出；M2 在训练组内滚动验证，并用同一留出组做最终测试。</p>
       </section>
 
       <section class="evaluation-card">
@@ -252,10 +253,10 @@ onMounted(connect)
         <template v-if="selectedModel?.id === 'M1'">
           <div class="model-meta"><span class="model-kind">{{ selectedModel.kind }}</span><strong>{{ selectedModel.name }}</strong><span>{{ selectedModel.algorithm }} · {{ selectedModel.version }}</span><span class="meta-divider"></span><span>选择 {{ selectedModel.selected_clusters }} 个活动模式</span></div>
           <div class="metric-grid silhouette-grid">
-            <article v-for="item in [{ key: 'train', label: '训练集' }, { key: 'validation', label: '验证集' }, { key: 'test', label: '独立留出集' }]" :key="item.key" class="metric-card">
-              <div class="metric-card-head"><span>{{ item.label }}轮廓系数</span><strong>{{ selectedModel.silhouette?.[item.key as 'train' | 'validation' | 'test']?.toFixed(3) ?? '—' }}</strong></div>
-              <div class="metric-track silhouette-track"><span aria-hidden="true"></span><i :style="{ width: silhouetteWidth(selectedModel.silhouette?.[item.key as 'train' | 'validation' | 'test']) }"></i></div>
-              <small>范围 −1 至 1，越高通常表示簇内更紧密、簇间更分离</small>
+            <article v-for="item in [{ key: 'train', label: '训练集' }, { key: 'seed_mean', label: '训练多随机种子均值' }, { key: 'test', label: '150 个独立留出仓库' }]" :key="item.key" class="metric-card">
+              <div class="metric-card-head"><span>{{ item.label }}轮廓系数</span><strong>{{ selectedModel.silhouette?.[item.key as 'train' | 'seed_mean' | 'test']?.toFixed(3) ?? '—' }}</strong></div>
+              <div class="metric-track silhouette-track"><span aria-hidden="true"></span><i :style="{ width: silhouetteWidth(selectedModel.silhouette?.[item.key as 'train' | 'seed_mean' | 'test']) }"></i></div>
+              <small>{{ item.key === 'seed_mean' ? '多个随机初始化的均值，用于观察聚类稳定性' : '范围 −1 至 1，越高通常表示簇内更紧密、簇间更分离' }}</small>
             </article>
           </div>
           <div class="detail-panel profile-chart-panel">
@@ -289,21 +290,21 @@ onMounted(connect)
           </div>
           <div class="detail-grid">
             <div class="detail-panel">
-              <div class="panel-heading"><h3>不同簇数的验证表现</h3><span>对比仅按提交规模分组</span></div>
-              <div class="candidate-table-wrap"><table class="candidate-table"><thead><tr><th>簇数 K</th><th>聚类模型</th><th>仅按规模</th><th>差值</th></tr></thead><tbody><tr v-for="item in selectedModel.candidates" :key="item.clusters" :class="{ chosen: item.selected }"><td><strong>K={{ item.clusters }}</strong><span v-if="item.selected" class="chosen-tag">当前</span></td><td>{{ item.validation_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.size_only_validation_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.validation_silhouette != null && item.size_only_validation_silhouette != null ? `+${(item.validation_silhouette - item.size_only_validation_silhouette).toFixed(3)}` : '—' }}</td></tr></tbody></table></div>
+              <div class="panel-heading"><h3>不同簇数的训练表现</h3><span>150 个训练仓库 · 随机种子稳定性</span></div>
+              <div class="candidate-table-wrap"><table class="candidate-table"><thead><tr><th>簇数 K</th><th>聚类模型</th><th>仅按提交规模</th><th>差值</th><th>多种子均值</th></tr></thead><tbody><tr v-for="item in selectedModel.candidates" :key="item.clusters" :class="{ chosen: item.selected }"><td><strong>K={{ item.clusters }}</strong><span v-if="item.selected" class="chosen-tag">当前</span></td><td>{{ item.train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.size_only_train_silhouette?.toFixed(3) ?? '—' }}</td><td>{{ item.train_silhouette != null && item.size_only_train_silhouette != null ? `+${(item.train_silhouette - item.size_only_train_silhouette).toFixed(3)}` : '—' }}</td><td>{{ item.seed_silhouette_mean?.toFixed(3) ?? '—' }}</td></tr></tbody></table></div>
             </div>
             <div class="detail-panel">
               <div class="panel-heading"><h3>留出集簇分布</h3><span>{{ selectedModel.samples.test_repositories }} 个仓库</span></div>
               <div class="cluster-list"><div v-for="cluster in selectedModel.test_clusters" :key="cluster.id" class="cluster-row"><span class="cluster-name"><i :class="`cluster-color color-${cluster.id}`"></i>{{ cluster.name ?? `簇 ${cluster.id}` }}</span><div class="cluster-track"><i :class="`color-${cluster.id}`" :style="{ width: `${cluster.repositories / (selectedModel.samples.test_repositories ?? 1) * 100}%` }"></i></div><strong>{{ cluster.repositories }}</strong></div></div>
             </div>
           </div>
-          <div class="caveat-line"><strong>解读：</strong>训练与验证轮廓系数相差 {{ selectedModel.silhouette?.train != null && selectedModel.silhouette?.validation != null ? Math.abs(selectedModel.silhouette.train - selectedModel.silhouette.validation).toFixed(3) : '—' }}；独立留出集为 {{ selectedModel.silhouette?.test?.toFixed(3) ?? '—' }}。轮廓系数反映聚类结构，不是趋势预测准确率，也不能说明仓库优劣。</div>
+          <div class="caveat-line"><strong>解读：</strong>训练集轮廓系数 {{ selectedModel.silhouette?.train?.toFixed(3) ?? '—' }}，多随机种子均值 {{ selectedModel.silhouette?.seed_mean?.toFixed(3) ?? '—' }}；独立 150 仓库留出集为 {{ selectedModel.silhouette?.test?.toFixed(3) ?? '—' }}。轮廓系数反映聚类结构，不是趋势预测准确率，也不能说明仓库优劣。</div>
         </template>
 
         <template v-else-if="selectedModel?.id === 'M2'">
-          <div class="model-meta"><span class="model-kind">{{ selectedModel.kind }}</span><strong>{{ selectedModel.name }}</strong><span>{{ selectedModel.algorithm }} · {{ selectedModel.version }}</span><span class="meta-divider"></span><span>训练 {{ selectedModel.samples.training_repositories }} 仓库 · 验证 {{ selectedModel.samples.validation_repositories }} 仓库 / {{ selectedModel.samples.validation_folds }} 个滚动窗口 · 测试 {{ selectedModel.samples.test_repositories }} 仓库</span></div>
+          <div class="model-meta"><span class="model-kind">{{ selectedModel.kind }}</span><strong>{{ selectedModel.name }}</strong><span>{{ selectedModel.algorithm }} · {{ selectedModel.version }}</span><span class="meta-divider"></span><span>训练组 {{ selectedModel.samples.training_repositories }} 仓库 · 组内滚动验证 {{ selectedModel.samples.validation_folds }} 折（每折 {{ selectedModel.samples.validation_samples_per_fold }} 个样本） · 独立测试 {{ selectedModel.samples.test_repositories }} 仓库</span></div>
           <div class="m2-summary">
-            <article class="m2-score"><span>验证集 Macro-F1</span><strong>{{ percent(selectedModel.validation?.macro_f1) }}</strong><small>{{ selectedModel.samples.validation_repositories }} 仓库 · {{ selectedModel.samples.validation_folds }} 个滚动窗口</small></article>
+            <article class="m2-score"><span>滚动验证 Macro-F1</span><strong>{{ percent(selectedModel.validation?.macro_f1) }}</strong><small>训练组内 {{ selectedModel.samples.validation_folds }} 个窗口 · 每折 {{ selectedModel.samples.validation_samples_per_fold }} 个样本</small></article>
             <article class="m2-score m2-score--accent"><span>独立测试 Macro-F1</span><strong>{{ percent(selectedModel.test?.macro_f1) }}</strong><small>{{ selectedModel.samples.test_repositories }} 个留出仓库</small></article>
             <article class="m2-score"><span>测试集平衡准确率</span><strong>{{ percent(selectedModel.test?.balanced_accuracy) }}</strong><small>按类别召回率取平均</small></article>
             <article class="m2-score"><span>测试集对近期趋势基线</span><strong>+{{ (((selectedModel.test?.macro_f1 ?? 0) - (selectedModel.benchmarks?.find((item) => item.id === 'recent_trend_baseline')?.test.macro_f1 ?? 0)) * 100).toFixed(1) }} <small>分</small></strong><small>Macro-F1 绝对差</small></article>

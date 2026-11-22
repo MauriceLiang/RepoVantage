@@ -10,12 +10,12 @@ from typing import Any
 from backend.app.core.config import PROJECT_ROOT
 
 
-EVALUATIONS = PROJECT_ROOT / "ml" / "course" / "evaluations"
+EXPERIMENT = PROJECT_ROOT / "ml" / "course" / "experiments" / "course-150-150-v1"
+EVALUATIONS = EXPERIMENT / "evaluations"
 MAX_FILE_BYTES = 2_000_000
 
 
-def _read_json(name: str) -> dict[str, Any]:
-    path = EVALUATIONS / name
+def _read_json(path: Path) -> dict[str, Any]:
     if path.stat().st_size > MAX_FILE_BYTES:
         raise ValueError("evaluation_artifact_too_large")
     value = json.loads(path.read_text(encoding="utf-8"))
@@ -53,9 +53,9 @@ def _confusion_matrix(value: Any) -> dict[str, Any] | None:
 def evaluation_dashboard() -> dict[str, Any]:
     """Return only the metrics needed by the local model observability frontend."""
     try:
-        manifest = _read_json("manifest.json")
-        pattern = _read_json("ml03-maintenance-pattern.json")
-        trend = _read_json("ml01-activity-trend.json")
+        manifest = _read_json(EXPERIMENT / "manifest.json")
+        pattern = _read_json(EVALUATIONS / "ml03-maintenance-pattern.json")
+        trend = _read_json(EVALUATIONS / "ml01-activity-trend.json")
     except (OSError, ValueError, TypeError):
         return {"status": "unavailable", "reason": "评估文件缺失或格式无效。"}
 
@@ -93,34 +93,35 @@ def evaluation_dashboard() -> dict[str, Any]:
 
     trend_validation = trend.get("validation_combined") if isinstance(trend.get("validation_combined"), dict) else {}
     trend_test = trend.get("test") if isinstance(trend.get("test"), dict) else {}
-    trend_models = ("logistic_regression", "recent_trend_baseline", "dummy_most_frequent")
+    selected_candidate_id = trend.get("selected_candidate")
+    trend_model_ids = [model_id for model_id in (selected_candidate_id, "recent_trend_baseline", "dummy_most_frequent")
+                       if isinstance(model_id, str)]
     trend_benchmarks = []
-    for model_id in trend_models:
+    for model_id in trend_model_ids:
         validation = trend_validation.get(model_id, {})
-        test = trend_test.get(model_id, {})
+        test = trend_test.get("selected_candidate", {}) if model_id == selected_candidate_id else trend_test.get(model_id, {})
         if not isinstance(validation, dict) or not isinstance(test, dict):
             continue
         trend_benchmarks.append({
             "id": model_id,
-            "name": {
-                "logistic_regression": "逻辑回归（当前候选）",
+            "name": "逻辑回归（当前候选）" if model_id == selected_candidate_id else {
                 "recent_trend_baseline": "近期趋势基线",
                 "dummy_most_frequent": "多数类基线",
-            }[model_id],
-            "selected": model_id == trend.get("selected_candidate"),
+            }.get(model_id, model_id),
+            "selected": model_id == selected_candidate_id,
             "validation": _score(validation),
             "test": _score(test),
         })
 
     selected_test = trend_test.get("selected_candidate", {})
-    selected_validation = trend_validation.get(trend.get("selected_candidate"), {})
+    selected_validation = trend_validation.get(selected_candidate_id, {})
     validation_series = []
     folds = trend.get("validation_folds") if isinstance(trend.get("validation_folds"), list) else []
     for index, fold in enumerate(folds, start=1):
         if not isinstance(fold, dict):
             continue
         fold_metrics = fold.get("metrics") if isinstance(fold.get("metrics"), dict) else {}
-        selected_fold = fold_metrics.get(trend.get("selected_candidate"), {})
+        selected_fold = fold_metrics.get(selected_candidate_id, {})
         baseline_fold = fold_metrics.get("recent_trend_baseline", {})
         validation_series.append({
             "label": f"验证折 {index}",
@@ -152,6 +153,7 @@ def evaluation_dashboard() -> dict[str, Any]:
             "feature_schema_version": manifest.get("feature_schema_version"),
             "source_sha256": manifest.get("source_sha256"),
             "scope": manifest.get("data_scope"),
+            "split_version": manifest.get("split_version"),
         },
         "models": [
             {
@@ -169,17 +171,18 @@ def evaluation_dashboard() -> dict[str, Any]:
                 },
                 "silhouette": {
                     "train": _number(candidate.get("train_silhouette")),
-                    "validation": _number(candidate.get("validation_silhouette")),
+                    "seed_mean": _number(candidate.get("seed_silhouette_mean")),
                     "test": _number(pattern.get("test_silhouette")),
                 },
-                "size_only_validation_silhouette": _number(candidate.get("size_only_validation_silhouette")),
+                "size_only_train_silhouette": _number(candidate.get("size_only_train_silhouette")),
                 "test_clusters": clusters,
                 "profile_points": profile_points,
                 "candidates": [
                     {
                         "clusters": int(key),
-                        "validation_silhouette": _number(value.get("validation_silhouette")),
-                        "size_only_validation_silhouette": _number(value.get("size_only_validation_silhouette")),
+                        "train_silhouette": _number(value.get("train_silhouette")),
+                        "size_only_train_silhouette": _number(value.get("size_only_train_silhouette")),
+                        "seed_silhouette_mean": _number(value.get("seed_silhouette_mean")),
                         "selected": str(key) == str(selected_k),
                     }
                     for key, value in candidates.items()
@@ -200,8 +203,9 @@ def evaluation_dashboard() -> dict[str, Any]:
                 "selected_candidate": trend.get("selected_candidate"),
                 "samples": {
                     "training_repositories": trend.get("training_repositories"),
-                    "validation_repositories": trend.get("validation_repositories"),
                     "validation_folds": len(trend.get("validation_folds", [])) if isinstance(trend.get("validation_folds"), list) else None,
+                    "validation_samples_per_fold": (trend.get("validation_folds") or [{}])[0].get("validation_samples")
+                    if isinstance(trend.get("validation_folds"), list) and trend.get("validation_folds") else None,
                     "test_repositories": trend.get("test_repositories"),
                 },
                 "validation": _score(selected_validation),
