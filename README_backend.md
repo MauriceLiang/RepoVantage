@@ -7,32 +7,26 @@
 项目按 Python 3.12 运行。创建虚拟环境并安装依赖：
 
 ```bash
-uv sync --all-extras
+uv sync --locked --all-extras
 source .venv/bin/activate
 cp .env.example .env
 ```
 
-在 `.env` 中设置仅本机使用的 `INTERNAL_API_KEY`。`GITHUB_TOKEN` 可选；未配置时使用 GitHub 匿名额度。密钥只由 API 和 Worker 进程读取。
+完整项目可直接使用下方的一键启动命令；启动器会在缺少 `.env` 时创建文件并生成仅本机使用的 `INTERNAL_API_KEY`。手动启动时，可在 `.env` 中配置该密钥。`GITHUB_TOKEN` 可选；未配置时使用 GitHub 匿名额度。密钥只由 API 和 Worker 进程读取。
 
 默认 SQLite 文件固定解析到仓库根目录的 `data/app.db`，不受启动时当前目录影响。兼容旧版的原始压缩 JSON 写入 `data/raw/`；新版逐页采集归档写入 Git 忽略的 `data/collected/`。仓库页只列出 15 个精选仓库和用户主动添加的仓库；机器学习的 300 个研究仓库、150 个留出组及历史事件仅供机器学习页和详细研究视图使用，不混入仓库列表。安装或升级时，程序会一次性将精选集加入仓库列表，并清理旧版本误加的 300 仓库成员。用户之后移除的精选仓库不会在重启时自动恢复。可用 `DATABASE_URL` 与 `RAW_DATA_DIR` 覆盖旧版归档路径。
 
 ## 数据库与启动
 
-完整项目推荐使用仓库根目录的一键启动命令：
+完整项目只需在仓库根目录运行这一条命令：
 
 ```bash
 uv run --locked --all-extras python -m scripts.start
 ```
 
-它会先构建 Vue 前端，再自动升级数据库并启动 API 与 Worker。首次运行会创建 `.env` 并生成本机随机 `INTERNAL_API_KEY`；完整访问地址见 [README.md](README.md)。新前端仅允许绑定本机回环地址。
+启动器会分别构建两套前端，自动升级数据库，并启动 FastAPI、Worker、普通用户页面和独立机器学习控制台。访问地址分别为 `http://127.0.0.1:8501` 和 `http://127.0.0.1:8502`；两套前端共享 FastAPI 的本机浏览器会话/API 层。首次运行会创建 `.env` 并生成本机随机 `INTERNAL_API_KEY`。按 `Ctrl+C` 会一并停止所有服务。新前端仅允许绑定本机回环地址；完整使用说明见 [README.md](README.md)。
 
-主站用户前端继续固定使用 8501。若要另行查看模型拟合、验证与留出集表现、基线对照和推理诊断，主站启动后可在另一个终端启动独立机器学习观测前端：
-
-```bash
-uv run --locked --all-extras python -m scripts.start_ml_console
-```
-
-它使用 8502，不会替换或占用主站端口；停止其中一个进程不影响另一个。两套前端共享 FastAPI 的本机浏览器会话/API 层。
+若 API 已由其他方式启动，也可单独运行 `uv run --locked --all-extras python -m scripts.start_ml_console` 启动 8502 控制台；日常启动完整项目无需使用该命令。
 
 需要单独调试后端时，可手动运行迁移并分别启动 API 与 Worker：
 

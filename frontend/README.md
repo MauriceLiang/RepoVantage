@@ -17,11 +17,11 @@ VITE_DATA_MODE=mock npm run dev   # 明确启用演示数据
 npm run build                    # 类型检查 + 生产构建
 ```
 
-项目入口、唯一路由和页面均位于 `src/`；Vite 只将 `@` 指向 `src/`。仓库根目录的 `python -m scripts.start` 会构建本目录并启动 FastAPI 与 Worker；FastAPI 在 `http://127.0.0.1:8501` 同时提供 API 和 Vue 页面。
+项目入口、唯一路由和页面均位于 `src/`；Vite 只将 `@` 指向 `src/`。日常使用时，在仓库根目录运行 `uv run --locked --all-extras python -m scripts.start`，启动器会构建本目录和 `ml-console/`，然后启动 FastAPI、Worker、8501 用户页面和 8502 机器学习控制台。
 
 ## 机器学习观测前端
 
-`ml-console/` 是独立的 Vue 前端，只展示研究评估和模型运行诊断，不进入 8501 普通用户页面。主站启动后，在另一个终端运行 `uv run --locked --all-extras python -m scripts.start_ml_console`，观测台由 8502 提供；页面通过本机浏览器会话代理调用主站 API。开发与构建也独立于普通用户页面：
+`ml-console/` 是独立的 Vue 前端，只展示研究评估和模型运行诊断，不进入 8501 普通用户页面；它由完整项目的一键启动命令同时启动，通过本机浏览器会话代理调用主站 API。仅在 API 已用其他方式启动、需要单独运行控制台时，才使用 `uv run --locked --all-extras python -m scripts.start_ml_console`。控制台开发与构建独立于普通用户页面：
 
 ```bash
 npm run dev:ml       # http://127.0.0.1:5174

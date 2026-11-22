@@ -6,32 +6,26 @@ RepoVantage 是一款 GitHub 开源项目分析台，包含 Vue 3 前端、FastA
 
 ## 一键启动
 
-需要 Python 3.12 和 [uv](https://docs.astral.sh/uv/)。在仓库根目录运行：
+需要 Python 3.12、Node.js/npm 和 [uv](https://docs.astral.sh/uv/)。在仓库根目录运行这一条命令即可启动完整项目：
 
 ```bash
 uv run --locked --all-extras python -m scripts.start
 ```
 
-命令会按 `uv.lock` 准备依赖、构建前端、自动创建本地 `.env` 和随机 `INTERNAL_API_KEY`、升级数据库，然后启动 API 与 Worker。服务地址：
+命令会按 `uv.lock` 准备 Python 依赖；首次运行时安装前端依赖；分别构建普通用户前端和机器学习控制台；自动创建本地 `.env` 和随机 `INTERNAL_API_KEY`、升级数据库，然后启动 API、Worker 和两个前端。服务地址：
 
-- 前端：<http://127.0.0.1:8501>
+- 普通用户页面：<http://127.0.0.1:8501>
+- 机器学习控制台：<http://127.0.0.1:8502>
 - API 文档：<http://127.0.0.1:8501/docs>
 - API 健康检查：<http://127.0.0.1:8501/healthz>
 
-按 `Ctrl+C` 会一并停止 API 与 Worker。设置页可保存 GitHub 个人访问令牌；未配置时使用匿名额度。默认 `GITHUB_MAX_PAGES=0`，采集所选时间窗的全部分页；正整数才会限制每个接口的页数。详细说明见 [后端配置与 API](README_backend.md)。
+按 `Ctrl+C` 会一并停止两个前端、API 和 Worker。设置页可保存 GitHub 个人访问令牌；未配置时使用匿名额度。默认 `GITHUB_MAX_PAGES=0`，采集所选时间窗的全部分页；正整数才会限制每个接口的页数。详细说明见 [后端配置与 API](README_backend.md)。
 
 新前端只监听本机回环地址。浏览器通过同源会话和 CSRF 校验访问 API；`INTERNAL_API_KEY` 仅由服务端读取，不进入前端构建产物。
 
 ### 机器学习观测台（独立前端）
 
-正常用户页面固定由 8501 提供。模型拟合、留出集指标、基线对比、数据切分与当前推理运行状态在独立的机器学习观测台查看：
-
-```bash
-# 先保持主站命令在运行，再打开另一个终端执行
-uv run --locked --all-extras python -m scripts.start_ml_console
-```
-
-观测台地址为 <http://127.0.0.1:8502>，只绑定本机回环地址；页面经由主站的浏览器会话 API 读取数据，不暴露内部 API Key。它与 8501 用户页面独立构建和运行，停止观测台不会停止主站或采集 Worker。评估结果属于固定研究数据，不代表仓库质量或生产服务等级。前端开发说明见 [frontend/README.md](frontend/README.md)。
+模型拟合、留出集指标、基线对比、数据切分与当前推理运行状态在 8502 端口的独立控制台查看。它与普通用户页面分开构建，但通过同一条启动命令运行；控制台经由主站的浏览器会话 API 读取数据，不暴露内部 API Key。评估结果属于固定研究数据，不代表仓库质量或生产服务等级。前端开发说明见 [frontend/README.md](frontend/README.md)。
 
 ## 前端开发
 

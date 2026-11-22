@@ -1,4 +1,4 @@
-"""构建 Vue 前端，并将 API 与 Worker 作为一套本地服务启动。"""
+"""构建两套前端，并将用户站、机器学习控制台、API 与 Worker 一并启动。"""
 
 from __future__ import annotations
 
@@ -26,6 +26,7 @@ SAMPLE_API_KEY = "replace-with-a-long-random-local-secret"
 SERVICE_START_TIMEOUT_SECONDS = 30
 WORKER_START_TIMEOUT_SECONDS = 30
 SHUTDOWN_TIMEOUT_SECONDS = 10
+ML_CONSOLE_PORT = 8502
 
 
 def _read_env_value(path: Path, key: str) -> str | None:
@@ -80,7 +81,7 @@ def ensure_api_key() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="构建 Vue 前端并启动 RepoVantage API 与 Worker")
+    parser = argparse.ArgumentParser(description="构建并启动 RepoVantage 全部本地服务")
     parser.add_argument("--host", "--api-host", "--frontend-host", dest="host", default="127.0.0.1", help="应用监听地址，只允许本机回环地址")
     parser.add_argument("--port", "--api-port", "--frontend-port", dest="port", type=int, default=8501, help="应用地址端口，默认 8501")
     return parser.parse_args()
@@ -91,15 +92,18 @@ def run_migrations() -> None:
     subprocess.run([sys.executable, "-m", "alembic", "upgrade", "head"], cwd=PROJECT_ROOT, check=True)
 
 
-def build_frontend() -> None:
+def build_frontends() -> str:
     npm = shutil.which("npm")
     if not npm:
         raise RuntimeError("未找到 npm。请安装 Node.js，然后在 frontend 目录运行 npm ci。")
     if not (FRONTEND_DIR / "node_modules" / ".bin" / "vite").exists():
         print("正在安装 Vue 前端依赖…", flush=True)
         subprocess.run([npm, "ci", "--no-audit", "--no-fund"], cwd=FRONTEND_DIR, check=True)
-    print("正在构建 Vue 前端…", flush=True)
+    print("正在构建普通用户前端…", flush=True)
     subprocess.run([npm, "run", "build"], cwd=FRONTEND_DIR, check=True)
+    print("正在构建机器学习控制台…", flush=True)
+    subprocess.run([npm, "run", "build:ml"], cwd=FRONTEND_DIR, check=True)
+    return npm
 
 
 def start_process(name: str, command: list[str], env: dict[str, str]) -> subprocess.Popen[bytes]:
@@ -200,7 +204,7 @@ def main() -> int:
     signal.signal(signal.SIGTERM, request_stop)
 
     try:
-        build_frontend()
+        npm = build_frontends()
         ensure_api_key()
         run_migrations()
 
@@ -236,7 +240,28 @@ def main() -> int:
 
         wait_for_http("Vue 前端", f"{api_url}/", api, stop)
 
-        print(f"RepoVantage 已启动：前端 {api_url}，API 文档 {api_url}/docs", flush=True)
+        ml_env = child_env.copy()
+        ml_env["ML_API_TARGET"] = api_url
+        ml_console = start_process(
+            "机器学习控制台",
+            [
+                npm,
+                "run",
+                "preview:ml",
+                "--",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                str(ML_CONSOLE_PORT),
+                "--strictPort",
+            ],
+            ml_env,
+        )
+        processes.append(("机器学习控制台", ml_console))
+        ml_console_url = f"http://127.0.0.1:{ML_CONSOLE_PORT}"
+        wait_for_http("机器学习控制台", ml_console_url, ml_console, stop)
+
+        print(f"RepoVantage 已启动：用户页面 {api_url}，机器学习控制台 {ml_console_url}，API 文档 {api_url}/docs", flush=True)
         while not stop.wait(0.25):
             for name, process in processes:
                 return_code = process.poll()
