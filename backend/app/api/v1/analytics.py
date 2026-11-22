@@ -60,6 +60,12 @@ def get_model_monitoring(request: Request):
     return envelope(request, monitoring())
 
 
+@router.get("/models/evaluation")
+def get_model_evaluation(request: Request):
+    from backend.app.services.model_evaluation_dashboard import evaluation_dashboard
+    return envelope(request, evaluation_dashboard())
+
+
 @router.post("/comparisons/selection", response_model=SuccessEnvelope[SelectionResult])
 def compare_selection(request: Request, body: SelectionRequest, session: Session = Depends(get_session)):
     from backend.app.services.selection import selection_markdown, selection_report, selection_signature

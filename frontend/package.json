@@ -7,6 +7,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
+    "dev:ml": "vite --config vite.ml.config.ts",
+    "build:ml": "vue-tsc --noEmit -p ml-console/tsconfig.json && vite build --config vite.ml.config.ts",
+    "preview:ml": "vite preview --config vite.ml.config.ts",
     "preview": "vite preview",
     "typecheck": "vue-tsc --noEmit",
     "test:author-concentration": "node scripts/test-author-concentration.mjs",

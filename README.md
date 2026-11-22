@@ -22,6 +22,17 @@ uv run --locked --all-extras python -m scripts.start
 
 新前端只监听本机回环地址。浏览器通过同源会话和 CSRF 校验访问 API；`INTERNAL_API_KEY` 仅由服务端读取，不进入前端构建产物。
 
+### 机器学习观测台（独立前端）
+
+正常用户页面固定由 8501 提供。模型拟合、留出集指标、基线对比、数据切分与当前推理运行状态在独立的机器学习观测台查看：
+
+```bash
+# 先保持主站命令在运行，再打开另一个终端执行
+uv run --locked --all-extras python -m scripts.start_ml_console
+```
+
+观测台地址为 <http://127.0.0.1:8502>，只绑定本机回环地址；页面经由主站的浏览器会话 API 读取数据，不暴露内部 API Key。它与 8501 用户页面独立构建和运行，停止观测台不会停止主站或采集 Worker。评估结果属于固定研究数据，不代表仓库质量或生产服务等级。前端开发说明见 [frontend/README.md](frontend/README.md)。
+
 ## 前端开发
 
 主界面源码位于 `frontend/`。Mock 模式不需要启动后端：

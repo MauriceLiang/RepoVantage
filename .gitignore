@@ -28,6 +28,7 @@ docs/ux/*
 .idea
 frontend/node_modules/
 frontend/dist/
+frontend/ml-console/dist/
 !docs/insights/
 docs
 dataprepare

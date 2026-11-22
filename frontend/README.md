@@ -19,6 +19,17 @@ npm run build                    # 类型检查 + 生产构建
 
 项目入口、唯一路由和页面均位于 `src/`；Vite 只将 `@` 指向 `src/`。仓库根目录的 `python -m scripts.start` 会构建本目录并启动 FastAPI 与 Worker；FastAPI 在 `http://127.0.0.1:8501` 同时提供 API 和 Vue 页面。
 
+## 机器学习观测前端
+
+`ml-console/` 是独立的 Vue 前端，只展示研究评估和模型运行诊断，不进入 8501 普通用户页面。主站启动后，在另一个终端运行 `uv run --locked --all-extras python -m scripts.start_ml_console`，观测台由 8502 提供；页面通过本机浏览器会话代理调用主站 API。开发与构建也独立于普通用户页面：
+
+```bash
+npm run dev:ml       # http://127.0.0.1:5174
+npm run build:ml
+```
+
+控制台展示的轮廓系数、Macro-F1、平衡准确率、基线和混淆矩阵来自固定离线评估文件；运行状态来自当前 API 进程。研究评估可用不代表模型已批准上线，进程诊断也不是服务等级监控。
+
 ## 页面
 
 - `/` 总览：真实仓库、近期变化、任务动态、添加仓库与统计图

@@ -64,8 +64,8 @@ def _origin_allowed(request: Request, origin: str) -> bool:
     configured = [item.strip().lower().rstrip("/") for item in os.getenv("BROWSER_ALLOWED_ORIGINS", "").split(",") if item.strip()]
     if origin.lower().rstrip("/") in configured or parsed.netloc.lower() in allowed:
         return True
-    # Vite 默认开发来源只在回环地址下允许访问。
-    return parsed.port == 5173 and parsed.scheme == "http"
+    # 两个独立前端的 Vite 开发端口与 ML 控制台预览端口仅允许在回环地址下访问。
+    return parsed.port in {5173, 5174, 8502} and parsed.scheme == "http"
 
 
 def _security_error(request: Request, status_code: int, code: str, message: str) -> JSONResponse:

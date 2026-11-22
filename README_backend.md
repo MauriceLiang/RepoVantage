@@ -26,6 +26,14 @@ uv run --locked --all-extras python -m scripts.start
 
 它会先构建 Vue 前端，再自动升级数据库并启动 API 与 Worker。首次运行会创建 `.env` 并生成本机随机 `INTERNAL_API_KEY`；完整访问地址见 [README.md](README.md)。新前端仅允许绑定本机回环地址。
 
+主站用户前端继续固定使用 8501。若要另行查看模型拟合、验证与留出集表现、基线对照和推理诊断，主站启动后可在另一个终端启动独立机器学习观测前端：
+
+```bash
+uv run --locked --all-extras python -m scripts.start_ml_console
+```
+
+它使用 8502，不会替换或占用主站端口；停止其中一个进程不影响另一个。两套前端共享 FastAPI 的本机浏览器会话/API 层。
+
 需要单独调试后端时，可手动运行迁移并分别启动 API 与 Worker：
 
 从空库执行迁移：
@@ -116,3 +124,13 @@ python -m scripts.check_data_integrity
 - `GET /api/v1/research/insights?dataset_id=...`：研究成员活动分组、分布与相关，排除非 ready 输入。
 
 无事件返回 missing，不返回伪造零值；单模块 partial 不影响其他 ready 模块。旧 `/analysis`、`/series`、比较和导出合同不变。完整合同见运行中的 `/docs`，离线快照见 [OpenAPI](docs/insights/openapi-insights.json)。指标字典与来源限制见 [指标文档](docs/insights/01_metric_dictionary.md)。
+
+## 机器学习观测 API
+
+独立 ML 前端从既有评估产物读取数据，避免重复训练或在请求时引入 scikit-learn：
+
+- `GET /api/v1/models/evaluation`：返回研究数据集来源、固定切分、M1 聚类轮廓系数与簇分布、M2 Macro-F1 / 平衡准确率 / 基线对比 / 混淆矩阵。
+- `GET /api/v1/models/status`：返回 M1 / M2 研究模型可用状态和生产候选模型的审批/运行状态。
+- `GET /api/v1/models/monitoring`：返回当前进程的推理计数、P50 / P95 延迟和峰值内存；进程重启后会清空。
+
+三个接口都经过内部 API Key 保护。8502 前端通过 `/api/browser` 本机会话代理调用，不把内部凭据放入浏览器；页面和 API 仍仅接受本机回环访问。
