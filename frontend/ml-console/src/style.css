@@ -479,6 +479,160 @@ button {
   font-size: 10px;
 }
 
+.profile-chart-panel,.trend-chart-panel {
+  margin-top: 14px;
+}
+
+.profile-chart-panel .panel-heading>div,.trend-chart-panel .panel-heading>div {
+  min-width: 0;
+}
+
+.profile-chart-panel .panel-heading p,.trend-chart-panel .panel-heading p {
+  margin: 4px 0 0;
+  color: #8a96a2;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.chart-frame {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.profile-chart,.trend-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  color: #748190;
+  font-family: Inter,'PingFang SC','Microsoft YaHei',system-ui,sans-serif;
+}
+
+.profile-chart {
+  min-width: 560px;
+}
+
+.trend-chart {
+  min-width: 620px;
+}
+
+.chart-grid line {
+  stroke: #e8edf2;
+  stroke-dasharray: 4 5;
+  stroke-width: 1;
+}
+
+.chart-grid text {
+  fill: #8c98a5;
+  font-size: 10px;
+}
+
+.chart-axis-title {
+  fill: #526273;
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.profile-point circle {
+  stroke: #fff;
+  stroke-width: 2.5px;
+  transition: r .16s ease, opacity .16s ease;
+}
+
+.profile-point:hover circle {
+  opacity: .82;
+}
+
+.profile-point text {
+  fill: #354454;
+  font-size: 11px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.chart-caption {
+  margin: 3px 0 0;
+  color: #8995a1;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 18px;
+  margin: -2px 0 8px;
+  color: #697787;
+  font-size: 10px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.chart-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.legend-current {
+  background: #3574e8;
+}
+
+.legend-baseline {
+  background: #9aa7b4;
+}
+
+.trend-grid line {
+  stroke-dasharray: 3 5;
+}
+
+.trend-grid text {
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-row-title {
+  fill: #354454;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.trend-row-meta {
+  fill: #929da8;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-bar-current {
+  fill: #3574e8;
+}
+
+.trend-bar-baseline {
+  fill: #9aa7b4;
+}
+
+.trend-value {
+  fill: #4a5867;
+  font-family: ui-monospace,monospace;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-empty {
+  display: grid;
+  min-height: 100px;
+  place-items: center;
+  border: 1px dashed #dfe5eb;
+  border-radius: 8px;
+  color: #8a96a2;
+  font-size: 11px;
+}
+
 .candidate-table,.benchmark-table,.matrix-table {
   width: 100%;
   border-collapse: collapse;

@@ -9,6 +9,24 @@ type Benchmark = {
   validation: Score
   test: Score
 }
+type ClusterProfilePoint = {
+  id: string
+  name: string | null
+  repositories: number
+  test_repositories: number
+  median_commits_12w: number | null
+  active_week_ratio: number | null
+  no_commit_week_ratio: number | null
+}
+type ValidationPoint = {
+  label: string
+  as_of: string
+  samples: number | null
+  macro_f1: number | null
+  baseline_macro_f1: number | null
+  balanced_accuracy: number | null
+  baseline_balanced_accuracy: number | null
+}
 type ModelEvaluation = {
   id: 'M1' | 'M2'
   name: string
@@ -21,11 +39,13 @@ type ModelEvaluation = {
   silhouette?: { train: number | null; validation: number | null; test: number | null }
   size_only_validation_silhouette?: number | null
   test_clusters?: { id: string; name: string | null; repositories: number }[]
+  profile_points?: ClusterProfilePoint[]
   candidates?: { clusters: number; validation_silhouette: number | null; size_only_validation_silhouette: number | null; selected: boolean }[]
   validation?: Score
   test?: Score
   test_confusion_matrix?: { labels: string[]; values: number[][] } | null
   benchmarks?: Benchmark[]
+  validation_series?: ValidationPoint[]
   label_definition?: string
   notes?: string[]
 }
@@ -58,6 +78,48 @@ const activeModel = ref<'M1' | 'M2'>('M1')
 
 const selectedModel = computed(() => dashboard.value?.models?.find((model) => model.id === activeModel.value) ?? null)
 const testTotal = computed(() => dashboard.value?.dataset?.split.test ?? 0)
+const clusterTicks = [0, 0.25, 0.5, 0.75, 1]
+
+const clusterProfilePoints = computed(() => {
+  const model = selectedModel.value
+  if (model?.id !== 'M1') return []
+  const points = (model.profile_points ?? []).filter((point) => point.active_week_ratio != null && point.no_commit_week_ratio != null)
+  const largestTestCluster = Math.max(1, ...points.map((point) => point.test_repositories ?? 0))
+  return points.map((point) => {
+    const cx = 72 + (point.active_week_ratio ?? 0) * 468
+    const cy = 290 - (point.no_commit_week_ratio ?? 0) * 260
+    const anchor = cx > 490 ? 'end' : 'start'
+    return {
+      ...point,
+      cx,
+      cy,
+      radius: 5 + Math.sqrt(Math.max(0, point.test_repositories ?? 0) / largestTestCluster) * 10,
+      labelX: cx + (anchor === 'end' ? -12 : 12),
+      labelY: cy < 72 ? cy + 21 : cy > 260 ? cy - 13 : cy - 9,
+      labelAnchor: anchor,
+    }
+  })
+})
+
+const trendChartRows = computed(() => {
+  const model = selectedModel.value
+  if (model?.id !== 'M2') return []
+  return (model.validation_series ?? []).map((point, index) => {
+    const currentX = trendScoreX(point.macro_f1)
+    const baselineX = trendScoreX(point.baseline_macro_f1)
+    const y = 44 + index * 74
+    return { ...point, currentX, baselineX, currentY: y, baselineY: y + 19 }
+  })
+})
+
+function trendScoreX(value: number | null | undefined) {
+  return 194 + Math.max(0, Math.min(0.65, value ?? 0)) / 0.65 * 456
+}
+
+function clusterColor(id: string) {
+  const colors: Record<string, string> = { '0': '#4878d0', '1': '#49a195', '2': '#e4a047', '3': '#cc6786' }
+  return colors[id] ?? '#7b8794'
+}
 
 async function getData<T>(path: string): Promise<T> {
   const response = await fetch(`/api/browser/v1${path}`, {
@@ -196,6 +258,35 @@ onMounted(connect)
               <small>范围 −1 至 1，越高通常表示簇内更紧密、簇间更分离</small>
             </article>
           </div>
+          <div class="detail-panel profile-chart-panel">
+            <div class="panel-heading">
+              <div><h3>维护簇画像分布</h3><p>训练集的特征均值；气泡大小表示独立留出集落入该簇的仓库数。</p></div>
+              <span>{{ selectedModel.samples.test_repositories }} 个留出仓库</span>
+            </div>
+            <div v-if="clusterProfilePoints.length" class="chart-frame">
+              <svg class="profile-chart" viewBox="0 0 680 380" role="img" aria-labelledby="m1-chart-title m1-chart-desc">
+                <title id="m1-chart-title">近期维护模式聚类画像散点图</title>
+                <desc id="m1-chart-desc">横轴为训练簇的活跃周占比，纵轴为最长连续无提交周占比。每个点是一个簇的特征均值，不代表单个仓库；气泡大小代表独立留出集仓库数。</desc>
+                <g class="chart-grid">
+                  <g v-for="tick in clusterTicks" :key="`x-${tick}`">
+                    <line x1="72" x2="540" :y1="290 - tick * 260" :y2="290 - tick * 260" />
+                    <text x="60" :y="294 - tick * 260" text-anchor="end">{{ Math.round(tick * 100) }}%</text>
+                    <line :x1="72 + tick * 468" :x2="72 + tick * 468" y1="30" y2="290" />
+                    <text :x="72 + tick * 468" y="310" text-anchor="middle">{{ Math.round(tick * 100) }}%</text>
+                  </g>
+                </g>
+                <text class="chart-axis-title" x="306" y="354" text-anchor="middle">活跃周占比</text>
+                <text class="chart-axis-title" x="18" y="160" text-anchor="middle" transform="rotate(-90 18 160)">最长连续无提交周占比</text>
+                <g v-for="point in clusterProfilePoints" :key="point.id" class="profile-point">
+                  <circle :cx="point.cx" :cy="point.cy" :r="point.radius" :fill="clusterColor(point.id)" />
+                  <text :x="point.labelX" :y="point.labelY" :text-anchor="point.labelAnchor">{{ point.name ?? `簇 ${point.id}` }} · n={{ point.test_repositories }}</text>
+                  <title>{{ point.name ?? `簇 ${point.id}` }}：活跃周占比 {{ percent(point.active_week_ratio) }}，最长连续无提交周占比 {{ percent(point.no_commit_week_ratio) }}；12 周提交中位数 {{ count(point.median_commits_12w) }}；独立留出集 {{ point.test_repositories }} 个仓库</title>
+                </g>
+              </svg>
+            </div>
+            <div v-else class="chart-empty">当前评估文件没有可绘制的聚类画像。</div>
+            <p class="chart-caption">M1 是聚类模型，不使用回归拟合直线。散点展示两项真实输入特征上的簇均值；未对单个仓库做二维降维投影。</p>
+          </div>
           <div class="detail-grid">
             <div class="detail-panel">
               <div class="panel-heading"><h3>不同簇数的验证表现</h3><span>对比仅按提交规模分组</span></div>
@@ -216,6 +307,42 @@ onMounted(connect)
             <article class="m2-score m2-score--accent"><span>独立测试 Macro-F1</span><strong>{{ percent(selectedModel.test?.macro_f1) }}</strong><small>{{ selectedModel.samples.test_repositories }} 个留出仓库</small></article>
             <article class="m2-score"><span>测试集平衡准确率</span><strong>{{ percent(selectedModel.test?.balanced_accuracy) }}</strong><small>按类别召回率取平均</small></article>
             <article class="m2-score"><span>测试集对近期趋势基线</span><strong>+{{ (((selectedModel.test?.macro_f1 ?? 0) - (selectedModel.benchmarks?.find((item) => item.id === 'recent_trend_baseline')?.test.macro_f1 ?? 0)) * 100).toFixed(1) }} <small>分</small></strong><small>Macro-F1 绝对差</small></article>
+          </div>
+          <div class="detail-panel trend-chart-panel">
+            <div class="panel-heading">
+              <div><h3>滚动验证与独立测试：Macro-F1</h3><p>横向比较每个数据切分上的逻辑回归与近期趋势基线。</p></div>
+              <span>越高越好 · 0–65%</span>
+            </div>
+            <div class="chart-legend" aria-label="图例">
+              <span><i class="legend-current"></i>{{ selectedModel.algorithm }}（当前候选）</span>
+              <span><i class="legend-baseline"></i>近期趋势基线</span>
+            </div>
+            <div v-if="trendChartRows.length" class="chart-frame trend-chart-frame">
+              <svg class="trend-chart" viewBox="0 0 720 302" role="img" aria-labelledby="m2-chart-title m2-chart-desc">
+                <title id="m2-chart-title">近期活动趋势模型的 Macro-F1 基线对比</title>
+                <desc id="m2-chart-desc">并列水平条比较当前逻辑回归与近期趋势基线在两个滚动验证折和独立测试集上的 Macro-F1。每一行是一个独立评估切分，不表示连续时间趋势。</desc>
+                <g class="chart-grid trend-grid">
+                  <g v-for="tick in [0, 0.2, 0.4, 0.6]" :key="tick">
+                    <line :x1="trendScoreX(tick)" :x2="trendScoreX(tick)" y1="26" y2="266" />
+                    <text :x="trendScoreX(tick)" y="287" text-anchor="middle">{{ percent(tick) }}</text>
+                  </g>
+                </g>
+                <g v-for="row in trendChartRows" :key="row.label" class="trend-row">
+                  <text class="trend-row-title" x="8" :y="row.currentY + 7">{{ row.label }}</text>
+                  <text class="trend-row-meta" x="8" :y="row.currentY + 23">{{ row.as_of }} · n={{ row.samples ?? '—' }}</text>
+                  <rect v-if="row.macro_f1 != null" class="trend-bar trend-bar-current" x="194" :y="row.currentY" :width="Math.max(1, row.currentX - 194)" height="12" rx="4">
+                    <title>{{ row.label }} · 当前候选：Macro-F1 {{ percent(row.macro_f1) }}</title>
+                  </rect>
+                  <text v-if="row.macro_f1 != null" class="trend-value" :x="row.currentX + 8" :y="row.currentY + 10">{{ percent(row.macro_f1) }}</text>
+                  <rect v-if="row.baseline_macro_f1 != null" class="trend-bar trend-bar-baseline" x="194" :y="row.baselineY" :width="Math.max(1, row.baselineX - 194)" height="12" rx="4">
+                    <title>{{ row.label }} · 近期趋势基线：Macro-F1 {{ percent(row.baseline_macro_f1) }}</title>
+                  </rect>
+                  <text v-if="row.baseline_macro_f1 != null" class="trend-value" :x="row.baselineX + 8" :y="row.baselineY + 10">{{ percent(row.baseline_macro_f1) }}</text>
+                </g>
+              </svg>
+            </div>
+            <div v-else class="chart-empty">当前评估文件没有可绘制的逐折结果。</div>
+            <p class="chart-caption">各行代表不同验证/测试样本，不应解读为模型随时间升降；独立测试用于最终留出评估。Macro-F1 是三类 F1 的宏平均。</p>
           </div>
           <div class="detail-grid m2-detail-grid">
             <div class="detail-panel">

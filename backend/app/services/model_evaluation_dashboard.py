@@ -76,6 +76,20 @@ def evaluation_dashboard() -> dict[str, Any]:
             "name": profile.get("name") if isinstance(profile, dict) else None,
             "repositories": count,
         })
+    profile_points = []
+    for cluster_id, profile in sorted(profiles.items(), key=lambda item: str(item[0])):
+        if not isinstance(profile, dict):
+            continue
+        feature_means = profile.get("feature_means") if isinstance(profile.get("feature_means"), dict) else {}
+        profile_points.append({
+            "id": str(cluster_id),
+            "name": profile.get("name"),
+            "repositories": profile.get("repositories"),
+            "test_repositories": test_clusters.get(str(cluster_id), 0),
+            "median_commits_12w": _number(profile.get("median_commit_total_12w")),
+            "active_week_ratio": _number(feature_means.get("commit_active_fraction")),
+            "no_commit_week_ratio": _number(feature_means.get("commit_longest_zero_fraction")),
+        })
 
     trend_validation = trend.get("validation_combined") if isinstance(trend.get("validation_combined"), dict) else {}
     trend_test = trend.get("test") if isinstance(trend.get("test"), dict) else {}
@@ -100,6 +114,32 @@ def evaluation_dashboard() -> dict[str, Any]:
 
     selected_test = trend_test.get("selected_candidate", {})
     selected_validation = trend_validation.get(trend.get("selected_candidate"), {})
+    validation_series = []
+    folds = trend.get("validation_folds") if isinstance(trend.get("validation_folds"), list) else []
+    for index, fold in enumerate(folds, start=1):
+        if not isinstance(fold, dict):
+            continue
+        fold_metrics = fold.get("metrics") if isinstance(fold.get("metrics"), dict) else {}
+        selected_fold = fold_metrics.get(trend.get("selected_candidate"), {})
+        baseline_fold = fold_metrics.get("recent_trend_baseline", {})
+        validation_series.append({
+            "label": f"验证折 {index}",
+            "as_of": (fold.get("latest_training_label_end") or "")[:10],
+            "samples": fold.get("validation_samples"),
+            "macro_f1": _number(selected_fold.get("macro_f1")) if isinstance(selected_fold, dict) else None,
+            "baseline_macro_f1": _number(baseline_fold.get("macro_f1")) if isinstance(baseline_fold, dict) else None,
+            "balanced_accuracy": _number(selected_fold.get("balanced_accuracy")) if isinstance(selected_fold, dict) else None,
+            "baseline_balanced_accuracy": _number(baseline_fold.get("balanced_accuracy")) if isinstance(baseline_fold, dict) else None,
+        })
+    validation_series.append({
+        "label": "独立测试",
+        "as_of": (trend.get("test_origin") or "")[:10],
+        "samples": trend.get("test_repositories"),
+        "macro_f1": _number(selected_test.get("macro_f1")) if isinstance(selected_test, dict) else None,
+        "baseline_macro_f1": _number(trend_test.get("recent_trend_baseline", {}).get("macro_f1")),
+        "balanced_accuracy": _number(selected_test.get("balanced_accuracy")) if isinstance(selected_test, dict) else None,
+        "baseline_balanced_accuracy": _number(trend_test.get("recent_trend_baseline", {}).get("balanced_accuracy")),
+    })
     return {
         "status": "available",
         "dataset": {
@@ -134,6 +174,7 @@ def evaluation_dashboard() -> dict[str, Any]:
                 },
                 "size_only_validation_silhouette": _number(candidate.get("size_only_validation_silhouette")),
                 "test_clusters": clusters,
+                "profile_points": profile_points,
                 "candidates": [
                     {
                         "clusters": int(key),
@@ -167,6 +208,7 @@ def evaluation_dashboard() -> dict[str, Any]:
                 "test": _score(selected_test),
                 "test_confusion_matrix": _confusion_matrix(selected_test),
                 "benchmarks": trend_benchmarks,
+                "validation_series": validation_series,
                 "label_definition": trend.get("label_definition"),
                 "notes": trend.get("limitations") if isinstance(trend.get("limitations"), list) else [],
             },
