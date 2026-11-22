@@ -150,11 +150,11 @@ function moveHandleByKeyboard(handle: 'start' | 'end', event: KeyboardEvent) {
 .number-range-slider { display:grid; width:100%; grid-template-columns:max-content minmax(56px,1fr) max-content; align-items:center; column-gap:8px; min-width:0; color:var(--muted); font-size:10px; }
 .number-range-slider__value { display:flex; align-items:baseline; gap:4px; white-space:nowrap; }
 .number-range-slider__value strong { color:var(--ink); font-size:10.5px; font-weight:600; font-variant-numeric:tabular-nums; }
-.number-range-slider__rail { position:relative; height:24px; margin:0 8px; touch-action:none; user-select:none; cursor:pointer; }
-.number-range-slider__track, .number-range-slider__selection { position:absolute; top:10px; height:4px; border-radius:999px; }
+.number-range-slider__rail { position:relative; height:var(--range-slider-rail-height); margin:0 8px; touch-action:none; user-select:none; cursor:pointer; }
+.number-range-slider__track, .number-range-slider__selection { position:absolute; top:calc((var(--range-slider-rail-height) - var(--range-slider-track-height)) / 2); height:var(--range-slider-track-height); border-radius:999px; }
 .number-range-slider__track { inset-inline:0; background:var(--line); }
 .number-range-slider__selection { background:var(--primary,#2563eb); }
-.number-range-slider__thumb { position:absolute; z-index:1; top:3px; width:18px; height:18px; padding:0; border:2px solid var(--surface); border-radius:50%; background:var(--primary,#2563eb); box-shadow:0 0 0 1px var(--line), 0 1px 3px rgb(20 25 30 / 20%); transform:translateX(-50%); cursor:grab; }
+.number-range-slider__thumb { position:absolute; z-index:1; top:calc((var(--range-slider-rail-height) - var(--range-slider-thumb-size)) / 2); width:var(--range-slider-thumb-size); height:var(--range-slider-thumb-size); padding:0; border:2px solid var(--surface); border-radius:50%; background:var(--primary,#2563eb); box-shadow:0 0 0 1px var(--line), 0 1px 3px rgb(20 25 30 / 20%); transform:translateX(-50%); cursor:grab; }
 .number-range-slider__thumb:active { cursor:grabbing; }
 .number-range-slider__thumb:focus-visible { outline:2px solid var(--primary,#2563eb); outline-offset:3px; }
 .number-range-slider__thumb:disabled { cursor:not-allowed; opacity:.55; }

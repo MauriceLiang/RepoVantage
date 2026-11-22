@@ -144,8 +144,8 @@ function cancelInput(metric: SelectionMetric, event: KeyboardEvent) {
             :value="weights[metric.key]"
             :aria-label="`${metric.label}权重`"
             :aria-valuetext="`${formatWeight(weights[metric.key])}% 权重`"
-            class="h-2 min-w-0 flex-1 cursor-pointer disabled:cursor-not-allowed"
-            :style="{ accentColor: metric.color }"
+            class="weight-range min-w-0 flex-1 disabled:cursor-not-allowed"
+            :style="{ '--fill': weights[metric.key] + '%' }"
             :data-testid="`weight-slider-${metric.key}`"
             @input="onSliderInput(metric.key, $event)"
           />
