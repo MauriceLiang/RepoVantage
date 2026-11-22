@@ -106,9 +106,14 @@ def build_frontends() -> str:
     return npm
 
 
-def start_process(name: str, command: list[str], env: dict[str, str]) -> subprocess.Popen[bytes]:
+def start_process(
+    name: str,
+    command: list[str],
+    env: dict[str, str],
+    cwd: Path = PROJECT_ROOT,
+) -> subprocess.Popen[bytes]:
     print(f"正在启动 {name}…", flush=True)
-    return subprocess.Popen(command, cwd=PROJECT_ROOT, env=env, start_new_session=True)
+    return subprocess.Popen(command, cwd=cwd, env=env, start_new_session=True)
 
 
 def wait_for_http(
@@ -256,6 +261,7 @@ def main() -> int:
                 "--strictPort",
             ],
             ml_env,
+            cwd=FRONTEND_DIR,
         )
         processes.append(("机器学习控制台", ml_console))
         ml_console_url = f"http://127.0.0.1:{ML_CONSOLE_PORT}"
