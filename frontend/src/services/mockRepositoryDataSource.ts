@@ -940,6 +940,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       reasonCode: mode === 'individual_periods' ? 'INDIVIDUAL_WINDOWS_ASYNC' : sharedReasonCode,
       reason: mode === 'individual_periods' ? '各仓库分别使用自身分析窗口；结果不代表同期对比。' : sameObservationWindow ? null : sharedReasonCode === 'NO_SHARED_WINDOW' ? '所选仓库的分析窗口没有时间交集。' : sharedReasonCode === 'SHARED_WINDOW_BELOW_THRESHOLD' ? `共同观察窗口为 ${effectiveDays?.toFixed(1)} 天，少于所选 ${window} 天窗口的 80%。` : '至少一个仓库没有覆盖所选窗口的分析运行。',
     }
+    const groupSets = ids.map((id) => new Set(this.repositoryGroups.filter((group) => group.repositoryIds.includes(id)).map((group) => group.id)))
+    const hasSharedGroup = groupSets.length > 0 && [...(groupSets[0] ?? [])].some((groupId) => groupSets.every((groupIds) => groupIds.has(groupId)))
     return {
       window: comparisonBasis.sharedWindow ? { start: comparisonBasis.sharedWindow.start.slice(0, 10), end: comparisonBasis.sharedWindow.end.slice(0, 10) } : { start: dates[0] ?? '—', end: dates.at(-1) ?? '—' },
       requestedWindowDays: window,
@@ -950,6 +952,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         ...entries.filter((entry) => !entry.windowAvailable).map((entry) => `${entry.label}：${entry.windowReason}`),
         ...(mode === 'same_period' && !sameObservationWindow ? [comparisonBasis.reason ?? '所选仓库没有足够长的共同观察窗口。'] : []),
         ...(mode === 'individual_periods' ? ['各仓库分别使用自身完整周与可用指标；观察窗口可能不同，不代表同期对比。'] : []),
+        '比较结果反映所选指标的相对差异，不代表项目质量或优劣。',
+        ...(!hasSharedGroup ? ['参与对比的仓库不属于同一分组（或包含未分组仓库），系统无法直接判断项目用途是否相近；请确认用途相近后再对比。'] : []),
         '各仓库采集时间与覆盖状态不同，差异可能来自采集而非项目本身。',
         '缺乏有效样本或无法按当前口径比较的指标显示为「—」。',
       ],

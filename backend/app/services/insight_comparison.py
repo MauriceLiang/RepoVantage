@@ -6,9 +6,9 @@ from sqlalchemy import func, select
 from backend.app.analytics.metrics import numeric_summary, spearman_summary
 from backend.app.core.clock import iso_z, parse_github_datetime
 from backend.app.core.exceptions import AppError
-from backend.app.persistence.models import Dataset, DatasetRepository, MaintenanceRun, Repository
+from backend.app.persistence.models import Dataset, DatasetRepository, MaintenanceRun, Repository, RepositoryGroupMember
 from backend.app.services.insights import repository_insights, repository_insights_for_window
-from backend.app.services.repositories import STANDARD_TEST_ID
+from backend.app.services.repositories import LIBRARY_ID, STANDARD_TEST_ID
 
 INSIGHT_FIELDS = {'commits_weekly_mean': ('commit_activity', 'commits/week'), 'issue_median_hours': ('issue_resolution', 'hours'), 'pr_median_hours': ('pr_merges', 'hours'), 'release_interval_days': ('release_cadence', 'days')}
 
@@ -102,6 +102,16 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
     for result in results:
         _maintenance_commit_fallback(session, result, window_days, prefer_recent=mode == 'individual_periods')
     repos = [session.get(Repository, id) for id in ids]
+    group_memberships = {repository_id: set() for repository_id in ids}
+    group_rows = session.execute(
+        select(RepositoryGroupMember.group_id, RepositoryGroupMember.repository_id).where(
+            RepositoryGroupMember.dataset_id == LIBRARY_ID,
+            RepositoryGroupMember.repository_id.in_(ids),
+        )
+    )
+    for group_id, repository_id in group_rows:
+        group_memberships[repository_id].add(group_id)
+    shared_group_ids = set.intersection(*(group_memberships[repository_id] for repository_id in ids))
     candidate_windows = [(result['window_start'], result['window_end']) for result in results]
     comparison_basis = {
         'scope': 'shared_observation' if mode == 'same_period' else 'repository_windows',
@@ -143,9 +153,11 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
     for result in results:
         weeks = {p['start'] for p in result['insights'].get('commit_activity', {}).get('weekly', []) if p['complete_week'] and p['quality'] == 'ready' and p['value'] is not None}
         common_weeks = weeks if common_weeks is None else common_weeks & weeks
-    warnings = ['项目类型未分类；活动规模与处理耗时不能直接判定项目优劣。']
-    if len({r.language for r in repos}) > 1:
-        warnings.append('仓库主语言不同，请确认用途相近。')
+    warnings = ['比较结果反映所选指标的相对差异，不代表项目质量或优劣。']
+    if not shared_group_ids:
+        warnings.append('参与对比的仓库不属于同一分组（或包含未分组仓库），系统无法直接判断项目用途是否相近；请确认用途相近后再对比。')
+    elif len({r.language for r in repos}) > 1:
+        warnings.append('仓库主语言不同，技术栈可能影响指标分布，请结合项目用途解读。')
     windows = set(candidate_windows)
     same_observation_window = len(windows) == 1 and all(result['window_available'] for result in results)
     if mode == 'same_period' and comparison_basis['status'] != 'comparable':
