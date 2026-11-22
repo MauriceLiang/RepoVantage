@@ -9,14 +9,14 @@ type Benchmark = {
   validation: Score
   test: Score
 }
-type ClusterProfilePoint = {
-  id: string
-  name: string | null
-  repositories: number
-  test_repositories: number
-  median_commits_12w: number | null
-  active_week_ratio: number | null
-  no_commit_week_ratio: number | null
+type TestScatterPoint = {
+  repository_id: number
+  repository: string
+  cluster_id: string
+  cluster_name: string | null
+  active_week_ratio: number
+  no_commit_week_ratio: number
+  commits_12w: number | null
 }
 type ValidationPoint = {
   label: string
@@ -39,7 +39,7 @@ type ModelEvaluation = {
   silhouette?: { train: number | null; seed_mean: number | null; test: number | null }
   size_only_train_silhouette?: number | null
   test_clusters?: { id: string; name: string | null; repositories: number }[]
-  profile_points?: ClusterProfilePoint[]
+  test_points?: TestScatterPoint[]
   candidates?: { clusters: number; train_silhouette: number | null; size_only_train_silhouette: number | null; seed_silhouette_mean: number | null; selected: boolean }[]
   validation?: Score
   test?: Score
@@ -81,23 +81,22 @@ const selectedModel = computed(() => dashboard.value?.models?.find((model) => mo
 const testTotal = computed(() => dashboard.value?.dataset?.split.test ?? 0)
 const clusterTicks = [0, 0.25, 0.5, 0.75, 1]
 
-const clusterProfilePoints = computed(() => {
+const testScatterPoints = computed(() => {
   const model = selectedModel.value
   if (model?.id !== 'M1') return []
-  const points = (model.profile_points ?? []).filter((point) => point.active_week_ratio != null && point.no_commit_week_ratio != null)
-  const largestTestCluster = Math.max(1, ...points.map((point) => point.test_repositories ?? 0))
-  return points.map((point) => {
-    const cx = 72 + (point.active_week_ratio ?? 0) * 468
-    const cy = 290 - (point.no_commit_week_ratio ?? 0) * 260
-    const anchor = cx > 490 ? 'end' : 'start'
+  const offsets = new Map<string, number>()
+  return (model.test_points ?? []).map((point) => {
+    const rawX = 72 + point.active_week_ratio * 468
+    const rawY = 290 - point.no_commit_week_ratio * 260
+    const coordinateKey = `${point.active_week_ratio.toFixed(4)}:${point.no_commit_week_ratio.toFixed(4)}`
+    const offsetIndex = offsets.get(coordinateKey) ?? 0
+    offsets.set(coordinateKey, offsetIndex + 1)
+    const angle = offsetIndex * 2.3999632297
+    const distance = offsetIndex === 0 ? 0 : Math.min(12, 2 + Math.sqrt(offsetIndex) * 1.6)
     return {
       ...point,
-      cx,
-      cy,
-      radius: 5 + Math.sqrt(Math.max(0, point.test_repositories ?? 0) / largestTestCluster) * 10,
-      labelX: cx + (anchor === 'end' ? -12 : 12),
-      labelY: cy < 72 ? cy + 21 : cy > 260 ? cy - 13 : cy - 9,
-      labelAnchor: anchor,
+      cx: Math.max(72, Math.min(540, rawX + Math.cos(angle) * distance)),
+      cy: Math.max(30, Math.min(290, rawY + Math.sin(angle) * distance)),
     }
   })
 })
@@ -120,6 +119,16 @@ function trendScoreX(value: number | null | undefined) {
 function clusterColor(id: string) {
   const colors: Record<string, string> = { '0': '#4878d0', '1': '#49a195', '2': '#e4a047', '3': '#cc6786' }
   return colors[id] ?? '#7b8794'
+}
+
+function confusionRowTotal(rowIndex: number) {
+  return selectedModel.value?.test_confusion_matrix?.values[rowIndex]?.reduce((sum, value) => sum + value, 0) ?? 0
+}
+
+function confusionCellStyle(value: number, rowIndex: number) {
+  const total = confusionRowTotal(rowIndex)
+  const opacity = total > 0 ? 0.07 + value / total * 0.48 : 0.07
+  return { backgroundColor: `rgba(53,116,232,${opacity})` }
 }
 
 async function getData<T>(path: string): Promise<T> {
@@ -261,13 +270,16 @@ onMounted(connect)
           </div>
           <div class="detail-panel profile-chart-panel">
             <div class="panel-heading">
-              <div><h3>维护簇画像分布</h3><p>训练集的特征均值；气泡大小表示独立留出集落入该簇的仓库数。</p></div>
-              <span>{{ selectedModel.samples.test_repositories }} 个留出仓库</span>
+              <div><h3>独立测试集的模型聚类结果</h3><p>每个点是一个留出仓库；位置是实际特征值，颜色是训练后模型给出的簇标签。</p></div>
+              <span>{{ selectedModel.samples.test_repositories }} 个留出仓库 · {{ testScatterPoints.length }} 个可绘点</span>
             </div>
-            <div v-if="clusterProfilePoints.length" class="chart-frame">
+            <div class="chart-legend scatter-legend" aria-label="模型预测簇分布">
+              <span v-for="cluster in selectedModel.test_clusters" :key="cluster.id"><i :style="{ backgroundColor: clusterColor(cluster.id) }"></i>{{ cluster.name ?? `簇 ${cluster.id}` }} · n={{ cluster.repositories }}</span>
+            </div>
+            <div v-if="testScatterPoints.length" class="chart-frame">
               <svg class="profile-chart" viewBox="0 0 680 380" role="img" aria-labelledby="m1-chart-title m1-chart-desc">
-                <title id="m1-chart-title">近期维护模式聚类画像散点图</title>
-                <desc id="m1-chart-desc">横轴为训练簇的活跃周占比，纵轴为最长连续无提交周占比。每个点是一个簇的特征均值，不代表单个仓库；气泡大小代表独立留出集仓库数。</desc>
+                <title id="m1-chart-title">K-Means 模型在独立测试集上的簇分配</title>
+                <desc id="m1-chart-desc">散点展示固定留出测试集中的仓库真实输入特征，点颜色表示已训练 K-Means 模型预测的簇标签。此处不展示实时仓库数据。</desc>
                 <g class="chart-grid">
                   <g v-for="tick in clusterTicks" :key="`x-${tick}`">
                     <line x1="72" x2="540" :y1="290 - tick * 260" :y2="290 - tick * 260" />
@@ -278,15 +290,15 @@ onMounted(connect)
                 </g>
                 <text class="chart-axis-title" x="306" y="354" text-anchor="middle">活跃周占比</text>
                 <text class="chart-axis-title" x="18" y="160" text-anchor="middle" transform="rotate(-90 18 160)">最长连续无提交周占比</text>
-                <g v-for="point in clusterProfilePoints" :key="point.id" class="profile-point">
-                  <circle :cx="point.cx" :cy="point.cy" :r="point.radius" :fill="clusterColor(point.id)" />
-                  <text :x="point.labelX" :y="point.labelY" :text-anchor="point.labelAnchor">{{ point.name ?? `簇 ${point.id}` }} · n={{ point.test_repositories }}</text>
-                  <title>{{ point.name ?? `簇 ${point.id}` }}：活跃周占比 {{ percent(point.active_week_ratio) }}，最长连续无提交周占比 {{ percent(point.no_commit_week_ratio) }}；12 周提交中位数 {{ count(point.median_commits_12w) }}；独立留出集 {{ point.test_repositories }} 个仓库</title>
+                <g v-for="point in testScatterPoints" :key="point.repository_id" class="test-scatter-point">
+                  <circle :cx="point.cx" :cy="point.cy" r="4.5" :fill="clusterColor(point.cluster_id)">
+                    <title>{{ point.repository }} · {{ point.cluster_name ?? `簇 ${point.cluster_id}` }}：活跃周占比 {{ percent(point.active_week_ratio) }}，最长连续无提交周占比 {{ percent(point.no_commit_week_ratio) }}，12 周提交 {{ count(point.commits_12w) }}</title>
+                  </circle>
                 </g>
               </svg>
             </div>
-            <div v-else class="chart-empty">当前评估文件没有可绘制的聚类画像。</div>
-            <p class="chart-caption">M1 是聚类模型，不使用回归拟合直线。散点展示两项真实输入特征上的簇均值；未对单个仓库做二维降维投影。</p>
+            <div v-else class="chart-empty">评估文件中没有可绘制的留出集模型预测结果。</div>
+            <p class="chart-caption">这里只绘制冻结留出集上的模型预测，不是线上仓库当前状态。相同坐标的点会做轻微错位以便辨认；悬停可查看原始特征值。</p>
           </div>
           <div class="detail-grid">
             <div class="detail-panel">
@@ -351,9 +363,9 @@ onMounted(connect)
               <div class="benchmark-table-wrap"><table class="benchmark-table"><thead><tr><th>模型</th><th>验证 Macro-F1</th><th>测试 Macro-F1</th><th>测试平衡准确率</th></tr></thead><tbody><tr v-for="item in selectedModel.benchmarks" :key="item.id" :class="{ chosen: item.selected }"><td>{{ item.name }}<span v-if="item.selected" class="chosen-tag">当前</span></td><td><div class="table-score"><span>{{ percent(item.validation.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.validation.macro_f1) }"></b></i></div></td><td><div class="table-score"><span>{{ percent(item.test.macro_f1) }}</span><i><b :style="{ width: scoreWidth(item.test.macro_f1) }"></b></i></div></td><td>{{ percent(item.test.balanced_accuracy) }}</td></tr></tbody></table></div>
             </div>
             <div class="detail-panel">
-              <div class="panel-heading"><h3>独立测试混淆矩阵</h3><span>行：真实 · 列：预测</span></div>
-              <div v-if="selectedModel.test_confusion_matrix" class="matrix-wrap"><table class="matrix-table"><thead><tr><th>真实 \ 预测</th><th v-for="label in selectedModel.test_confusion_matrix.labels" :key="label">{{ label }}</th></tr></thead><tbody><tr v-for="(row, rowIndex) in selectedModel.test_confusion_matrix.values" :key="rowIndex"><th>{{ selectedModel.test_confusion_matrix.labels[rowIndex] }}</th><td v-for="(value, colIndex) in row" :key="colIndex" :class="{ diagonal: rowIndex === colIndex }">{{ value }}</td></tr></tbody></table></div>
-              <p class="matrix-caption">模型会漏判一部分“上升”样本；请结合类别样本量和业务用途理解预测，不应单独作为决策依据。</p>
+              <div class="panel-heading"><h3>独立测试集预测结果</h3><span>真实类别 × 模型预测 · 行内占比</span></div>
+              <div v-if="selectedModel.test_confusion_matrix" class="matrix-wrap"><table class="matrix-table"><thead><tr><th>真实 \ 预测</th><th v-for="label in selectedModel.test_confusion_matrix.labels" :key="label">{{ label }}</th></tr></thead><tbody><tr v-for="(row, rowIndex) in selectedModel.test_confusion_matrix.values" :key="rowIndex"><th>{{ selectedModel.test_confusion_matrix.labels[rowIndex] }}</th><td v-for="(value, colIndex) in row" :key="colIndex" :class="{ diagonal: rowIndex === colIndex }" :style="confusionCellStyle(value, rowIndex)"><strong>{{ value }}</strong><small>{{ percent(confusionRowTotal(rowIndex) ? value / confusionRowTotal(rowIndex) : null) }}</small></td></tr></tbody></table></div>
+              <p class="matrix-caption">每行按真实类别归一为 100%；对角线表示分类正确。数据来自独立 150 仓库留出测试，不是线上仓库状态。</p>
             </div>
           </div>
           <div class="caveat-line"><strong>标签定义：</strong>{{ selectedModel.label_definition }} <span v-for="note in selectedModel.notes" :key="note">{{ note }}</span></div>

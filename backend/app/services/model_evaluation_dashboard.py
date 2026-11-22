@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import csv
 from pathlib import Path
 from typing import Any
 
@@ -24,10 +25,24 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value
 
 
+def _read_csv(path: Path) -> list[dict[str, str]]:
+    if path.stat().st_size > MAX_FILE_BYTES:
+        raise ValueError("evaluation_artifact_too_large")
+    with path.open(encoding="utf-8", newline="") as source:
+        return list(csv.DictReader(source))
+
+
 def _number(value: Any) -> float | None:
     if type(value) not in (int, float) or not math.isfinite(value):
         return None
     return float(value)
+
+
+def _parse_number(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _score(value: Any) -> dict[str, float | None]:
@@ -56,6 +71,8 @@ def evaluation_dashboard() -> dict[str, Any]:
         manifest = _read_json(EXPERIMENT / "manifest.json")
         pattern = _read_json(EVALUATIONS / "ml03-maintenance-pattern.json")
         trend = _read_json(EVALUATIONS / "ml01-activity-trend.json")
+        pattern_features = _read_csv(EXPERIMENT / "datasets" / "maintenance_pattern_features.csv")
+        pattern_test_predictions = _read_csv(EVALUATIONS / "ml03-test-examples.csv")
     except (OSError, ValueError, TypeError):
         return {"status": "unavailable", "reason": "评估文件缺失或格式无效。"}
 
@@ -76,19 +93,35 @@ def evaluation_dashboard() -> dict[str, Any]:
             "name": profile.get("name") if isinstance(profile, dict) else None,
             "repositories": count,
         })
-    profile_points = []
-    for cluster_id, profile in sorted(profiles.items(), key=lambda item: str(item[0])):
-        if not isinstance(profile, dict):
+    features_by_repository = {}
+    for row in pattern_features:
+        try:
+            repository_id = int(row.get("repository_id", ""))
+        except (TypeError, ValueError):
             continue
-        feature_means = profile.get("feature_means") if isinstance(profile.get("feature_means"), dict) else {}
-        profile_points.append({
-            "id": str(cluster_id),
-            "name": profile.get("name"),
-            "repositories": profile.get("repositories"),
-            "test_repositories": test_clusters.get(str(cluster_id), 0),
-            "median_commits_12w": _number(profile.get("median_commit_total_12w")),
-            "active_week_ratio": _number(feature_means.get("commit_active_fraction")),
-            "no_commit_week_ratio": _number(feature_means.get("commit_longest_zero_fraction")),
+        features_by_repository[repository_id] = row
+    test_points = []
+    for row in pattern_test_predictions:
+        try:
+            repository_id = int(row.get("repository_id", ""))
+            cluster_id = str(int(row.get("cluster", "")))
+        except (TypeError, ValueError):
+            continue
+        feature_row = features_by_repository.get(repository_id)
+        if feature_row is None:
+            continue
+        active_week_ratio = _number(_parse_number(feature_row.get("commit_active_fraction")))
+        no_commit_week_ratio = _number(_parse_number(feature_row.get("commit_longest_zero_fraction")))
+        if active_week_ratio is None or no_commit_week_ratio is None:
+            continue
+        test_points.append({
+            "repository_id": repository_id,
+            "repository": row.get("repository"),
+            "cluster_id": cluster_id,
+            "cluster_name": row.get("pattern") or profiles.get(cluster_id, {}).get("name"),
+            "active_week_ratio": active_week_ratio,
+            "no_commit_week_ratio": no_commit_week_ratio,
+            "commits_12w": _number(_parse_number(feature_row.get("commit_total_12w"))),
         })
 
     trend_validation = trend.get("validation_combined") if isinstance(trend.get("validation_combined"), dict) else {}
@@ -176,7 +209,7 @@ def evaluation_dashboard() -> dict[str, Any]:
                 },
                 "size_only_train_silhouette": _number(candidate.get("size_only_train_silhouette")),
                 "test_clusters": clusters,
-                "profile_points": profile_points,
+                "test_points": test_points,
                 "candidates": [
                     {
                         "clusters": int(key),

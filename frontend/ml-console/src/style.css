@@ -534,21 +534,21 @@ button {
   font-weight: 550;
 }
 
-.profile-point circle {
+.test-scatter-point circle {
   stroke: #fff;
-  stroke-width: 2.5px;
-  transition: r .16s ease, opacity .16s ease;
-}
-
-.profile-point:hover circle {
+  stroke-width: 1px;
   opacity: .82;
+  transition: opacity .16s ease, stroke-width .16s ease;
 }
 
-.profile-point text {
-  fill: #354454;
-  font-size: 11px;
-  font-weight: 600;
-  pointer-events: none;
+.test-scatter-point:hover circle {
+  opacity: 1;
+  stroke: #263b52;
+  stroke-width: 1.8px;
+}
+
+.scatter-legend {
+  margin: 7px 0 4px;
 }
 
 .chart-caption {
@@ -844,12 +844,24 @@ button {
 
 .matrix-table td {
   font: 11px ui-monospace,monospace;
+  min-width: 68px;
+  text-align: center;
 }
 
 .matrix-table td.diagonal {
-  background: #ecf3ff;
-  color: #345fae;
+  box-shadow: inset 0 0 0 2px rgba(37,82,154,.48);
+  color: #244d91;
   font-weight: 600;
+}
+
+.matrix-table td strong,.matrix-table td small {
+  display: block;
+}
+
+.matrix-table td small {
+  margin-top: 3px;
+  color: #62738a;
+  font: 8px ui-sans-serif,system-ui,sans-serif;
 }
 
 .matrix-table tbody th {
