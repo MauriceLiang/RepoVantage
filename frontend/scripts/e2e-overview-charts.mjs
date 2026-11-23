@@ -5,6 +5,7 @@ import puppeteer from 'puppeteer-core'
 const base = new URL(process.env.BASE_URL ?? 'http://127.0.0.1:5173')
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const outputDir = process.env.SCREENSHOT_DIR ?? '/tmp/repovantage-overview-charts'
+await mkdir(outputDir, { recursive: true })
 const DAY = 24 * 60 * 60 * 1000
 const now = Date.now()
 const languages = [
