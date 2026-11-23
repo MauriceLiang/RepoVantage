@@ -45,6 +45,20 @@ class FakeGitHub:
     def search_repositories(self, *_args):
         return {"items": [self.repository], "total_count": 1, "incomplete_results": False}
 
+    # The default integration fixture exposes the same legacy pagination API as
+    # the real GitHub client; detailed pagination is tested separately.
+    def list_commits(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_issues(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_pulls(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_releases(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
     def close(self):
         pass
 
@@ -56,7 +70,6 @@ def backend_client(tmp_path, monkeypatch):
     monkeypatch.setattr(collection_archive, "COLLECTED_ROOT", tmp_path / "collected-pages")
     monkeypatch.setattr("backend.app.main.SessionLocal", factory)
     monkeypatch.setattr("backend.app.worker.main.SessionLocal", factory)
-    monkeypatch.setattr("backend.app.worker.scheduler.SessionLocal", factory)
 
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(connection, _record):

@@ -1,109 +1,82 @@
 # RepoVantage
 
-<div align="center">
-  <strong>面向开源项目的活动分析与维护洞察工作台</strong>
-  <br />
-  <sub>从 GitHub 事件采集，到仓库分析、横向比较与离线模型评估。</sub>
-  <br /><br />
-  <code>Vue 3</code>&nbsp; · &nbsp;<code>FastAPI</code>&nbsp; · &nbsp;<code>SQLite</code>&nbsp; · &nbsp;<code>Python 3.12</code>
-</div>
+基于 GitHub 公开数据的仓库分析与技术选型工作台。支持仓库采集、活动趋势、Issue / PR / Release 分析、多仓库比较，以及固定课程数据上的机器学习评估。
 
-<br />
-
-RepoVantage 将仓库数据采集、活动指标、项目比较和机器学习研究放在同一个本地工作台。页面以实际观测数据为依据；样本不足、部分覆盖和数据缺失会明确标注，不把未知状态当作零。
-
-## 产品工作区
-
-| 工作区 | 能做什么 |
-| --- | --- |
-| **总览** | 查看仓库活动、近期维护信号和任务进度。 |
-| **仓库与分析** | 管理仓库；分析 Commit、Issue、PR、Release 的活动与处理耗时。 |
-| **项目比较** | 比较 2–5 个仓库，查看共同时间窗、指标差异和加权排名。 |
-| **任务与设置** | 管理采集任务、分页预算和可选的 GitHub Token。 |
-| **机器学习观测台** | 查看 M1 维护模式聚类、M2 活动趋势分类的训练/验证/留出结果与运行诊断。 |
-
-## 系统结构
-
-普通用户工作台与机器学习观测台分别运行在 **8501** 和 **8502**。8501 提供 FastAPI 与普通用户页面；8502 是独立前端，通过本地代理读取 8501 的模型评估接口，内部密钥由服务端保管，不进入前端构建产物。采集 Worker 负责与 GitHub 通信并保存观测记录。
-
-目录职责和依赖边界见[项目结构说明](docs/architecture/project-layout.md)。
-
-```mermaid
-flowchart LR
-    GH[GitHub REST API] --> W[采集 Worker]
-    W --> DB[(SQLite 与本地事件归档)]
-    DB --> API[FastAPI · 8501]
-    API --> USER[普通用户工作台 · 8501]
-    EVAL[固定研究数据与模型评估文件] --> API
-    API -. 模型评估 API · 本地代理 .-> ML[机器学习观测台 · 8502]
-```
-
-### 两套前端
-
-| 地址 | 面向用途 | 内容 |
-| --- | --- | --- |
-| [`127.0.0.1:8501`](http://127.0.0.1:8501) | 普通用户 | 仓库管理、仓库分析、比较、研究和任务。 |
-| [`127.0.0.1:8502`](http://127.0.0.1:8502) | 模型观测 | 离线模型评估、固定数据切分与当前进程诊断。 |
-| [`127.0.0.1:8501/docs`](http://127.0.0.1:8501/docs) | 本地开发 | FastAPI 接口文档。 |
-| [`127.0.0.1:8501/healthz`](http://127.0.0.1:8501/healthz) | 本地诊断 | API 健康检查。 |
+**技术栈：** Vue 3 + TypeScript + Vite + AntV G2 · FastAPI + Python 3.12 · SQLite + Alembic · 独立采集 Worker。
 
 ## 快速启动
 
-需要 **Python 3.12、Node.js/npm 和 [uv](https://docs.astral.sh/uv/)**。在仓库根目录执行：
+前置依赖：**Python 3.12、[uv](https://docs.astral.sh/uv/)、Node.js / npm**。在仓库根目录运行：
 
 ```bash
 uv run --locked --all-extras python -m scripts.start
 ```
 
-启动器会准备 Python 依赖；首次运行时安装前端依赖；构建两套前端；创建本机 `.env` 和随机 `INTERNAL_API_KEY`；升级数据库；然后启动 FastAPI、Worker、8501 用户页面和 8502 机器学习观测台。按 `Ctrl+C` 可统一停止所有服务。
+首次启动会准备依赖、构建两套前端、创建本机 `.env` / `INTERNAL_API_KEY`、升级数据库，并启动 API、Worker 和页面。按 `Ctrl+C` 停止整套服务。
 
-GitHub Token 可选。未配置时使用 GitHub 匿名请求额度；需要更高额度时，可在设置页配置个人 Token。详细环境变量、数据导入与 API 说明见[后端文档](docs/guides/backend-operations.md)。
+| 地址 | 用途 |
+| --- | --- |
+| http://127.0.0.1:8501 | 普通用户工作台 |
+| http://127.0.0.1:8502 | 机器学习观测台 |
+| http://127.0.0.1:8501/docs | FastAPI 接口文档 |
+| http://127.0.0.1:8501/healthz | 健康检查 |
 
-## 机器学习评估边界
+GitHub Token 是可选配置；未设置时受匿名请求额度限制。可通过工作台设置页添加 Token。内部 API Key 保留在本机，不进入浏览器资源；本机数据库和动态采集文件均被 Git 忽略。
 
-观测台展示的是**固定历史样本上的研究评估**，不是对 GitHub 全体仓库的随机抽样，也不代表生产模型已经获准上线。
+## 功能
 
-- **M1 · 维护模式聚类**：K-Means；训练集与独立留出集各 150 个仓库。展示簇分布、轮廓系数和留出仓库的模型分配。
-- **M2 · 活动趋势分类**：逻辑回归；在训练组内滚动验证，并使用独立的 150 个留出仓库评估未来四周活动类别。
-- 聚类描述活动形态，趋势分类评估历史切分上的预测表现；两者都不构成仓库质量评分或推荐结论。
+- **仓库管理：** 搜索、添加、分组、更新和移除 GitHub 仓库。
+- **仓库分析：** 观察 Commit、Issue、PR、Release 和维护活动，按 30 / 90 / 180 天窗口查看数据。
+- **项目比较：** 比较 2–5 个仓库，支持同期 / 独立窗口、权重调整、排名与导出。
+- **任务管理：** 查看采集进度、重试和数据覆盖状态。
+- **机器学习观测：** 对固定研究样本展示训练、评估和模型诊断，不等同于生产预测服务。
 
-样本版本、来源指纹、覆盖情况和限制见[数据资产清单](reports/数据资产清单.md)及[150/150 留仓评估记录](reports/course-150-150/p2-training-and-evaluation.md)。
+**数据约束：** 不把未知、未采集、部分覆盖或失败状态当成真实零值。同期比较应遵守共同观察窗口规则。模型研究结论不得直接代替仓库质量判断。
 
-## 数据与本机状态
+## 代码结构
 
-仓库包含可复现研究所需的固定数据包、模型文件和评估结果；运行产生的本机数据库与密钥不随普通 Git 提交上传。
+```text
+backend/app/       FastAPI、业务服务、GitHub 集成、数据处理和 Worker
+frontend/src/      普通用户前端、组件、图表、API 数据源
+frontend/ml-console/ 独立的机器学习观测前端
+data/datasets/     冻结的课程数据包及来源说明
+data/manifests/    数据和选型快照元信息
+ml/course/         课程模型、固定分组和评估结果
+ml-production/     模型准入协议、注册表与验证证据
+migrations/        Alembic 数据库迁移
+scripts/           启动、采集、训练、评估、导入和校验命令
+tests/             后端行为、API 契约及固定测试样例
+reports/           机器可读的评估与验收结果
+```
 
-| 数据 | 用途 | Git 状态 |
-| --- | --- | --- |
-| `data/datasets/course-research-300-v1/` | 固定 300 仓库研究样本与 150/150 分组。 | 随项目提供 |
-| `data/datasets/course-research-events-300-v1/` | 研究详情使用的历史事件快照。 | 随项目提供 |
-| `ml/course/experiments/course-150-150-v1/` | M1/M2 模型产物、训练输入和评估结果。 | 随项目提供 |
-| `data/app.db`、`data/collected/`、`.env` | 本机数据库、动态采集归档和本机密钥。 | Git 忽略 |
+项目保持单仓库、单后端、两套前端，不引入额外的 workspace 或微服务分层。前端开发和路由见 [frontend/README.md](frontend/README.md)，模型准入见 [ml-production/README.md](ml-production/README.md)。
 
-固定数据均有来源和时间范围；它们是历史快照，不会在启动时重新抓取。页面展示的研究结论应结合各自的数据覆盖和评估限制阅读。
-
-## 开发入口
-
-### 普通用户前端
+## 本地开发与验证
 
 ```bash
+# 后端测试
+uv run --locked --all-extras pytest
+
+# 普通用户前端
 cd frontend
 npm ci
-VITE_DATA_MODE=mock npm run dev
+VITE_DATA_MODE=mock npm run dev  # 显式 Mock 演示
+# VITE_DATA_MODE=http npm run dev  # 连接运行中的后端
+npm run typecheck
+npm run build
+npm run build:ml
+npm run test:selection-weight-math
+npm run test:overview-charts
 ```
 
-若要联调真实 API，先按快速启动命令启动后端，再运行 `VITE_DATA_MODE=http npm run dev`。
+浏览器端到端测试使用 `frontend/scripts/` 下的脚本，通常需要先启动页面和无头浏览器；CI 配置见 `.github/workflows/`。修改 API、数据源或页面功能时，需同时更新相应测试；不要仅以能成功构建作为验收标准。
 
-### 机器学习控制台
+## 数据与机器学习边界
 
-完整项目启动时会一并启动 8502。若 API 已用其他方式运行，也可以单独启动控制台：
+- `data/datasets/featured-v1/` 是仓库页精选演示数据；`data/datasets/course-research-300-v1/` 包含 300 仓库、12 个完整 UTC 周的历史研究快照。
+- 300 个样本按固定 **150 训练 / 150 留出** 角色划分。模型、切分与评估结果保存在 `ml/course/`，数据来源与限制见各数据包的 README / DATA_NOTICE。
+- M1 使用 K-Means 描述维护活动模式；M2 使用逻辑回归评估活动趋势。评估属于既定历史样本上的课程研究，不能外推到所有 GitHub 仓库。
+- `ml-production/approved/` 当前没有批准的生产模型。模型注册和研究材料不构成生产准入。
+- `data/app.db`、`data/collected/`、`data/raw/`、`.env` 属于本机运行状态，不应提交到仓库；冻结数据包与模型可复现材料应保留版本记录。
 
-```bash
-uv run --locked --all-extras python -m scripts.start_ml_console
-```
-
-前端开发说明见 [`frontend/README.md`](frontend/README.md)。数据采集与覆盖约定见[采集合同](docs/insights/02_collection_contract.md)和[窗口验收规则](docs/insights/06_window_acceptance.md)。
-
----
-
-项目仓库：[MauriceLiang/RepoVantage](https://github.com/MauriceLiang/RepoVantage) · [后端与 API](docs/guides/backend-operations.md) · [数据资产清单](reports/数据资产清单.md)
+修改模型、数据切分或指标口径前，应先核对固定清单和评估结果，不要将研究产物当作可随意清理的构建缓存。

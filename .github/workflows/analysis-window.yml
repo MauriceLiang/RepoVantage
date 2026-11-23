@@ -1,4 +1,4 @@
-name: Analysis window acceptance
+name: RepoVantage CI
 
 on:
   pull_request:
@@ -39,28 +39,29 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      - run: npm run build:ml
       - name: Install isolated headless browser
         run: |
           node node_modules/@puppeteer/browsers/lib/main-cli.js install chrome-headless-shell@stable --path "$RUNNER_TEMP/repovantage-browser" --format '{{path}}' > "$RUNNER_TEMP/repovantage-browser-path"
           echo "CHROME_PATH=$(tail -n 1 "$RUNNER_TEMP/repovantage-browser-path")" >> "$GITHUB_ENV"
-      - name: Start isolated Mock server
+      - name: Start HTTP-mode frontend with intercepted test API
         run: |
-          VITE_DATA_MODE=mock npm run dev -- --host 127.0.0.1 --port 5173 --strictPort > "$RUNNER_TEMP/repovantage-vite.log" 2>&1 &
+          VITE_DATA_MODE=http npm run dev -- --host 127.0.0.1 --port 5173 --strictPort > "$RUNNER_TEMP/repovantage-vite.log" 2>&1 &
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:5173/ > /dev/null; then exit 0; fi
             sleep 1
           done
           cat "$RUNNER_TEMP/repovantage-vite.log"
           exit 1
-      - run: npm run test:e2e:analysis-window
+      - run: npm run test:e2e:overview-charts
         env:
           BASE_URL: http://127.0.0.1:5173
-          E2E_ARTIFACT_DIR: ${{ runner.temp }}/repovantage-window-e2e
+          SCREENSHOT_DIR: ${{ runner.temp }}/repovantage-overview-e2e
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: analysis-window-browser-evidence
+          name: overview-browser-evidence
           path: |
-            ${{ runner.temp }}/repovantage-window-e2e
+            ${{ runner.temp }}/repovantage-overview-e2e
             ${{ runner.temp }}/repovantage-vite.log
           if-no-files-found: ignore

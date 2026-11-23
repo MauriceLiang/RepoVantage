@@ -144,6 +144,8 @@ async function renderChart() {
     // layout change (for example, a desktop-to-mobile grid breakpoint). Force
     // G2 to read the current host dimensions so the canvas cannot overflow its
     // responsive panel.
+    // Explicit rendering is required when options change but the host size stays the same.
+    await chart.render()
     await chart.forceFit()
     if (sequence === renderSequence) error.value = ''
   } catch (cause) {

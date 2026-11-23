@@ -1,17 +1,27 @@
-# Local secrets and Python environments
+# Local secrets, caches, environments
 .env
+.env.local
+.env.*.local
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+.idea/
+.agents/
+.openidea/
+.pnpm-store/
 
-# Local database and runtime data; only frozen, reviewed datasets are versioned
+# Runtime databases and raw archives; checked-in frozen datasets are explicit
 /data/*
 !/data/.gitkeep
 !/data/manifests/
 !/data/manifests/**
 !/data/datasets/
 /data/datasets/*
+!/data/datasets/featured-v1.zip
 !/data/datasets/featured-v1/
 !/data/datasets/featured-v1/**
 !/data/datasets/course-research-300-v1/
@@ -25,36 +35,14 @@ __pycache__/
 /data/*.db
 /data/*.sqlite
 
-# Frontend dependencies and generated bundles
+# Frontend build/dependency artifacts
 /frontend/node_modules/
 /frontend/dist/
-/frontend/ml-console/dist/
 /frontend/.vite/
+/frontend/ml-console/node_modules/
+/frontend/ml-console/dist/
 
-# Local editor, agent, package-manager and operating-system state
-.idea/
-.agents/
-.openidea/
-.pnpm-store/
-.DS_Store
-
-# Legacy, unreviewed frontend handoff notes and screenshots
-/frontend/docs/
-
-# Approved project docs are allow-listed; local design packs and working notes stay local.
-/docs/*
-!/docs/featured-dataset-import-performance.md
-!/docs/architecture/
-/docs/architecture/*
-!/docs/architecture/project-layout.md
-!/docs/guides/
-/docs/guides/*
-!/docs/guides/backend-operations.md
-!/docs/insights/
-/docs/insights/**
-!/docs/insights/02_collection_contract.md
-!/docs/insights/06_window_acceptance.md
-!/docs/insights/window-schema.json
-
-# Local preparation workspace
+# Generated schedules / local research
+/ml-production/scheduling/logs/
+/ml-production/scheduling/rehearsal/run.lock
 /dataprepare/
