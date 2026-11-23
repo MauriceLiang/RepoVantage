@@ -154,6 +154,7 @@ try {
   const pythonButton = await page.evaluateHandle(() => [...document.querySelectorAll('.language-row')].find((button) => button.querySelector('.language-name')?.textContent?.trim() === 'Python'))
   assert.ok(pythonButton.asElement(), '主语言排名应提供真实可聚焦的 Python 筛选按钮')
   await pythonButton.asElement().click()
+  console.log('Python filter diagnostic:', JSON.stringify(await page.evaluate(() => ({ summary: document.querySelector('.overview-filter-summary strong')?.textContent, selected: document.querySelector('.language-row.is-selected')?.textContent, selectedButtons: document.querySelectorAll('.language-row[aria-pressed="true"]').length }))))
   await page.waitForFunction(() => document.querySelector('.overview-filter-summary strong')?.textContent?.trim() === '已筛选 4 / 18 个仓库')
   await pythonButton.asElement().click()
   await page.waitForFunction(() => !document.querySelector('.overview-filter-summary'))
