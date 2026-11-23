@@ -5,7 +5,7 @@ import type {
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 
-import { csv, data, downloadResponse } from './browserApi'
+import { csv, data, downloadResponse, request, type Envelope } from './browserApi'
 export { getBrowserApiData } from './browserApi'
 
 interface ApiRepositoryGroup { id: number; name: string; repository_ids: number[] }
