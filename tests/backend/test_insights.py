@@ -232,7 +232,7 @@ def test_combination_chart_data_is_built_from_stored_events(backend_client):
     response = client.get("/api/v1/repositories/123/insights?window_days=30", headers=HEADERS)
     assert response.status_code == 200, response.text
     charts = response.json()["data"]["chart_data"]
-    assert charts["commit_accounts"] == ["github:42"]
+    assert charts["commit_accounts"] == ["GitHub #42"]
     assert sum(week["unidentified_commits"] for week in charts["commit_weekly"]) == 1
     assert sum(week["observed_events"] for week in charts["issue_opened_weekly"]) == 2
     assert sum(week["observed_events"] for week in charts["issue_closed_weekly"]) == 1

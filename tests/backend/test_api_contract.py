@@ -240,7 +240,12 @@ def test_idempotency_key_cannot_be_reused_for_a_different_operation(backend_clie
 
 
 def test_empty_dataset_and_research_responses_preserve_nullable_contract(backend_client):
-    client, _factory, _github = backend_client
+    client, factory, _github = backend_client
+    # Research datasets are no longer seeded implicitly. Create an empty one
+    # explicitly so the nullable-response contract has a meaningful fixture.
+    with factory() as session:
+        session.add(Dataset(dataset_id="research-2026-v1", name="空白研究数据集", type="research"))
+        session.commit()
     datasets = client.get("/api/v1/datasets", headers=HEADERS)
     assert datasets.status_code == 200
     assert {item["type"] for item in datasets.json()["data"]["items"]} == {"research", "library", "featured"}
@@ -273,6 +278,7 @@ def test_exploratory_research_uses_only_explicit_featured_memberships(backend_cl
     start = datetime(2026, 7, 20)
     end = start + timedelta(days=90)
     with factory() as session:
+        session.add(Dataset(dataset_id="research-2026-v1", name="待确认研究数据集", type="research"))
         featured = session.get(Dataset, "featured-default")
         featured.rules_version = "featured-v1.0.0"
         featured.source_metadata_json = '{"version":"featured-v1.0.0"}'

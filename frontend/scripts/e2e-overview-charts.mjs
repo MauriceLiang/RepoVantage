@@ -73,6 +73,16 @@ try {
 
   await page.goto(new URL('/', base).href, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="overview-visualizations"]')
+  // Save evidence before the rendering assertion fails, so CI diagnostics
+  // distinguish empty data, a visible G2 error, and a canvas mismatch.
+  await page.screenshot({ path: `${outputDir}/overview-before-chart-check.png`, fullPage: true })
+  const debugPanels = await page.evaluate(() => ({
+    chartErrors: Array.from(document.querySelectorAll('.g2-chart__error')).map((element) => element.textContent),
+    language: document.querySelector('.language-panel')?.textContent?.slice(0, 250),
+    scatter: document.querySelector('.scatter-panel')?.textContent?.slice(0, 250),
+    canvases: document.querySelectorAll('.g2-chart__canvas canvas').length,
+  }))
+  console.log('G2 chart diagnostic:', JSON.stringify(debugPanels))
   await page.waitForFunction(() => ['.language-panel', '.scatter-panel'].every((selector) => {
     const canvas = document.querySelector(`${selector} .g2-chart__canvas canvas`)
     return canvas instanceof HTMLCanvasElement && canvas.width > 100 && canvas.height > 100

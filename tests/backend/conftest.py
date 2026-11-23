@@ -45,6 +45,20 @@ class FakeGitHub:
     def search_repositories(self, *_args):
         return {"items": [self.repository], "total_count": 1, "incomplete_results": False}
 
+    # The default integration fixture exposes the same legacy pagination API as
+    # the real GitHub client; detailed pagination is tested separately.
+    def list_commits(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_issues(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_pulls(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
+    def list_releases(self, *_args, **_kwargs):
+        return [], True, ["[]"]
+
     def close(self):
         pass
 
