@@ -23,6 +23,8 @@ jobs:
           tests/backend/test_worker_deep.py
           tests/backend/test_worker_queue.py
           tests/backend/test_api_contract.py
+          tests/backend/test_dataset_import.py
+          tests/backend/test_dataset_bundle.py
 
   browser:
     runs-on: ubuntu-latest
