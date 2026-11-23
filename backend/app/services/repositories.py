@@ -3,7 +3,7 @@ from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import desc, select
+from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
@@ -23,9 +23,8 @@ COURSE_RESEARCH_ID = "course-research-300-v1"
 
 def ensure_default_datasets(session: Session) -> None:
     defaults = (
-        (LIBRARY_ID, "我的分析库", "library", None, None, "共享课程工作区的仓库集合"),
-        (RESEARCH_ID, "开源软件研究样本 v1", "research", "selection-v1", None, "等待通过真实采样清单导入冻结成员；空样本不是研究结果"),
-        (COURSE_RESEARCH_ID, "默认仓库数据集（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "使用已采集的仓库资料、周统计与本地事件快照；不因查看分析而重新拉取"),
+        (LIBRARY_ID, "我的仓库", "library", None, None, "包含精选仓库和用户主动添加的仓库；机器学习研究样本单独保存"),
+        (COURSE_RESEARCH_ID, "机器学习研究样本（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "仅供机器学习数据页与详细研究视图使用；不加入仓库列表"),
         (STANDARD_TEST_ID, STANDARD_TEST_NAME, "research", STANDARD_TEST_ID, None, "从 300 仓库机器学习数据中固定选出的 150 个留出测试仓库；不用于模型训练"),
         (FEATURED_ID, "首页精选", "featured", None, None, "人工维护的公开仓库集合"),
     )
@@ -78,6 +77,7 @@ def make_task(
     scope_kind: str = "quick",
     window_days: int = 90,
     scope_json: str | None = None,
+    progress_motion: str = "bounce",
     retry_of: str | None = None,
     idempotency_key: str | None = None,
 ) -> CollectionTask:
@@ -105,11 +105,20 @@ def make_task(
             return existing
     now = utc_now()
     if depth == "deep" and scope_json is None:
-        scope_json = json.dumps({
+        scope = {
             "window_start": iso_z(now - timedelta(days=window_days)),
             "window_end": iso_z(now),
             "window_days": window_days,
-        })
+        }
+    else:
+        try:
+            scope = json.loads(scope_json or "{}")
+        except (TypeError, ValueError):
+            scope = {}
+        if not isinstance(scope, dict):
+            scope = {}
+    scope["progress_motion"] = progress_motion if progress_motion in {"forward", "bounce"} else "bounce"
+    scope_json = json.dumps(scope, ensure_ascii=False)
     task = CollectionTask(
         task_id=str(uuid4()), repository_id=repository_id, depth=depth, scope_kind=scope_kind,
         scope_json=scope_json, status="queued", retry_of=retry_of, idempotency_key=idempotency_key,
@@ -162,33 +171,110 @@ def analysis_status(session: Session, repository_id: int) -> str:
     return task.status if task.status in {"partial", "failed"} else "not_started"
 
 
-def summary(session: Session, repo: Repository) -> dict[str, Any]:
-    snapshot = latest_snapshot(session, repo.repository_id)
-    task = latest_task(session, repo.repository_id)
-    datasets = session.scalars(select(DatasetRepository.dataset_id).where(DatasetRepository.repository_id == repo.repository_id)).all()
-    has_historical_data = COURSE_RESEARCH_ID in datasets and session.get(MaintenanceRun, f"course150-v1-{repo.repository_id}") is not None
-    status = analysis_status(session, repo.repository_id)
-    if has_historical_data and status in {"not_started", "failed"}:
-        status = "completed" if status == "not_started" else "partial"
-    collected = snapshot.collected_at if snapshot else None
-    data_status = "missing" if collected is None else ("fresh" if utc_now() - collected <= timedelta(hours=get_settings().base_refresh_hours) else "stale")
-    return {
-        "repository_id": repo.repository_id,
-        "full_name": repo.full_name,
-        "description": repo.description,
-        "language": repo.language,
-        "stars": snapshot.stars if snapshot else None,
-        "forks": snapshot.forks if snapshot else None,
-        "created_at": iso_z(repo.created_at),
-        "pushed_at": iso_z(snapshot.pushed_at if snapshot else repo.pushed_at),
-        "archived": repo.archived,
-        "analysis_status": status,
-        "data_status": data_status,
-        "last_successful_collection_at": iso_z(collected),
-        "latest_task_id": task.task_id if task else None,
-        "datasets": sorted(datasets),
-        "has_historical_data": has_historical_data,
+def summaries(session: Session, repositories: list[Repository]) -> list[dict[str, Any]]:
+    if not repositories:
+        return []
+
+    repository_ids = [repo.repository_id for repo in repositories]
+    latest_snapshots = select(
+        RepositorySnapshot.repository_id.label("repository_id"),
+        RepositorySnapshot.collected_at.label("collected_at"),
+        RepositorySnapshot.stars.label("stars"),
+        RepositorySnapshot.forks.label("forks"),
+        RepositorySnapshot.pushed_at.label("pushed_at"),
+        func.row_number().over(
+            partition_by=RepositorySnapshot.repository_id,
+            order_by=(desc(RepositorySnapshot.collected_at), desc(RepositorySnapshot.id)),
+        ).label("position"),
+    ).where(RepositorySnapshot.repository_id.in_(repository_ids), RepositorySnapshot.valid.is_(True)).subquery()
+    snapshots = {
+        row.repository_id: row
+        for row in session.execute(select(latest_snapshots).where(latest_snapshots.c.position == 1))
     }
+
+    latest_tasks = select(
+        CollectionTask.repository_id.label("repository_id"),
+        CollectionTask.task_id.label("task_id"),
+        CollectionTask.status.label("status"),
+        func.row_number().over(
+            partition_by=CollectionTask.repository_id,
+            order_by=(desc(CollectionTask.created_at), desc(CollectionTask.task_id)),
+        ).label("position"),
+    ).where(CollectionTask.repository_id.in_(repository_ids)).subquery()
+    tasks = {
+        row.repository_id: row
+        for row in session.execute(select(latest_tasks).where(latest_tasks.c.position == 1))
+    }
+
+    latest_analyses = select(
+        AnalysisResult.repository_id.label("repository_id"),
+        AnalysisResult.coverage.label("coverage"),
+        func.row_number().over(
+            partition_by=AnalysisResult.repository_id,
+            order_by=(desc(AnalysisResult.source_collected_at), desc(AnalysisResult.result_id)),
+        ).label("position"),
+    ).where(AnalysisResult.repository_id.in_(repository_ids)).subquery()
+    analyses = {
+        row.repository_id: row
+        for row in session.execute(select(latest_analyses).where(latest_analyses.c.position == 1))
+    }
+
+    datasets_by_repository: dict[int, set[str]] = {}
+    for repository_id, dataset_id in session.execute(
+        select(DatasetRepository.repository_id, DatasetRepository.dataset_id).where(DatasetRepository.repository_id.in_(repository_ids))
+    ):
+        datasets_by_repository.setdefault(repository_id, set()).add(dataset_id)
+
+    historical_run_ids = [f"course150-v1-{repository_id}" for repository_id in repository_ids]
+    historical_repository_ids = set(session.scalars(
+        select(MaintenanceRun.repository_id).where(MaintenanceRun.run_id.in_(historical_run_ids))
+    ))
+
+    now = utc_now()
+    refresh_hours = get_settings().base_refresh_hours
+    rows = []
+    for repo in repositories:
+        snapshot = snapshots.get(repo.repository_id)
+        task = tasks.get(repo.repository_id)
+        analysis = analyses.get(repo.repository_id)
+        datasets = datasets_by_repository.get(repo.repository_id, set())
+        has_historical_data = COURSE_RESEARCH_ID in datasets and repo.repository_id in historical_repository_ids
+
+        if analysis is not None:
+            status = "partial" if analysis.coverage == "partial" else "completed"
+        elif task is None:
+            status = "not_started"
+        elif task.status in ("queued", "running"):
+            status = "queued" if task.status == "queued" else "processing"
+        else:
+            status = task.status if task.status in {"partial", "failed"} else "not_started"
+
+        if has_historical_data and status in {"not_started", "failed"}:
+            status = "completed" if status == "not_started" else "partial"
+        collected = snapshot.collected_at if snapshot is not None else None
+        data_status = "missing" if collected is None else ("fresh" if now - collected <= timedelta(hours=refresh_hours) else "stale")
+        rows.append({
+            "repository_id": repo.repository_id,
+            "full_name": repo.full_name,
+            "description": repo.description,
+            "language": repo.language,
+            "stars": snapshot.stars if snapshot is not None else None,
+            "forks": snapshot.forks if snapshot is not None else None,
+            "created_at": iso_z(repo.created_at),
+            "pushed_at": iso_z(snapshot.pushed_at if snapshot is not None else repo.pushed_at),
+            "archived": repo.archived,
+            "analysis_status": status,
+            "data_status": data_status,
+            "last_successful_collection_at": iso_z(collected),
+            "latest_task_id": task.task_id if task is not None else None,
+            "datasets": sorted(datasets),
+            "has_historical_data": has_historical_data,
+        })
+    return rows
+
+
+def summary(session: Session, repo: Repository) -> dict[str, Any]:
+    return summaries(session, [repo])[0]
 
 
 def preview(payload: dict[str, Any], already_in_library: bool) -> dict[str, Any]:
@@ -221,7 +307,8 @@ def preview(payload: dict[str, Any], already_in_library: bool) -> dict[str, Any]
 
 
 def membership_exists(session: Session, repository_id: int) -> bool:
-    return session.get(DatasetRepository, (LIBRARY_ID, repository_id)) is not None
+    membership = session.get(DatasetRepository, (LIBRARY_ID, repository_id))
+    return membership is not None and membership.selection_source is None
 
 
 def enqueue_add(session: Session, github_payload: dict[str, Any], auto_analyze: bool, depth: str, idempotency_key: str | None) -> tuple[dict[str, Any], int]:
@@ -229,12 +316,24 @@ def enqueue_add(session: Session, github_payload: dict[str, Any], auto_analyze: 
     repo = repository_from_github(session, github_payload)
     session.flush()
     membership = session.get(DatasetRepository, (LIBRARY_ID, repo.repository_id))
-    created = membership is None
-    if created:
+    created = membership is None or membership.selection_source is not None
+    if membership is None:
         session.add(DatasetRepository(dataset_id=LIBRARY_ID, repository_id=repo.repository_id))
+    elif membership.selection_source is not None:
+        # Adding an imported sample from the UI is an explicit choice to make it a personal repository.
+        membership.selection_source = None
+        membership.added_at = utc_now()
     task = None
     if auto_analyze and (created or latest_analysis(session, repo.repository_id) is None):
-        task = make_task(session, repo.repository_id, depth, idempotency_key=idempotency_key)
+        task = make_task(
+            session,
+            repo.repository_id,
+            depth,
+            scope_kind="window",
+            window_days=180,
+            progress_motion="forward",
+            idempotency_key=idempotency_key,
+        )
     elif auto_analyze:
         task = session.scalar(select(CollectionTask).where(CollectionTask.repository_id == repo.repository_id, CollectionTask.status.in_(["queued", "running"])).order_by(desc(CollectionTask.created_at)).limit(1))
     result = {

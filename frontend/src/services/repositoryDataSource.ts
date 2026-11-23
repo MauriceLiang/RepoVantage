@@ -1,6 +1,6 @@
 import type {
-  ActivityTrend, CollectionSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
+  ActivityTrend, GitHubTokenSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositoryGroup, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
 } from './types'
 
 /**
@@ -10,10 +10,15 @@ import type {
  * 均实现此接口，调用方无需了解数据来自哪种实现。
  */
 export interface RepositoryDataSource {
-  getCollectionSettings(): Promise<CollectionSettings>
-  saveCollectionSettings(settings: CollectionSettings): Promise<CollectionSettings>
+  getGitHubTokenSettings(): Promise<GitHubTokenSettings>
+  saveGitHubToken(token: string): Promise<GitHubTokenSettings>
+  deleteGitHubToken(): Promise<GitHubTokenSettings>
 
   listRepositories(): Promise<RepositorySummary[]>
+  listRepositoryGroups(): Promise<RepositoryGroup[]>
+  createRepositoryGroup(name: string, repositoryIds?: string[]): Promise<RepositoryGroup>
+  addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup>
+  removeRepositoryFromGroup(groupId: string, repositoryId: string): Promise<RepositoryGroup>
   getFeaturedDatasetStatus(): Promise<FeaturedDatasetStatus>
   importFeaturedDataset(): Promise<FeaturedDatasetImportResult>
   exportFeaturedDataset(): Promise<Blob>
@@ -36,10 +41,12 @@ export interface RepositoryDataSource {
   collectMaintenance(id: string, lookbackWeeks?: 12 | 24): Promise<MaintenanceCollectionResult>
   getCommitActivity(id: string, page: number, perPage: number, search: string, weekStart?: string, windowDays?: TimeWindow): Promise<CommitActivityPage>
   getIssueRecords(id: string, page: number, perPage: number, search: string, windowDays?: TimeWindow): Promise<IssueRecordPage>
+  getIssueChartData(id: string, windowDays?: TimeWindow): Promise<IssueChartData>
   getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail>
   getIssueOnlineDetail(id: string, issueNumber: number): Promise<IssueOnlineDetail>
   exportIssueRecords(id: string, search: string, windowDays?: TimeWindow): Promise<Blob>
   getPullRequestRecords(id: string, page: number, perPage: number, search: string, mergedFrom?: string, mergedTo?: string, windowDays?: TimeWindow): Promise<PullRequestActivityPage>
+  getPullRequestChartData(id: string, windowDays?: TimeWindow): Promise<PullRequestChartData>
   getPullRequestDetail(id: string, pullNumber: number): Promise<PullRequestActivityDetail>
   getPullRequestOnlineDetail(id: string, pullNumber: number): Promise<PullRequestOnlineDetail>
   exportPullRequestRecords(id: string, search: string, mergedFrom?: string, mergedTo?: string, windowDays?: TimeWindow): Promise<Blob>
@@ -53,10 +60,11 @@ export interface RepositoryDataSource {
   deleteSelectionFeedback(id: string): Promise<void>
 
   getResearchDataset(id?: string, mode?: ResearchAnalysisMode | 'auto'): Promise<ResearchDataset>
-  getOverviewDashboard(): Promise<RepositoryDashboardData>
 
   listTasks(): Promise<TaskItem[]>
   retryTask(id: string): Promise<string>
+  deleteTask(id: string): Promise<void>
+  clearTaskHistory(): Promise<number>
   exportInsights(id: string, windowDays: TimeWindow): Promise<Blob>
   exportComparison(ids: string[], windowDays: TimeWindow, mode: ComparisonMode): Promise<Blob>
   exportRepositories(scope: 'library' | 'research', datasetId?: string, mode?: ResearchAnalysisMode): Promise<Blob>

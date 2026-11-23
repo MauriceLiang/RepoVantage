@@ -10,8 +10,7 @@ from backend.app.integrations.github.client import GitHubClient, parse_repositor
 from backend.app.schemas.analytics import SearchResponse
 from backend.app.schemas.common import SuccessEnvelope
 from backend.app.schemas.repositories import RepositoryPreview, ResolveRequest
-from backend.app.services.repositories import LIBRARY_ID, membership_exists, preview
-from backend.app.persistence.models import DatasetRepository
+from backend.app.services.repositories import membership_exists, preview
 
 
 router = APIRouter(prefix="/github", tags=["github"])
@@ -41,8 +40,9 @@ def search_repositories(
     result = github.search_repositories(q, language, stars_min, sort, order, page, per_page)
     rows = []
     for item in result["items"]:
-        is_member = session.get(DatasetRepository, (LIBRARY_ID, item.get("id"))) is not None
-        rows.append(preview(item, is_member))
+        row = preview(item, False)
+        row["already_in_library"] = membership_exists(session, row["repository_id"])
+        rows.append(row)
     visible_total = min(result["total_count"], 1000)
     search_meta = {"total_count": result["total_count"], "incomplete_results": result["incomplete_results"], "result_window_limit": 1000}
     page_meta = pagination(page, per_page, visible_total)

@@ -143,8 +143,7 @@ def selection_report(session, body):
                                  'course_snapshot': row.get('source_kind') == 'course_research_historical_snapshot',
                                  'pattern': observation['maintenance_pattern'],
                                  'recent_activity_change': recent_commit_change(observation['weeks']),
-                                 'activity_trend': observation['activity_trend'],
-                                 'activity_anomaly': observation['activity_anomaly']})
+                                 'activity_trend': observation['activity_trend']})
     available_windows = {(row['pattern']['history_start'], row['pattern']['as_of_utc']) for row in maintenance_rows
                          if row['pattern']['status'] in {'available', 'unclassified'} and row['pattern']['evidence']}
     valid_count = sum(row['pattern']['status'] in {'available', 'unclassified'} and bool(row['pattern']['evidence']) for row in maintenance_rows)
@@ -263,7 +262,7 @@ def selection_markdown(result):
         lines.insert(6, f"- 课程仓库资料快照截至：{safe(data_as_of)}；周活动窗口仍按各指标行标示")
     lines.extend(f"- {safe(name)}：{weight * 100:.1f}%" for name, weight in result["weights"].items())
     lines.extend(["", "## 近期维护行为证据", "",
-                  "本节分别呈现近期默认分支提交模式（M1）、最近 4 周实际变化（统计事实）、未来 4 周活动趋势预测（M2）、近期活动异常提示（MAD 规则）与数据口径。",
+                  "本节分别呈现近期默认分支提交模式（M1）、最近 4 周实际变化（统计事实）、未来 4 周活动趋势预测（M2）与数据口径。",
                   "M1 只描述采集时默认分支最近 12 周的 Commit 模式，不包含 PR、Issue 或社区总体活动判断。",
                   "最近 4 周实际变化是完整周 Commit 事实；未来 4 周活动趋势预测是独立的 M2 模型类别。两者不参与规则得分。"])
     for row in result['maintenance']['repositories']:
@@ -273,7 +272,6 @@ def selection_markdown(result):
             label = (pattern.get('display_name') or pattern.get('pattern_name')) if pattern['method'] == 'machine_learning' else '事实画像'
             recent_change = row.get('recent_activity_change') or {}
             trend = row.get('activity_trend') or {}
-            anomaly = row.get('activity_anomaly') or {}
             if recent_change.get('status') == 'available':
                 actual_change = (f"最近 4 周实际变化（统计事实）：{recent_change['trend']}（{recent_change['recent_4w_commits']} vs "
                                  f"{recent_change['previous_4w_commits']} Commit）；此前窗口 "
@@ -288,14 +286,6 @@ def selection_markdown(result):
             else:
                 forecast = (f"暂不提供未来 4 周活动趋势预测（M2）："
                             f"{explain_reason(trend.get('reason_code') or trend.get('status'))}。")
-            anomaly_method = 'MAD 规则' if anomaly.get('method') == 'statistical_baseline' else 'MAD 规则未运行'
-            if anomaly.get('method') == 'statistical_baseline' and anomaly.get('suspected'):
-                direction = (anomaly.get('weeks') or [{}])[0].get('direction')
-                anomaly_result = {'up': '疑似异常增加，待核查', 'down': '疑似异常减少，待核查'}.get(direction, '疑似异常偏离，待核查')
-            elif anomaly.get('method') == 'statistical_baseline':
-                anomaly_result = '未发现明显异常'
-            else:
-                anomaly_result = f"暂无法判断：{explain_reason(anomaly.get('reason_code') or anomaly.get('status'))}"
             raw_pr_coverage = pattern.get('coverage', {}).get('pull_requests_created', 'unknown')
             pr_coverage = {'complete': '完整', 'partial': '部分覆盖', 'partial_or_unavailable': '部分覆盖或不可用',
                            'not_collected': '未采集', 'unknown': '未知'}.get(raw_pr_coverage, raw_pr_coverage)
@@ -325,7 +315,6 @@ def selection_markdown(result):
             lines.append(f"- {safe(row['full_name'])}：{sample_note}近期默认分支提交模式（M1）{safe(label)}；"
                          f"{commit_fact}"
                          f"{safe(pr_note)}。{safe(actual_change)} {safe(forecast)}"
-                         f"近期活动异常提示（{safe(anomaly_method)}）：{safe(anomaly_result)}；"
                          f"窗口 {safe(pattern.get('history_start') or '—')} — {safe(pattern.get('as_of_utc') or '—')}；来源 {safe(pattern.get('source_run_id') or '—')}。")
         else:
             recent_change = row.get('recent_activity_change') or {}
@@ -360,7 +349,7 @@ def selection_markdown(result):
         lines.append("")
     lines.extend(["## 数据口径与适用性说明", "",
                   "M1 与 M2 依据最近 12 个完整 UTC 周的默认分支 Commit；扩展到 24 周只增加事实背景，不改变模型窗口。",
-                  "PR 创建覆盖独立展示；MAD 是统计规则提示，不是经标签验证的机器学习异常模型。未采集、覆盖不完整或样本不足时不将缺失周视作零。",
+                  "PR 创建覆盖独立展示；未采集、覆盖不完整或样本不足时不将缺失周视作零。",
                   "", "## 技术选型辅助结论（规则与证据分别说明）", ""])
     if result["ranking"]:
         first = result["ranking"][0]
@@ -385,7 +374,7 @@ def selection_markdown(result):
             lines.append(f"{safe(first['full_name'])} 当前以 {first['score']:.1f}/100 排列第一，但其加权指标均无有效样本，分数主要来自中性基准，不构成实测表现优势。")
     else:
         lines.append("当前没有足够可比较的候选，不能形成规则排序或技术选型方向。")
-    lines.append("M1、M2 与 M3 只作为近期维护行为证据，不参与规则排名；本报告不表示功能适配、代码质量或采用成功率，仍需结合具体需求和许可证判断。")
+    lines.append("M1、M2 与最近 4 周实际变化只作为近期维护行为证据，不参与规则排名；本报告不表示功能适配、代码质量或采用成功率，仍需结合具体需求和许可证判断。")
     lines.append("")
     lines.extend(["## 限制", ""])
     lines.extend(f"- {safe(note)}" for note in result["notes"])

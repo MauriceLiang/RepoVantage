@@ -17,6 +17,7 @@ from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import SessionLocal
 from backend.app.schemas.common import ErrorResponse
 from backend.app.services.repositories import ensure_default_datasets
+from backend.app.services.dataset_import import import_featured_bundle
 from backend.app.services.course_research_dataset import CourseBundleError, import_course_research_bundle
 
 
@@ -28,6 +29,8 @@ async def lifespan(_app: FastAPI):
     session = SessionLocal()
     try:
         ensure_default_datasets(session)
+        imported_featured = import_featured_bundle(session)
+        logger.info("Featured repository snapshot ready: %s", imported_featured)
         try:
             imported = import_course_research_bundle(session)
             logger.info("Course research snapshot ready: %s", imported)

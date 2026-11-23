@@ -21,7 +21,8 @@ from backend.app.core.exceptions import AppError
 from backend.app.persistence.models import DatasetRepository, MaintenanceRun, Repository
 
 BUNDLE = PROJECT_ROOT / "data/datasets/course-research-events-300-v1"
-ORIGIN = "course-test-events-v1"
+ORIGIN = "course-research-events-300-v1"
+LEGACY_ORIGIN = "course-test-events-v1"
 COURSE_DATASET_ID = "course-research-300-v1"
 MAX_SQLITE_BYTES = 256 * 1024 * 1024
 
@@ -44,7 +45,8 @@ def _prepare_snapshot(raw_root: Path, manifest_mtime: int, archive_mtime: int, a
             raise ValueError("历史事件清单格式无效")
         expected_size = manifest["sqlite_size"]
         sqlite_hash = manifest.get("sqlite_sha256")
-        if (manifest.get("schema_version") != 1 or manifest.get("dataset_id") != ORIGIN
+        if (manifest.get("schema_version") != 1 or manifest.get("dataset_id") not in {ORIGIN, LEGACY_ORIGIN}
+                or LEGACY_ORIGIN not in manifest.get("legacy_dataset_ids", [LEGACY_ORIGIN])
                 or manifest.get("sample_dataset_id") != COURSE_DATASET_ID or manifest.get("repository_count") != 300
                 or not isinstance(sqlite_hash, str) or len(sqlite_hash) != 64 or any(char not in "0123456789abcdef" for char in sqlite_hash)
                 or type(expected_size) is not int or not 0 < expected_size <= MAX_SQLITE_BYTES
@@ -288,10 +290,11 @@ def historical_insights(session, repository_id: int, window_days: int, *, start=
     return {
         "repository_id": repository_id, "run_id": None, "metric_version": "insights-v1", "status": _insight_status(metrics),
         "window_start": iso_z(start), "window_end": iso_z(end), "timezone": "UTC", "analyzed_at": manifest["source_as_of"],
-        "source_task_ids": [], "source_archive_paths": [], "origin": ORIGIN, "sources": sources,
+        "source_task_ids": [], "source_archive_paths": [], "origin": LEGACY_ORIGIN,
+        "canonical_dataset_id": ORIGIN, "sources": sources,
         "insights": metrics, "chart_data": build_chart_data(events, sources, start, end),
         "requested_window_days": window_days, "window_available": True, "available_window_days": 180,
-        "window_reason": None, "calculation_basis": ORIGIN, "calculated_at": iso_z(utc_now()),
+        "window_reason": None, "calculation_basis": LEGACY_ORIGIN, "calculated_at": iso_z(utc_now()),
         "event_source_task_ids": [], "observed_counts": _observed_event_counts(events, start, end),
         "limitations": [
             f"历史快照的观察窗口截至 {iso_z(available_end)}，不代表实时数据。",

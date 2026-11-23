@@ -27,6 +27,7 @@ class TaskResponse(DTO):
     type: str
     depth: Literal["basic", "deep"] | None = None
     scope_kind: Literal["quick", "window", "incremental", "backfill", "maintenance"] | None = "quick"
+    progress_motion: Literal["forward", "bounce"] | None = None
     window_days: int | None = Field(default=None, ge=1)
     window_start: str | None = None
     window_end: str | None = None
@@ -63,3 +64,7 @@ class RetryResponse(DTO):
     task_id: str
     retry_of: str
     status: Literal["queued"]
+
+
+class TaskDeleteResponse(DTO):
+    deleted_count: int = Field(ge=0)

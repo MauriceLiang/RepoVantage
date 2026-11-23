@@ -1,26 +1,24 @@
-from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Request
 
-from backend.app.api.dependencies import get_session
 from backend.app.api.helpers import envelope
 from backend.app.schemas.common import SuccessEnvelope
-from backend.app.schemas.settings import CollectionSettingsRequest, CollectionSettingsResponse
-from backend.app.services.application_settings import get_github_max_pages, save_github_max_pages
+from backend.app.schemas.settings import GitHubTokenRequest, GitHubTokenStatusResponse
+from backend.app.services.github_token_settings import delete_github_token, get_github_token_status, save_github_token
 
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
 
-@router.get("", response_model=SuccessEnvelope[CollectionSettingsResponse])
-def get_collection_settings(request: Request, session: Session = Depends(get_session)):
-    return envelope(request, {"github_max_pages": get_github_max_pages(session)})
+@router.get("/github-token", response_model=SuccessEnvelope[GitHubTokenStatusResponse])
+def get_github_token_settings(request: Request):
+    return envelope(request, get_github_token_status())
 
 
-@router.post("", response_model=SuccessEnvelope[CollectionSettingsResponse])
-def update_collection_settings(
-    payload: CollectionSettingsRequest,
-    request: Request,
-    session: Session = Depends(get_session),
-):
-    value = save_github_max_pages(session, payload.github_max_pages)
-    return envelope(request, {"github_max_pages": value})
+@router.post("/github-token", response_model=SuccessEnvelope[GitHubTokenStatusResponse])
+def update_github_token(payload: GitHubTokenRequest, request: Request):
+    return envelope(request, save_github_token(payload.token))
+
+
+@router.delete("/github-token", response_model=SuccessEnvelope[GitHubTokenStatusResponse])
+def remove_github_token(request: Request):
+    return envelope(request, delete_github_token())

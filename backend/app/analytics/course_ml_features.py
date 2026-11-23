@@ -218,31 +218,3 @@ def recent_trend_baseline(commits):
     if len(commits) < 8:
         raise InsufficientCourseData("insufficient_trend_history")
     return trend_label(commits[-8:-4], commits[-4:])
-
-
-def anomaly_context(previous_weeks, current, pr_previous=None, pr_current=None):
-    """Return robust log-scale deviations and suspected directions; no accuracy claim."""
-    if (len(previous_weeks) != MODEL_WINDOW_WEEKS - 1
-            or any(type(value) is not int or value < 0 for value in (*previous_weeks, current))):
-        raise ValueError("anomaly detection requires 11 prior weeks and a non-negative current count")
-
-    def score(values, latest):
-        transformed = [math.log1p(value) for value in values]
-        center = sorted(transformed)[len(transformed) // 2]
-        deviations = sorted(abs(value - center) for value in transformed)
-        mad = deviations[len(deviations) // 2]
-        robust_scale = max(1.4826 * mad, 0.25)
-        return (math.log1p(latest) - center) / robust_scale
-
-    commit_score = score(previous_weeks, current)
-    pr_score = None
-    if pr_previous is not None and pr_current is not None:
-        if len(pr_previous) != MODEL_WINDOW_WEEKS - 1 or any(type(value) is not int or value < 0 for value in (*pr_previous, pr_current)):
-            raise ValueError("PR anomaly input must contain 11 prior weeks and a non-negative current count")
-        pr_score = score(pr_previous, pr_current)
-    signals = []
-    for metric, value in (("commit", commit_score), ("pr", pr_score)):
-        if value is None or abs(value) < 3:
-            continue
-        signals.append({"metric": metric, "direction": "up" if value > 0 else "down", "robust_z": value})
-    return {"commit_robust_z": commit_score, "pr_robust_z": pr_score, "signals": signals}

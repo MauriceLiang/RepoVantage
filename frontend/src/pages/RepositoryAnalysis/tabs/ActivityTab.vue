@@ -4,6 +4,7 @@ import AuthorConcentrationChart from '@/components/charts/AuthorConcentrationCha
 import CalendarHeatmap from '@/components/charts/CalendarHeatmap.vue'
 import TrendChart from '@/components/charts/TrendChart.vue'
 import CommitAuthorStackChart from '@/components/charts/CommitAuthorStackChart.vue'
+import ContributionBreakdown from '@/components/charts/ContributionBreakdown.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import GdButton from '@/components/ui/GdButton.vue'
@@ -11,8 +12,9 @@ import GdCard from '@/components/ui/GdCard.vue'
 import GdCoverageNote from '@/components/ui/GdCoverageNote.vue'
 import GdInput from '@/components/ui/GdInput.vue'
 import { useDataSource } from '@/composables/useDataSource'
+import { dailyCoveragePoints } from '@/lib/chartAnalytics'
 import { formatDate, formatTime } from '@/lib/format'
-import type { CommitActivityPage, RepositoryAnalysis, TimePoint } from '@/services/types'
+import type { CommitActivityPage, RepositoryAnalysis } from '@/services/types'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
@@ -33,8 +35,39 @@ const weeklyPoints = computed(() => {
 const pageCount = computed(() => Math.max(1, Math.ceil((activity.value?.total ?? 0) / pageSize)))
 const firstRecord = computed(() => activity.value?.total ? (page.value - 1) * pageSize + 1 : 0)
 const lastRecord = computed(() => Math.min(page.value * pageSize, activity.value?.total ?? 0))
-const dailyPoints = computed<TimePoint[]>(() => (activity.value?.dailyCounts ?? []).map(({ date, count }) => ({ date, value: count })))
+const dailyPoints = computed(() => dailyCoveragePoints(
+  activity.value?.dailyCounts ?? [],
+  activity.value?.windowStart,
+  activity.value?.windowEnd,
+  activity.value?.coverage.state === 'complete',
+))
 const activeDays = computed(() => activity.value?.dailyCounts.length ?? 0)
+const identifiedAuthors = computed(() => (activity.value?.authors ?? []).filter((author) => author.author !== '匿名作者' && author.author !== '未关联账号'))
+const identifiedCommitCount = computed(() => (activity.value?.authorDistribution ?? []).reduce((sum, bucket) => sum + bucket.commits * bucket.authors, 0))
+const contributorRows = computed(() => {
+  const ranked = [...identifiedAuthors.value].sort((left, right) => right.commits - left.commits)
+  const top = ranked.slice(0, 5).map((author) => ({ label: author.author, value: author.commits }))
+  const topTotal = top.reduce((sum, row) => sum + row.value, 0)
+  const other = Math.max(0, identifiedCommitCount.value - topTotal)
+  const unidentified = activity.value?.unidentifiedCommitCount
+  if (other > 0) top.push({ label: '其他已识别作者', value: other })
+  if (unidentified !== null && unidentified !== undefined && unidentified > 0) top.push({ label: '身份未识别', value: unidentified })
+  const colors = ['#356fc7', '#56a58c', '#d1a34a', '#9c78bd', '#ce7189', '#74828e', '#aeb6bd']
+  return top.map((row, index) => ({ ...row, color: colors[index % colors.length] }))
+})
+const botRows = computed(() => {
+  const bot = identifiedAuthors.value.filter((author) => author.isBot === true).reduce((sum, author) => sum + author.commits, 0)
+  const human = identifiedAuthors.value.filter((author) => author.isBot === false).reduce((sum, author) => sum + author.commits, 0)
+  const total = activity.value?.commitCount ?? 0
+  const unclassified = Math.max(0, total - bot - human)
+  return [
+    { label: 'Bot', value: bot, color: '#9c78bd' },
+    { label: '人工账号', value: human, color: '#356fc7' },
+    { label: '长尾/未知类型', value: unclassified, color: '#74828e' },
+  ]
+})
+const contributorTotal = computed(() => contributorRows.value.reduce((sum, row) => sum + row.value, 0))
+const botTotal = computed(() => activity.value?.commitCount ?? 0)
 
 async function loadActivity() {
   const version = ++requestVersion
@@ -98,20 +131,20 @@ function filterAuthor(author: string) {
     <CommitAuthorStackChart v-if="analysis.chartData" :points="weeklyPoints" :data="analysis.chartData" :height="260" @select="selectWeek" />
     <TrendChart v-else :points="weeklyPoints" :unit="analysis.commits.unit" :height="260" :moving-average-window="4" @select="(payload) => selectWeek(payload.dataIndex)" />
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span v-if="analysis.chartData">堆叠柱显示前 5 个 GitHub 账号及其他、未关联账号；半透明表示部分覆盖。折线只统计连续 4 个完整周 · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}。</span>
+      <span v-if="analysis.chartData">堆叠面积显示前 5 个 GitHub 账号及其他、未关联账号；半透明表示部分覆盖。折线只统计连续 4 个完整周 · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}。</span>
       <span v-else>当前数据未提供作者贡献构成，显示每周提交数及完整 4 周均值。</span>
       <span>点击周趋势点，可查看该周已采集的逐条 Commit。</span>
     </div>
   </GdCard>
 
   <div class="grid gap-4 lg:grid-cols-2">
-    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="commit-heatmap-card">
+    <GdCard class="min-h-[460px]" data-testid="commit-heatmap-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">每日提交热力图</h3>
-          <p class="mt-0.5 text-[12px] text-muted">UTC · 拖动图例筛选提交次数；灰格可能为无归档提交或筛选范围外</p>
+          <p class="mt-0.5 text-[12px] text-muted">UTC · 设置每日 Commit 数范围突出对应日期；未命中数据会淡化，灰格也可能表示无归档提交</p>
         </div>
-        <span class="shrink-0 text-[11px] text-muted">{{ activity?.commitCount.toLocaleString('zh-CN') ?? '—' }} 条 · {{ activeDays }} 个活跃日</span>
+        <span class="shrink-0 text-[11px] text-muted">{{ activity?.commitCount.toLocaleString('zh-CN') ?? '—' }} 条 · {{ activeDays }} 个有记录日期</span>
       </div>
       <GdCoverageNote v-if="activity" :coverage="activity.coverage" compact />
       <div v-if="loading && !activity" class="flex min-h-0 flex-1 items-center justify-center text-[12px] text-muted" role="status">正在读取本地 Commit 归档…</div>
@@ -121,11 +154,11 @@ function filterAuthor(author: string) {
       </div>
       <div v-else-if="activity && !activity.available" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] leading-relaxed text-muted">{{ activity.note }}</div>
       <div v-else-if="activity && !activity.dailyCounts.length && (!activity.windowStart || !activity.windowEnd)" class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">本次采集范围内没有可展示的逐条 Commit。</div>
-      <CalendarHeatmap v-else-if="activity" :points="dailyPoints" :window-start="activity.windowStart" :window-end="activity.windowEnd" :height="235" />
+      <CalendarHeatmap v-else-if="activity" :points="dailyPoints" :window-start="activity.windowStart" :window-end="activity.windowEnd" :height="260" />
       <p v-if="activity?.note" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity.note }}</p>
     </GdCard>
 
-    <GdCard class="h-[380px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
+    <GdCard class="h-[500px] min-h-0 overflow-hidden" data-testid="author-concentration-card">
       <div class="flex items-start justify-between gap-3">
         <div>
           <h3 class="m-0 text-[15.5px] font-semibold">作者贡献集中度</h3>
@@ -133,11 +166,26 @@ function filterAuthor(author: string) {
         </div>
         <GdCoverageNote v-if="activity" :coverage="activity.coverage" compact />
       </div>
-      <AuthorConcentrationChart v-if="activity && activity.authors.length" class="min-h-0 flex-1" :authors="activity.authors" :distribution="activity.authorDistribution" :total-commits="activity.commitCount" :unidentified-commit-count="activity.unidentifiedCommitCount" @select-author="filterAuthor" />
+      <AuthorConcentrationChart v-if="activity && identifiedAuthors.length" class="min-h-0 flex-1" :authors="identifiedAuthors" :distribution="activity.authorDistribution" :total-commits="activity.commitCount" :unidentified-commit-count="activity.unidentifiedCommitCount" @select-author="filterAuthor" />
       <div v-else-if="loading" class="flex min-h-0 flex-1 items-center justify-center text-[12px] text-muted" role="status">正在计算作者贡献…</div>
       <div v-else-if="loadError" class="flex min-h-0 flex-1 items-center justify-center text-center text-[12px] text-danger" role="alert">{{ loadError }}</div>
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前没有可识别的作者记录。</div>
-      <p v-if="activity?.available && activity.authors.length" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ analysis.provenance?.origin === 'course-test-events-v1' ? '历史快照中的账号已匿名化，Bot 类型未知。' : '含 Bot；未关联账号按 Git 名称归并。' }}{{ activity.unidentifiedCommitCount === null ? '身份缺失数未知。' : `身份无法识别的 ${activity.unidentifiedCommitCount} 条提交未计入集中度。` }}点击排行可搜索明细。</p>
+      <p v-if="activity?.available && identifiedAuthors.length" class="m-0 text-[10.5px] leading-relaxed text-muted">{{ analysis.provenance?.origin === 'course-test-events-v1' ? '历史快照中的账号已匿名化，Bot 类型未知。' : '含 Bot；未关联账号按 Git 名称归并。' }}{{ activity.unidentifiedCommitCount === null ? '身份缺失数未知。' : `身份无法识别的 ${activity.unidentifiedCommitCount} 条提交未计入集中度。` }}点击排行可搜索明细。</p>
+    </GdCard>
+  </div>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    <GdCard class="min-w-0" data-testid="contributor-composition-card">
+      <div class="flex items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">贡献者构成</h3><p class="mt-0.5 text-[12px] text-muted">前五位作者、其他已识别作者与身份未识别提交</p></div><GdCoverageNote v-if="activity" :coverage="activity.coverage" compact /></div>
+      <ContributionBreakdown v-if="contributorRows.length" :rows="contributorRows" :total="contributorTotal" mode="ranked" label="贡献者提交数量与占比" />
+      <div v-else class="flex h-[180px] items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者记录…' : '暂无贡献者样本' }}</div>
+      <p class="m-0 text-[10.5px] leading-relaxed text-muted">实际样本 {{ contributorTotal.toLocaleString('zh-CN') }} 条。{{ activity?.unidentifiedCommitCount === null ? '身份未识别数量未知，当前仅统计已识别作者分布。' : '作者长尾已合并，未识别身份单独列出。' }}</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="bot-contribution-card">
+      <div class="flex items-start justify-between gap-3"><div><h3 class="m-0 text-[15.5px] font-semibold">Bot 与人工提交</h3><p class="mt-0.5 text-[12px] text-muted">按作者 Bot 标记汇总数量与占比</p></div><GdCoverageNote v-if="activity" :coverage="activity.coverage" compact /></div>
+      <ContributionBreakdown v-if="activity?.available && botTotal > 0" class="flex-1" :rows="botRows" :total="botTotal" mode="summary" label="Bot、人工账号、长尾或类型未知的提交数量" />
+      <div v-else class="flex min-h-[180px] flex-1 items-center justify-center text-[12px] text-muted">{{ loading ? '正在读取作者类型…' : '暂无作者类型样本' }}</div>
+      <p class="m-0 text-[10.5px] leading-relaxed text-muted">{{ activity?.unidentifiedCommitCount === null ? '身份无法识别的提交数量未知。' : `${activity?.unidentifiedCommitCount ?? 0} 条身份未识别提交已归入未知。` }}未知 Bot 类型未归为人工账号。</p>
     </GdCard>
   </div>
 

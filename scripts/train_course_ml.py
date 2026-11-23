@@ -420,10 +420,6 @@ def main():
     CANDIDATE_DIR.mkdir(parents=True)
     pattern = pattern_training(grouped, splits, args.output)
     trend = trend_training(grouped, splits, args.output)
-    anomaly = {"task": "M3 activity_anomaly", "status": "preserved_mad_rule", "retrained": False,
-               "rule": "previous 11 complete weeks log1p median and MAD; flag absolute robust z >= 3",
-               "decision": "沿用现有统计异常提示；本轮没有重训 Isolation Forest。"}
-    write_json(args.output / "evaluations/ml06-activity-anomaly.json", anomaly)
     split_sha256 = sha256(args.split_manifest)
     write_json(args.output / "split_summary.json", {
         "manifest_path": str(args.split_manifest.relative_to(ROOT)),
@@ -442,11 +438,11 @@ def main():
                 "split_version": split_manifest["split_version"], "split_manifest_sha256": split_sha256,
                 "seed": split_manifest["seed"], "python": platform.python_version(), "numpy": np.__version__,
                 "scikit_learn": sklearn.__version__, "split": {"train": len(splits["train"]), "test": len(splits["test"])},
-                "tasks": {"M1": pattern["status"], "M2": trend["status"], "M3": anomaly["status"]},
+                "tasks": {"M1": pattern["status"], "M2": trend["status"]},
                 "data_scope": "既有 300 仓库 52 周聚合资料；不是新采集的独立测试集。"}
     write_json(args.output / "manifest.json", manifest)
     print(json.dumps({"output": str(args.output), "candidate_dir": str(CANDIDATE_DIR),
-                      "tasks": {"M1": pattern["status"], "M2": trend["status"], "M3": anomaly["status"]}}, ensure_ascii=False))
+                      "tasks": {"M1": pattern["status"], "M2": trend["status"]}}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

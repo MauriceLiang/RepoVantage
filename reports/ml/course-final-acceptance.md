@@ -4,6 +4,8 @@
 任务书：`RepoVantage_机器学习课程设计收尾实施方案_v4.1.md`
 基线提交：`311f3c40e9ec8fd34ea415107050d41e23fa2c00`（工作区原有未提交改动已保留）
 
+> 历史验收记录，反映 2026-11-10 的课程版范围。M3 当时是 MAD 统计规则，后续已从当前产品和观测台移除；当前只展示 M1 与 M2。
+
 ## 验收结论
 
 P0–P5 均已完成；P1 的 PR 搜索限流与分页上限已作为覆盖限制如实记录。P4 的真实详情、比较、Markdown 报告和窄屏布局已核验。课程版 ML 按既定边界交付：M1/M2 使用冻结 JSON；M3 明确为 MAD 统计规则；低活跃、短历史及不完整 Commit 数据不会生成正式模型预测。
@@ -19,7 +21,7 @@ P0–P5 均已完成；P1 的 PR 搜索限流与分页上限已作为覆盖限�
 | M1 维护模式 | `ml03-12w-v1` | `5cddec2e2e4d935896357c376bcf5018576a226aa0a27d1b7c9c059af890e0ae` |
 | M2 活跃趋势 | `ml01-trend-12w-v1` | `18a9fb8700de49b1ac27fea995f433ebcba53b71df5d9f915b402535667a918a` |
 
-特征版本 `course-maintenance-12w-v1`。数据文件、SHA、210/45/45 仓库切分和旧指标见 `reports/ml/course-final-baseline.json`。旧 45 仓库已被查看；本轮切分仅用其仓库 ID 重现固定划分，评估样本加载只保留训练／验证仓库，旧测试特征、标签和预测不进入指标或候选选择。训练数据与限制说明另见 `ML_实验结果与选型解释.md`。
+特征版本 `course-maintenance-12w-v1`。数据文件、SHA、210/45/45 仓库切分和旧指标见 `reports/ml/course-final-baseline.json`。旧 45 仓库已被查看；本轮切分仅用其仓库 ID 重现固定划分，评估样本加载只保留训练／验证仓库，旧测试特征、标签和预测不进入指标或候选选择。该实验记录见[模型评估 v4.1](model-evaluation-v41.md)。
 
 ## P1：真实 GitHub 端到端联调
 
@@ -93,6 +95,6 @@ M2 评估运行时 joblib 未能读取 macOS 物理核心数，自动回退到�
 - 300 仓库、15,600 行历史数据及 210/45/45 留仓划分来自既有研究池；这不是新仓库前瞻验证。旧 45 仓库留出指标仅作为已查看的历史回测。
 - 默认分支 Commit 可见性、GitHub Search 限流、100 页分页上限和不足 12 周的新仓库都会影响覆盖；partial 数据不进入不适用的模型推理。
 - 趋势类别不输出未校准概率或精确 Commit 数；M1 模式不代表仓库质量；M3 是规则提示而非已验证 ML 异常预测。
-- 源码和模型 JSON 不等于训练数据移交。完整训练输入位于仓库忽略目录；数据路径、SHA、训练命令和评估证据见 `ML_实验结果与选型解释.md` 与 `reports/ml/course-final-baseline.json`。
+- 源码和模型 JSON 不等于训练数据移交。完整训练输入位于仓库忽略目录；数据路径、SHA、训练命令和评估证据见[模型评估 v4.1](model-evaluation-v41.md)与 `reports/ml/course-final-baseline.json`。
 
 真实 API 结构化证据：`reports/ml/course-final-e2e-v41.json`、`reports/ml/real-api-e2e-v41.json`、`reports/ml/real-api-ui-validation-v41.json`、`reports/ml/real-api-mobile-layout-validation-v41.json`。基础状态快照：`reports/ml/course-final-baseline-status.txt`。本轮没有提交 Git commit。

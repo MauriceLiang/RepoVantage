@@ -1,12 +1,18 @@
 import type {
-  ActivityAnomalySummary, ActivityTrend, ActivityTrendPrediction, CollectionSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
-  IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryStatus, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, RepositoryDashboardData, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
+  ActivityTrend, ActivityTrendPrediction, GitHubTokenSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
+  IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
+  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 
 interface Envelope<T> { data: T; meta?: Record<string, unknown> }
 interface ApiError { error?: { code?: string; message?: string }; request_id?: string }
+
+interface ApiRepositoryGroup { id: number; name: string; repository_ids: number[] }
+
+function mapRepositoryGroup(group: ApiRepositoryGroup): RepositoryGroup {
+  return { id: String(group.id), name: group.name, repositoryIds: group.repository_ids.map(String) }
+}
 
 let csrfToken: string | null = null
 let sessionRequest: Promise<void> | null = null
@@ -74,6 +80,11 @@ async function downloadResponse(path: string, failureLabel: string): Promise<Blo
 
 function csv(path: string): Promise<Blob> {
   return downloadResponse(path, '导出失败')
+}
+
+/** 通过同源浏览器会话读取新增的、由后端提供的研究端点。 */
+export function getBrowserApiData<T>(path: string): Promise<T> {
+  return data<T>(path)
 }
 
 function object(value: unknown): Record<string, any> {
@@ -176,19 +187,6 @@ function recentActivityChange(raw: unknown): RecentActivityChange {
     previousWindowStart: textOrNull(value.previous_window_start_utc), previousWindowEndExclusive: textOrNull(value.previous_window_end_exclusive_utc),
     recentWindowStart: textOrNull(value.recent_window_start_utc), recentWindowEndExclusive: textOrNull(value.recent_window_end_exclusive_utc),
     notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
-}
-function activityAnomalySummary(raw: unknown): ActivityAnomalySummary {
-  const value = object(raw)
-  const status = ['baseline_only', 'partial_data', 'temporarily_unavailable'].includes(value.status)
-    ? value.status as ActivityAnomalySummary['status'] : 'insufficient_data'
-  return { status, method: value.method === 'statistical_baseline' ? 'statistical_baseline' : 'none',
-    suspected: value.suspected === true, reasonCode: textOrNull(value.reason_code),
-    weeks: array(value.weeks).map((rawWeek) => {
-      const week = object(rawWeek)
-      const direction = week.direction === 'up' || week.direction === 'down' ? week.direction : null
-      return { weekStart: String(week.week_start_utc ?? ''), commitCount: Number(week.commit_count ?? 0),
-        robustZ: Number(week.commit_robust_z ?? 0), direction }
-    }), notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
 }
 function mapResearchDataset(selected: Record<string, any>, mode: ResearchAnalysisMode, insights: Record<string, any>, quality: Record<string, any>): ResearchDataset {
   const datasetId = String(selected.dataset_id)
@@ -364,6 +362,7 @@ function mapRepository(value: Record<string, any>, extras: Record<string, any> =
     sizeKb: numberOrNull(value.size_kb),
     openIssuesAndPrCount: numberOrNull(value.open_issues_and_pr_count),
     status: mapStatus(raw.analysis_status),
+    dataStatus: raw.data_status === 'fresh' || raw.data_status === 'stale' || raw.data_status === 'missing' ? raw.data_status : undefined,
     lastAnalyzedAt: shortDate(raw.last_successful_collection_at),
     activityDelta: null,
     htmlUrl: textOrNull(value.html_url) ?? `https://github.com/${fullName}`,
@@ -554,31 +553,72 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return downloadResponse('/datasets/featured/export', '精选数据包下载失败')
   }
 
-  async getCollectionSettings(): Promise<CollectionSettings> {
-    const settings = await data<{ github_max_pages: number }>('/settings')
-    return { githubMaxPages: settings.github_max_pages }
+  async getGitHubTokenSettings(): Promise<GitHubTokenSettings> {
+    const settings = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token')
+    return { configured: Boolean(settings.configured), managedByEnvironment: Boolean(settings.managed_by_environment) }
   }
 
-  async saveCollectionSettings(settings: CollectionSettings): Promise<CollectionSettings> {
-    const saved = await data<{ github_max_pages: number }>('/settings', {
+  async saveGitHubToken(token: string): Promise<GitHubTokenSettings> {
+    const saved = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token', {
       method: 'POST',
-      body: JSON.stringify({ github_max_pages: settings.githubMaxPages }),
+      body: JSON.stringify({ token }),
     })
-    return { githubMaxPages: saved.github_max_pages }
+    return { configured: Boolean(saved.configured), managedByEnvironment: Boolean(saved.managed_by_environment) }
+  }
+
+  async deleteGitHubToken(): Promise<GitHubTokenSettings> {
+    const saved = await data<{ configured: boolean; managed_by_environment: boolean }>('/settings/github-token', { method: 'DELETE' })
+    return { configured: Boolean(saved.configured), managedByEnvironment: Boolean(saved.managed_by_environment) }
   }
 
   async listRepositories(): Promise<RepositorySummary[]> {
-    const items: Record<string, any>[] = []
-    let page = 1
-    let hasNext = true
-    while (hasNext) {
-      const params = new URLSearchParams({ sort: 'last_collected', order: 'desc', page: String(page), per_page: '100' })
-      const result = await request<Envelope<{ items: Record<string, any>[] }>>(`/library/repositories?${params}`)
-      items.push(...result.data.items)
-      hasNext = object(result.meta?.pagination).has_next === true
-      page += 1
+    const perPage = 100
+    const loadPage = async (page: number) => {
+      const params = new URLSearchParams({ sort: 'last_collected', order: 'desc', page: String(page), per_page: String(perPage) })
+      return request<Envelope<{ items: Record<string, any>[] }>>(`/library/repositories?${params}`)
+    }
+    const firstPage = await loadPage(1)
+    const items = [...firstPage.data.items]
+    const pagination = object(firstPage.meta?.pagination)
+    const total = numberOrNull(pagination.total)
+    if (total !== null) {
+      const pageCount = Math.ceil(total / perPage)
+      const pages = await Promise.all(Array.from({ length: Math.max(0, pageCount - 1) }, (_, index) => loadPage(index + 2)))
+      items.push(...pages.flatMap((page) => page.data.items))
+    } else {
+      let page = 1
+      let hasNext = pagination.has_next === true
+      while (hasNext) {
+        const nextPage = await loadPage(++page)
+        items.push(...nextPage.data.items)
+        hasNext = object(nextPage.meta?.pagination).has_next === true
+      }
     }
     return items.map((item) => mapRepository(item))
+  }
+
+  async listRepositoryGroups(): Promise<RepositoryGroup[]> {
+    return (await data<ApiRepositoryGroup[]>('/library/groups')).map(mapRepositoryGroup)
+  }
+
+  async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>('/library/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name, repository_ids: repositoryIds.map(repositoryId) }),
+    }))
+  }
+
+  async addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>(`/library/groups/${encodeURIComponent(groupId)}/repositories`, {
+      method: 'POST',
+      body: JSON.stringify({ repository_ids: repositoryIds.map(repositoryId) }),
+    }))
+  }
+
+  async removeRepositoryFromGroup(groupId: string, id: string): Promise<RepositoryGroup> {
+    return mapRepositoryGroup(await data<ApiRepositoryGroup>(`/library/groups/${encodeURIComponent(groupId)}/repositories/${repositoryId(id)}`, {
+      method: 'DELETE',
+    }))
   }
 
   async getActivityTrend(id: string): Promise<ActivityTrend> {
@@ -610,7 +650,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       const refreshed = await data<Record<string, any>>(`/repositories/${id}/refresh`, {
         method: 'POST',
         headers: { 'Idempotency-Key': crypto.randomUUID() },
-        body: JSON.stringify({ depth: 'deep', force: false }),
+        body: JSON.stringify({ depth: 'deep', force: false, scope_kind: 'window', window_days: 180 }),
       })
       return { repositoryId: String(id), taskId: textOrNull(refreshed.task_id), existing: true }
     }
@@ -809,7 +849,6 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       maintenancePattern: maintenancePattern(result.maintenance_pattern),
       recentActivityChange: recentActivityChange(result.recent_activity_change),
       activityTrend: activityTrendPrediction(result.activity_trend),
-      activityAnomaly: activityAnomalySummary(result.activity_anomaly),
     }
   }
 
@@ -846,6 +885,28 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         label: String(rawCoverage.label ?? '覆盖未知'),
         detail: textOrNull(rawCoverage.detail) ?? undefined,
       },
+      note: String(result.note ?? ''),
+      windowStart: textOrNull(result.window_start),
+      windowEnd: textOrNull(result.window_end),
+    }
+  }
+
+  async getIssueChartData(id: string, windowDays?: TimeWindow): Promise<IssueChartData> {
+    const params = new URLSearchParams()
+    if (windowDays) params.set('window_days', String(windowDays))
+    const query = params.size ? `?${params}` : ''
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/issues/chart-data${query}`)
+    const rawCoverage = object(result.coverage)
+    const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
+    return {
+      items: array(result.items).flatMap((item) => {
+        const closedAt = textOrNull(item.closed_at)
+        return closedAt ? [{ closedAt, durationDays: numberOrNull(item.duration_days) }] : []
+      }),
+      total: numberOrNull(result.total) ?? 0,
+      complete: result.complete === true,
+      available: result.available === true,
+      coverage: { state, label: String(rawCoverage.label ?? '覆盖未知'), detail: textOrNull(rawCoverage.detail) ?? undefined },
       note: String(result.note ?? ''),
       windowStart: textOrNull(result.window_start),
       windowEnd: textOrNull(result.window_end),
@@ -972,6 +1033,42 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getPullRequestChartData(id: string, windowDays?: TimeWindow): Promise<PullRequestChartData> {
+    const params = new URLSearchParams()
+    if (windowDays) params.set('window_days', String(windowDays))
+    const query = params.size ? `?${params}` : ''
+    const result = await data<Record<string, any>>(`/repositories/${repositoryId(id)}/pull-requests/chart-data${query}`)
+    const rawCoverage = object(result.coverage)
+    const state = rawCoverage.state === 'complete' || rawCoverage.state === 'partial' ? rawCoverage.state : 'missing'
+    return {
+      items: array(result.items).map((item) => ({
+        mergedAt: textOrNull(item.merged_at),
+        durationDays: numberOrNull(item.duration_days),
+        state: item.state === 'merged' ? 'merged' : 'closed',
+        commentsCount: numberOrNull(item.comments_count),
+      })),
+      pageItems: array(result.page_items).map((item) => ({
+        number: numberOrNull(item.number) ?? 0,
+        title: String(item.title ?? ''),
+        createdAt: textOrNull(item.created_at),
+        closedAt: textOrNull(item.closed_at),
+        mergedAt: textOrNull(item.merged_at),
+        durationDays: numberOrNull(item.duration_days),
+        state: item.state === 'merged' ? 'merged' : 'closed',
+        draft: item.draft === true,
+        commentsCount: numberOrNull(item.comments_count),
+        url: textOrNull(item.url) ?? undefined,
+      })),
+      total: numberOrNull(result.total) ?? 0,
+      complete: result.complete === true,
+      available: result.available === true,
+      coverage: { state, label: String(rawCoverage.label ?? '覆盖未知'), detail: textOrNull(rawCoverage.detail) ?? undefined },
+      note: String(result.note ?? ''),
+      windowStart: textOrNull(result.window_start),
+      windowEnd: textOrNull(result.window_end),
+    }
+  }
+
   async getPullRequestDetail(id: string, pullNumber: number): Promise<PullRequestActivityDetail> {
     const item = await data<Record<string, unknown>>(`/repositories/${repositoryId(id)}/pull-requests/${pullNumber}`)
     return {
@@ -1054,7 +1151,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         dataAsOf: textOrNull(maintenance.data_as_of),
         repositories: array(maintenance.repositories).map((row) => ({ id: String(row.repository_id), name: String(row.full_name), sampleRole: row.sample_role === 'train' || row.sample_role === 'test' ? row.sample_role : null, pattern: maintenancePattern(row.pattern),
           recentActivityChange: recentActivityChange(row.recent_activity_change),
-          activityTrend: activityTrendPrediction(row.activity_trend), activityAnomaly: activityAnomalySummary(row.activity_anomaly) })) },
+          activityTrend: activityTrendPrediction(row.activity_trend) })) },
       notes: Array.isArray(result.notes) ? result.notes.map(String) : [],
       reportMarkdown: String(result.report_markdown ?? ''),
       resultSignature: String(result.result_signature ?? ''),
@@ -1178,38 +1275,6 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     return load(selected, requestedMode)
   }
 
-  async getOverviewDashboard(): Promise<RepositoryDashboardData> {
-    const params = new URLSearchParams({ dataset_id: 'course-research-300-v1' })
-    const result = await data<Record<string, any>>(`/research/dashboard?${params}`)
-    const summary = object(result.course_summary)
-    return {
-      id: String(result.dataset_id ?? 'course-research-300-v1'),
-      name: String(result.name ?? '默认仓库数据集（300 个仓库）'),
-      repositoryCount: Number(result.repository_count ?? 0),
-      courseSummary: {
-        dataAsOf: textOrNull(summary.data_as_of),
-        weeklyRecords: Number(summary.weekly_records ?? 0),
-        completeCommitRepositories: Number(summary.repositories_with_12_complete_commit_weeks ?? 0),
-      },
-      courseLanguageGroups: array(result.course_language_groups).map((group) => ({
-        language: String(group.language ?? '未知'),
-        repositoryCount: Number(group.repository_count ?? 0),
-        commitSampleCount: Number(group.commit_sample_count ?? 0),
-        weeklyCommitMean: numberOrNull(group.weekly_commit_mean),
-      })),
-      courseRepositories: array(result.course_repositories).map((repository) => ({
-        repositoryId: String(repository.repository_id ?? ''),
-        fullName: String(repository.full_name ?? ''),
-        language: String(repository.language ?? '未知'),
-        weeklyCommitMean: numberOrNull(repository.weekly_commit_mean),
-        activeWeeks: numberOrNull(repository.active_weeks),
-        stars: numberOrNull(repository.stars),
-        forks: numberOrNull(repository.forks),
-        createdAt: shortDate(repository.created_at),
-      })),
-    }
-  }
-
   async exportResearchStatistics(datasetId: string, mode: ResearchAnalysisMode): Promise<Blob> {
     const params = new URLSearchParams({ dataset_id: datasetId, analysis_mode: mode })
     return csv(`/exports/research-insights.csv?${params}`)
@@ -1239,6 +1304,7 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         phase: textOrNull(task.phase),
         progressPercent: numberOrNull(task.progress_percent),
         progressKind: task.progress_kind === 'stages' || task.progress_kind === 'records' || task.progress_kind === 'indeterminate' ? task.progress_kind : 'unknown',
+        ...(!datasetImport ? { progressMotion: task.progress_motion === 'forward' ? 'forward' as const : 'bounce' as const } : {}),
         scopeKind: task.scope_kind === 'backfill' || task.scope_kind === 'incremental' || task.scope_kind === 'window' || task.scope_kind === 'maintenance' ? task.scope_kind : task.scope_kind === null ? null : 'quick',
         windowDays: numberOrNull(task.window_days),
         windowStart: textOrNull(task.window_start),
@@ -1271,6 +1337,15 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
       headers: { 'Idempotency-Key': crypto.randomUUID() },
     })
     return String(result.task_id)
+  }
+
+  async deleteTask(id: string): Promise<void> {
+    await data<{ deleted_count: number }>(`/tasks/${encodeURIComponent(id)}`, { method: 'DELETE' })
+  }
+
+  async clearTaskHistory(): Promise<number> {
+    const result = await data<{ deleted_count: number }>('/tasks', { method: 'DELETE' })
+    return Number(result.deleted_count ?? 0)
   }
 
   exportInsights(id: string, windowDays: TimeWindow): Promise<Blob> {

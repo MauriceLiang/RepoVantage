@@ -122,7 +122,12 @@ def collect_deep(
                     observation, relative_path,
                 )
                 if reporter:
-                    reporter.page_fetched(module, observation.pages_fetched, observation.observed_items)
+                    reporter.page_fetched(
+                        module,
+                        observation.pages_fetched,
+                        observation.observed_items,
+                        total_pages=observation.total_pages,
+                    )
                 log_page_progress(
                     task_id=task.task_id,
                     repository_id=task.repository_id,

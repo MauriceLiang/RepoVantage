@@ -1,24 +1,30 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
+import type { G2Spec } from '@antv/g2'
 import GdCard from '@/components/ui/GdCard.vue'
 import KpiStrip from '@/components/common/KpiStrip.vue'
 import ObservationList from '@/components/common/ObservationList.vue'
 import CommitActivityComboChart from '@/components/charts/CommitActivityComboChart.vue'
 import GroupedChart from '@/components/charts/GroupedChart.vue'
-import ReleaseIntervalMiniChart from '@/components/charts/ReleaseIntervalMiniChart.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
+import G2Chart from '@/components/charts/G2Chart.vue'
+import TimelineChart from '@/components/charts/TimelineChart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
-import type { ReleaseRecord, RepositoryAnalysis } from '@/services/types'
-import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
+import MaintenanceInsights from './MaintenanceInsights.vue'
+import { useAsyncData } from '@/composables/useAsyncData'
+import { useDataSource } from '@/composables/useDataSource'
+import type { RepositoryAnalysis, RepositoryEvaluation } from '@/services/types'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
 const emit = defineEmits<{ 'select-week': [payload: { date: string; count: number }] }>()
 const repoId = computed(() => props.analysis.repository.id)
+const source = useDataSource()
+const { data: evaluation, loading: evaluationLoading, error: evaluationError } = useAsyncData<RepositoryEvaluation>(
+  () => source.getEvaluation(String(repoId.value)),
+  () => repoId.value,
+)
 const overviewObservations = computed(() => props.analysis.observations.filter((item) => item.id !== 'commit-trend'))
-const { openRelease } = useReleaseDrawer(() => repoId.value, () => props.analysis.provenance?.origin === 'course-test-events-v1')
-const selectedReleaseWeek = ref<{ date: string; releases: ReleaseRecord[] } | null>(null)
-watch([repoId, () => props.analysis.windowAvailability.requestedDays, () => props.analysis.releases], () => { selectedReleaseWeek.value = null })
-
 const commitsPoints = computed(() => {
   const points = props.analysis.commits.series[0]?.points ?? []
   return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
@@ -53,6 +59,52 @@ const medianInterval = computed(() => {
   const middle = Math.floor(days.length / 2)
   return days.length % 2 ? days[middle] : (days[middle - 1] + days[middle]) / 2
 })
+const contributorRows = computed(() => {
+  const chartData = props.analysis.chartData
+  if (!chartData) return []
+  const totals = chartData.commitAccounts.map((author) => ({ label: author, value: 0 }))
+  let other = 0
+  let unidentified = 0
+  for (const week of chartData.commitWeekly) {
+    if (!week.complete) continue
+    totals.forEach((row, index) => { row.value += week.contributors[index] ?? 0 })
+    other += week.otherCommits
+    unidentified += week.unidentifiedCommits
+  }
+  const rows = totals.filter((row) => row.value > 0).slice(0, 5)
+  if (other > 0) rows.push({ label: '其他已识别作者', value: other })
+  if (unidentified > 0) rows.push({ label: '身份未识别', value: unidentified })
+  return rows
+})
+const contributorTotal = computed(() => contributorRows.value.reduce((sum, row) => sum + row.value, 0))
+const completeCommitWeeks = computed(() => props.analysis.chartData?.commitWeekly.filter((week) => week.complete).length ?? 0)
+const waterfallData = computed(() => {
+  const change = evaluation.value?.recentActivityChange
+  if (!change || change.status !== 'available'
+      || change.previous4wCommits === null || change.recent4wCommits === null || change.changeCount === null
+      || !change.previousWindowStart || !change.previousWindowEndExclusive
+      || !change.recentWindowStart || !change.recentWindowEndExclusive
+      || change.previous4wCommits + change.changeCount !== change.recent4wCommits) return []
+  const afterChange = change.previous4wCommits + change.changeCount
+  return [
+    { stage: '此前 4 周', kind: '窗口合计', start: 0, end: change.previous4wCommits, value: change.previous4wCommits, window: `${change.previousWindowStart.slice(0, 10)} 至 ${change.previousWindowEndExclusive.slice(0, 10)}` },
+    { stage: '变化量', kind: change.changeCount >= 0 ? '增加' : '减少', start: Math.min(change.previous4wCommits, afterChange), end: Math.max(change.previous4wCommits, afterChange), value: change.changeCount, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}` },
+    { stage: '最近 4 周', kind: '窗口合计', start: 0, end: change.recent4wCommits, value: change.recent4wCommits, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}` },
+  ]
+})
+const waterfallSpec = computed<G2Spec>(() => ({
+  type: 'interval',
+  data: waterfallData.value,
+  encode: { x: 'stage', y: ['end', 'start'], color: 'kind' },
+  scale: { color: { domain: ['窗口合计', '增加', '减少'], range: ['#73828d', '#4e927d', '#c47a59'] }, y: { zero: true } },
+  axis: { x: { labelFontSize: 10 }, y: { title: 'Commit 总量', gridLineDash: [3, 3] } },
+  legend: false,
+  tooltip: { title: 'stage', items: [
+    { field: 'kind', name: '阶段' },
+    { field: 'value', name: 'Commit' },
+    { field: 'window', name: 'UTC 窗口' },
+  ] },
+}))
 
 function durationLabel(days: number | null) {
   if (days === null) return '—'
@@ -67,16 +119,6 @@ function selectCommit(dataIndex: number) {
   }
 }
 
-function selectRelease(release: ReleaseRecord) {
-  selectedReleaseWeek.value = null
-  void openRelease(release)
-}
-
-function releaseTime(value: string) {
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? value : `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
-}
-
 function repositorySizeLabel(sizeKb: number | null | undefined) {
   if (sizeKb == null) return '—'
   if (sizeKb >= 1024) return `${(sizeKb / 1024).toLocaleString('zh-CN', { maximumFractionDigits: 1 })} MB`
@@ -86,13 +128,14 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
 
 <template>
   <KpiStrip :metrics="analysis.metrics.metrics" />
+  <MaintenanceInsights :repository-id="String(repoId)" :repository="analysis.repository" />
 
   <GdCard>
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h3 class="m-0 text-[15.5px] font-semibold">开发活动</h3>
         <p class="mt-0.5 text-[12px] text-muted">
-          提交规模与活跃账号按 UTC 自然周聚合 · Release 标记在对应周 · {{ analysis.commits.window.start }} 至 {{ analysis.commits.window.end }}
+          提交规模与活跃账号按 UTC 自然周聚合 · {{ analysis.commits.window.start }} 至 {{ analysis.commits.window.end }}
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2">
@@ -103,32 +146,36 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
       <CommitActivityComboChart
         :points="commitsPoints"
         :weeks="analysis.chartData?.commitWeekly ?? []"
-        :releases="analysis.releases"
         :window-start="analysis.commits.window.startUtc ?? analysis.commits.window.start"
         :window-end="analysis.commits.window.endUtc ?? analysis.commits.window.end"
         @select="selectCommit"
-        @select-releases="selectedReleaseWeek = $event"
       />
-      <div v-if="selectedReleaseWeek" class="absolute bottom-10 right-2 z-10 w-80 max-w-[calc(100%-1rem)] rounded-lg border border-line bg-panel p-3 shadow-lg" role="region" :aria-label="`${selectedReleaseWeek.date} 起的 UTC 周的正式发布`" data-testid="activity-release-list">
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-[12px] font-semibold">{{ selectedReleaseWeek.date }} 起的 UTC 周 · {{ selectedReleaseWeek.releases.length }} 次发布</span>
-          <button type="button" class="shrink-0 text-[11px] text-muted hover:text-ink" aria-label="关闭发布列表" @click="selectedReleaseWeek = null">关闭</button>
-        </div>
-        <div class="mt-2 max-h-36 overflow-y-auto overscroll-contain">
-          <button v-for="release in selectedReleaseWeek.releases" :key="`${release.tag}-${release.publishedAt}`" type="button" class="flex w-full items-center justify-between gap-3 border-t border-line py-2 text-left hover:text-ink" @click="selectRelease(release)">
-            <span class="min-w-0"><span class="block break-all text-[12px] font-medium text-ink">{{ release.identifierType === 'release_id' ? `Release #${release.tag}` : release.tag }}</span><time class="font-mono text-[10px] text-muted">{{ releaseTime(release.publishedAt) }}</time></span>
-            <span class="shrink-0 text-[11px] text-muted">查看详情 →</span>
-          </button>
-        </div>
-      </div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>橙色面积为完整周提交量；{{ analysis.chartData ? '蓝线为活跃账号，空心点表示未完整周的已观察样本。' : '当前数据未提供活跃账号趋势。' }}左右轴分别计量，粉色菱形标记正式 Release；未覆盖数据不补零。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
-      <span>点击面积或账号点查看 Commit；点击菱形查看版本</span>
+      <span>左图柱表示完整周 Commit，虚线为连续四个完整周均值；右图面积表示活跃账号趋势。空心点表示部分覆盖的已观察样本。未覆盖数据不补零。SHA 去重 · UTC · 有效样本 {{ analysis.commits.sampleSize?.toLocaleString('en-US') ?? '—' }}</span>
+      <span>点击 Commit 或账号趋势查看周明细</span>
     </div>
   </GdCard>
 
-  <div class="grid gap-4 lg:grid-cols-3">
+  <div class="grid gap-4 lg:grid-cols-2">
+    <GdCard class="min-w-0" data-testid="overview-contributor-composition">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">贡献者构成</h3><p class="mt-0.5 text-[12px] text-muted">Top 5 账号、其他已识别作者与身份未识别提交</p></div>
+      <DonutChart v-if="contributorRows.length" :rows="contributorRows" :total="contributorTotal.toLocaleString('zh-CN')" center-label="完整周 Commit" label="仓库贡献者 Commit 构成环形图" :height="245" />
+      <div v-else class="flex h-[245px] items-center justify-center text-[12px] text-muted">暂无完整周作者贡献样本</div>
+      <p class="m-0 text-[10.5px] leading-relaxed text-muted">纳入 {{ completeCommitWeeks }} / {{ analysis.chartData?.commitWeekly.length ?? 0 }} 个完整 UTC 周，共 {{ contributorTotal.toLocaleString('zh-CN') }} 次 Commit；不完整周不进入构成统计，Bot 身份不从账号名称推断。</p>
+    </GdCard>
+
+    <GdCard class="min-w-0" data-testid="overview-activity-waterfall">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">最近 4 周活动变化</h3><p class="mt-0.5 text-[12px] text-muted">前后完整窗口的 Commit 总量与净变化</p></div>
+      <div v-if="evaluationLoading" class="flex h-[245px] items-center justify-center text-[12px] text-muted" role="status">正在读取维护窗口…</div>
+      <div v-else-if="evaluationError" class="flex h-[245px] items-center justify-center text-center text-[12px] text-muted" role="alert">读取失败：{{ evaluationError }}</div>
+      <G2Chart v-else-if="waterfallData.length" :spec="waterfallSpec" label="最近与此前四周 Commit 总量的瀑布变化图" :height="245" />
+      <div v-else class="flex h-[245px] items-center justify-center text-center text-[12px] text-muted">{{ evaluation?.recentActivityChange.reasonCode ?? '当前没有可比较的完整前后窗口' }}</div>
+      <p v-if="waterfallData.length" class="m-0 text-[10.5px] leading-relaxed text-muted">前后各 4 个完整 UTC 周的半开区间；变化量只表示 Commit 数差，不等于待处理工作量。</p>
+    </GdCard>
+  </div>
+
+  <div class="grid items-stretch gap-4 lg:grid-cols-3">
     <GdCard>
       <div class="flex items-start justify-between gap-3">
         <div>
@@ -142,7 +189,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/issues`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#E5A03A', '#CE3F7C']" :height="112" :show-legend="false" />
+      <GroupedChart :series="analysis.issues.series" :unit="analysis.issues.unit" :colors="['#E5A03A', '#CE3F7C']" :height="150" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.issueDuration.percentiles.p50 ?? '—' }} 天</b>
         <span class="text-[11px] leading-tight text-muted">关闭耗时 P50<br />n={{ analysis.issueDuration.sampleSize }} · P90 <span :title="analysis.issueDuration.percentiles.p90 == null ? undefined : `${analysis.issueDuration.percentiles.p90.toLocaleString('zh-CN')} 天`">{{ durationLabel(analysis.issueDuration.percentiles.p90) }}</span></span>
@@ -157,7 +204,7 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
         </div>
         <RouterLink :to="`/repositories/${repoId}/prs`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#CE3F7C', '#2E8FCB']" :height="112" :show-legend="false" />
+      <GroupedChart :series="analysis.pullRequests.series" :unit="analysis.pullRequests.unit" :colors="['#CE3F7C', '#2E8FCB']" :height="150" :show-legend="false" />
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ analysis.prDuration.percentiles.p50 ?? '—' }} 天</b>
         <span class="text-[11px] leading-tight text-muted">合并耗时 P50<br />n={{ analysis.prDuration.sampleSize }} · P90 {{ analysis.prDuration.percentiles.p90 ?? '—' }} 天</span>
@@ -167,16 +214,16 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
     <GdCard>
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h3 class="m-0 text-[14.5px] font-semibold">版本发布</h3>
-          <p class="mt-0.5 text-[11.5px] text-muted">相邻正式发布间隔 · 近 365 天</p>
+          <h3 class="m-0 text-[14.5px] font-semibold">Release 时间线</h3>
+          <p class="mt-0.5 text-[11.5px] text-muted">按时间段统计正式版与预发布版数量</p>
         </div>
         <RouterLink :to="`/repositories/${repoId}/releases`" class="gd-link text-[11.5px]">查看分析 <ArrowRight :size="12" /></RouterLink>
       </div>
-      <ReleaseIntervalMiniChart v-if="releaseIntervalPoints.length" :items="releaseIntervalPoints" :height="112" />
-      <div v-else class="flex h-[112px] items-center justify-center text-center text-[11px] text-muted">当前范围只有 {{ formalReleases.length }} 次正式发布，暂无可计算间隔</div>
+      <TimelineChart v-if="analysis.releases.length" :releases="analysis.releases" :compact="true" :height="150" />
+      <div v-else class="flex h-[150px] items-center justify-center text-center text-[11px] text-muted">当前没有已采集的 Release 时间点</div>
       <div class="flex items-end gap-3">
         <b class="text-[20px] font-semibold">{{ medianInterval?.toLocaleString('en-US', { maximumFractionDigits: 1 }) ?? '—' }} 天</b>
-        <span class="text-[11px] leading-tight text-muted">发布间隔 P50 · n={{ releaseIntervalPoints.length }} 个间隔<br />{{ formalReleases.length }} 次正式发布 · 最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
+        <span class="text-[11px] leading-tight text-muted">正式版间隔 P50 · n={{ releaseIntervalPoints.length }}<br />{{ formalReleases.length }} 次正式发布 · 最近 {{ latestReleaseLabel }} · {{ latestRelease?.publishedAt.slice(0, 10) ?? '—' }}</span>
       </div>
     </GdCard>
   </div>

@@ -43,6 +43,7 @@ BUNDLE_MAX_BYTES = 256 * 1024 * 1024
 UNCOMPRESSED_MAX_BYTES = 1024 * 1024 * 1024
 MAX_RECORDS = 1_000_000
 MODULES = ("commits", "issues", "pulls", "releases")
+FEATURED_LIBRARY_SEEDED_KEY = "featured_library_seeded_v1"
 DATA_FILES = (
     "repositories.jsonl.gz",
     "snapshots.jsonl.gz",
@@ -648,6 +649,7 @@ def _import_records(
     source_task_id = task_id or f"bundle-{metadata['version']}-{bundle_hash[:12]}"
     begin_immediate(session)
     try:
+        seed_featured_library = session.get(ApplicationSetting, FEATURED_LIBRARY_SEEDED_KEY) is None
         dataset = session.get(Dataset, FEATURED_ID)
         if dataset is not None:
             source_meta = _json_object(dataset.source_metadata_json)
@@ -699,6 +701,8 @@ def _import_records(
             for dataset_id in (FEATURED_ID, LIBRARY_ID):
                 member = session.get(DatasetRepository, (dataset_id, repository_id))
                 if member is None:
+                    if dataset_id == LIBRARY_ID and not seed_featured_library:
+                        continue
                     source_member = membership_by_repo[repository_id]
                     session.add(DatasetRepository(
                         dataset_id=dataset_id,
@@ -706,12 +710,21 @@ def _import_records(
                         added_at=parse_github_datetime(source_member.get("added_at")) or now,
                         selection_tier=source_member.get("selection_tier") if dataset_id == FEATURED_ID else None,
                         inclusion_reason=source_member.get("inclusion_reason") if dataset_id == FEATURED_ID else None,
-                        selection_source="featured bundle v1" if dataset_id == FEATURED_ID else "featured bundle import",
+                        selection_source="featured bundle v1" if dataset_id == FEATURED_ID else None,
                     ))
                     if dataset_id == FEATURED_ID:
                         counts["imported_count"] += 1
+                elif dataset_id == LIBRARY_ID and seed_featured_library:
+                    # Promote bundled samples into the visible repository picker once.
+                    member.selection_source = None
                 elif dataset_id == FEATURED_ID:
                     counts["already_present_count"] += 1
+
+        if seed_featured_library:
+            session.add(ApplicationSetting(
+                setting_key=FEATURED_LIBRARY_SEEDED_KEY,
+                setting_value=json.dumps({"version": metadata["version"], "bundle_hash": bundle_hash}),
+            ))
 
         for row in records["snapshots"]:
             repository_id = _positive_int(row["repository_id"])

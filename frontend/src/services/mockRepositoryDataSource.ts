@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
-  IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositorySummary,
-  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, RepositoryDashboardData, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
+  IssueChartData, IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositorySummary,
+  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
@@ -333,10 +333,12 @@ const sha = (n: number) => ((n * 2654435761) % 0xfffffff).toString(16).padStart(
 const COMMIT_TITLES = ['feat: 周聚合改为事件日期', 'fix: 排除 PR 类型的 Issue', 'chore: 升级解析依赖', 'docs: 补充指标定义', 'refactor: 统一时间口径', 'test: 增加部分采集用例', 'perf: 聚合查询缓存']
 
 export class MockRepositoryDataSource implements RepositoryDataSource {
+  private repositoryGroups: RepositoryGroup[] = []
   private requestedScopeTask: TaskItem | null = null
   private retryTasks: TaskItem[] = []
+  private deletedTaskIds = new Set<string>()
 
-  private githubMaxPages = 10
+  private githubTokenConfigured = false
   private featuredImport: { taskId: string; startedAt: number; retryOf: string | null } | null = null
 
   private startFeaturedImport(retryOf: string | null) {
@@ -408,13 +410,18 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getCollectionSettings() {
-    return { githubMaxPages: this.githubMaxPages }
+  async getGitHubTokenSettings() {
+    return { configured: this.githubTokenConfigured, managedByEnvironment: false }
   }
 
-  async saveCollectionSettings(settings: { githubMaxPages: number }) {
-    this.githubMaxPages = settings.githubMaxPages
-    return { githubMaxPages: this.githubMaxPages }
+  async saveGitHubToken(token: string) {
+    this.githubTokenConfigured = Boolean(token.trim())
+    return this.getGitHubTokenSettings()
+  }
+
+  async deleteGitHubToken() {
+    this.githubTokenConfigured = false
+    return this.getGitHubTokenSettings()
   }
 
   async searchRepositories(query: string) {
@@ -450,6 +457,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       module: 'commits',
       status: 'queued',
       stage: '等待 Worker 开始执行',
+      progressMotion: 'bounce',
       scopeKind: options.scopeKind,
       windowDays: options.windowDays,
       windowStart: range.start,
@@ -461,6 +469,40 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
 
   async listRepositories(): Promise<RepositorySummary[]> {
     return REPOSITORIES.map(summaryOf)
+  }
+
+  async listRepositoryGroups(): Promise<RepositoryGroup[]> {
+    return this.repositoryGroups.map((group) => ({ ...group, repositoryIds: [...group.repositoryIds] }))
+  }
+
+  async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
+    const normalized = name.trim()
+    if (!normalized || normalized.length > 80) throw new Error('分组名称须为 1–80 个字符')
+    if (this.repositoryGroups.some((group) => group.name === normalized)) throw new Error('已有同名分组')
+    this.requireLibraryRepositories(repositoryIds)
+    const group = { id: String(this.repositoryGroups.length + 1), name: normalized, repositoryIds: [...new Set(repositoryIds)] }
+    this.repositoryGroups.push(group)
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  async addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup> {
+    const group = this.repositoryGroups.find((item) => item.id === groupId)
+    if (!group) throw new Error('分组不存在')
+    this.requireLibraryRepositories(repositoryIds)
+    group.repositoryIds = [...new Set([...group.repositoryIds, ...repositoryIds])]
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  async removeRepositoryFromGroup(groupId: string, repositoryId: string): Promise<RepositoryGroup> {
+    const group = this.repositoryGroups.find((item) => item.id === groupId)
+    if (!group) throw new Error('分组不存在')
+    group.repositoryIds = group.repositoryIds.filter((id) => id !== repositoryId)
+    return { ...group, repositoryIds: [...group.repositoryIds] }
+  }
+
+  private requireLibraryRepositories(repositoryIds: string[]) {
+    const libraryIds = new Set(REPOSITORIES.map((repo) => repo.id))
+    if (repositoryIds.some((id) => !libraryIds.has(id))) throw new Error('请先将仓库添加到我的仓库')
   }
 
   async getFeaturedDatasetStatus() {
@@ -522,8 +564,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         recent4wCommits: null, changeCount: null, threshold: null, trend: null, previousWindowStart: null, previousWindowEndExclusive: null,
         recentWindowStart: null, recentWindowEndExclusive: null, notes: ['演示数据没有最近 8 个完整 UTC 周。'] },
       activityTrend: { status: 'insufficient_data', method: 'none', trend: null, modelId: null, modelVersion: null, horizonWeeks: 4,
-        probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] },
-      activityAnomaly: { status: 'insufficient_data', method: 'none', suspected: false, reasonCode: 'not_collected', weeks: [], notes: ['演示数据没有异常检测输入。'] } }
+        probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] } }
   }
 
   async collectMaintenance(): Promise<import('./types').MaintenanceCollectionResult> { throw new Error('演示模式不能采集真实维护活动。') }
@@ -662,6 +703,24 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
+  async getIssueChartData(id: string, windowDays: TimeWindow = 90): Promise<IssueChartData> {
+    const seed = repoSeed(id) ?? REPOSITORIES[0]
+    const records = await this.getClosedIssues(id)
+    const available = seed.issueCoverage.state !== 'missing'
+    const window = windowRange(seed, windowDays)
+    const items = records.slice(0, 1000).map((record) => ({ closedAt: record.closedAt, durationDays: record.durationDays }))
+    return {
+      items,
+      total: records.length,
+      complete: items.length >= records.length,
+      available,
+      coverage: seed.issueCoverage,
+      note: available ? '演示数据仅用于界面预览；真实仓库记录来自本次采集窗口。' : '当前示例没有可展示的 Issue 逐条数据。',
+      windowStart: window.start,
+      windowEnd: window.end,
+    }
+  }
+
   async getIssueDetail(id: string, issueNumber: number): Promise<IssueRecordDetail> {
     const issue = (await this.getClosedIssues(id)).find((record) => record.number === issueNumber)
     if (!issue) throw new Error('未找到该示例 Issue')
@@ -717,6 +776,31 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       note: available
         ? '演示数据仅用于界面预览；列表模拟本次采集窗口中的已合并与关闭未合并 PR。'
         : '当前示例没有可展示的 Pull Request 逐条数据。',
+      windowStart: window.start,
+      windowEnd: window.end,
+    }
+  }
+
+  async getPullRequestChartData(id: string, windowDays: TimeWindow = 90): Promise<PullRequestChartData> {
+    const seed = repoSeed(id) ?? REPOSITORIES[0]
+    const available = seed.coverage.state !== 'missing'
+    const records = available ? demoPullRequestRecords(seed) : []
+    const window = windowRange(seed, windowDays)
+    const items = records.slice(0, 1000).map((record) => ({
+      mergedAt: record.mergedAt,
+      durationDays: record.durationDays,
+      state: record.state,
+      commentsCount: record.commentsCount,
+    }))
+    const pageItems = records.slice(0, 10).map(({ body: _body, ...record }) => record)
+    return {
+      items,
+      pageItems,
+      total: records.length,
+      complete: items.length >= records.length,
+      available,
+      coverage: seed.coverage,
+      note: available ? '演示数据仅用于界面预览；图表使用本次采集窗口中的已关闭 PR。' : '当前示例没有可展示的 Pull Request 逐条数据。',
       windowStart: window.start,
       windowEnd: window.end,
     }
@@ -856,6 +940,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       reasonCode: mode === 'individual_periods' ? 'INDIVIDUAL_WINDOWS_ASYNC' : sharedReasonCode,
       reason: mode === 'individual_periods' ? '各仓库分别使用自身分析窗口；结果不代表同期对比。' : sameObservationWindow ? null : sharedReasonCode === 'NO_SHARED_WINDOW' ? '所选仓库的分析窗口没有时间交集。' : sharedReasonCode === 'SHARED_WINDOW_BELOW_THRESHOLD' ? `共同观察窗口为 ${effectiveDays?.toFixed(1)} 天，少于所选 ${window} 天窗口的 80%。` : '至少一个仓库没有覆盖所选窗口的分析运行。',
     }
+    const groupSets = ids.map((id) => new Set(this.repositoryGroups.filter((group) => group.repositoryIds.includes(id)).map((group) => group.id)))
+    const hasSharedGroup = groupSets.length > 0 && [...(groupSets[0] ?? [])].some((groupId) => groupSets.every((groupIds) => groupIds.has(groupId)))
     return {
       window: comparisonBasis.sharedWindow ? { start: comparisonBasis.sharedWindow.start.slice(0, 10), end: comparisonBasis.sharedWindow.end.slice(0, 10) } : { start: dates[0] ?? '—', end: dates.at(-1) ?? '—' },
       requestedWindowDays: window,
@@ -866,6 +952,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         ...entries.filter((entry) => !entry.windowAvailable).map((entry) => `${entry.label}：${entry.windowReason}`),
         ...(mode === 'same_period' && !sameObservationWindow ? [comparisonBasis.reason ?? '所选仓库没有足够长的共同观察窗口。'] : []),
         ...(mode === 'individual_periods' ? ['各仓库分别使用自身完整周与可用指标；观察窗口可能不同，不代表同期对比。'] : []),
+        '比较结果反映所选指标的相对差异，不代表项目质量或优劣。',
+        ...(!hasSharedGroup ? ['参与对比的仓库不属于同一分组（或包含未分组仓库），系统无法直接判断项目用途是否相近；请确认用途相近后再对比。'] : []),
         '各仓库采集时间与覆盖状态不同，差异可能来自采集而非项目本身。',
         '缺乏有效样本或无法按当前口径比较的指标显示为「—」。',
       ],
@@ -1004,20 +1092,9 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     }
   }
 
-  async getOverviewDashboard(): Promise<RepositoryDashboardData> {
-    return {
-      id: 'course-research-300-v1',
-      name: '默认仓库数据集（300 个仓库）',
-      repositoryCount: 0,
-      courseSummary: { dataAsOf: null, weeklyRecords: 0, completeCommitRepositories: 0 },
-      courseLanguageGroups: [],
-      courseRepositories: [],
-    }
-  }
-
   async listTasks(): Promise<TaskItem[]> {
     const demoImport = this.featuredTaskItem()
-    return [
+    const tasks: TaskItem[] = [
       { id: 't1', repository: 'demo-labs/queue-demo', module: 'commits', status: 'running', stage: '分页拉取 · 已处理 1,200 / 6,800 条', processed: 1200, total: 6800, updatedAt: '刚刚' },
       { id: 't2', repository: 'demo-labs/docs-site', module: 'issues', status: 'queued', stage: '等待前序任务', processed: 0, total: 2400, updatedAt: '刚刚' },
       { id: 't3', repository: 'demo-labs/sparse-kit', module: 'pullRequests', status: 'partial', stage: '已获取 412 条，第 4 页后截断', processed: 412, total: 610, updatedAt: '14 分钟前' },
@@ -1028,6 +1105,7 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       ...this.retryTasks,
       ...(demoImport ? [demoImport] : []),
     ]
+    return tasks.filter((task) => !this.deletedTaskIds.has(task.id))
   }
 
   async retryTask(id: string): Promise<string> {
@@ -1053,6 +1131,22 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     })
     return retryId
   }
+
+  async deleteTask(id: string): Promise<void> {
+    const task = (await this.listTasks()).find((item) => item.id === id)
+    if (!task) throw new Error('任务不存在')
+    if (task.status === 'queued' || task.status === 'running' || task.status === 'analyzing') {
+      throw new Error('排队或执行中的任务不能删除')
+    }
+    this.deletedTaskIds.add(id)
+  }
+
+  async clearTaskHistory(): Promise<number> {
+    const finishedTasks = (await this.listTasks()).filter((task) => !['queued', 'running', 'analyzing'].includes(task.status))
+    finishedTasks.forEach((task) => this.deletedTaskIds.add(task.id))
+    return finishedTasks.length
+  }
+
   async exportInsights(_id: string, _windowDays: TimeWindow): Promise<Blob> { return new Blob(['demo export'], { type: 'text/csv' }) }
   async exportComparison(ids: string[], windowDays: TimeWindow, mode: ComparisonMode): Promise<Blob> {
     const { entries } = await this.getComparison(ids, windowDays, mode)

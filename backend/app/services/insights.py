@@ -164,6 +164,46 @@ def _select_insight_run(runs, window_days):
     ), None)
 
 
+def _display_commit_accounts(account_keys, archive_paths):
+    """用原始 Commit 归档中的 GitHub login 显示稳定的账号 ID。"""
+    unresolved = {key for key in account_keys if isinstance(key, str) and key.startswith("github:")}
+    labels = {}
+    if unresolved:
+        for archive_path in archive_paths:
+            if not unresolved:
+                break
+            if not isinstance(archive_path, str):
+                continue
+            try:
+                archive = read_archive(archive_path)
+                for page in iter_module_pages(archive.get("commits")):
+                    if not unresolved:
+                        break
+                    for item in page:
+                        author = item.get("author") if isinstance(item, dict) else None
+                        if not isinstance(author, dict):
+                            continue
+                        author_id = author.get("id")
+                        login = author.get("login")
+                        key = f"github:{author_id}" if type(author_id) is int and author_id > 0 else None
+                        if key in unresolved and isinstance(login, str) and login.strip():
+                            labels[key] = login.strip()
+                            unresolved.remove(key)
+            except (OSError, ValueError, TypeError, RecursionError):
+                # Label lookup is best effort; corrupt or expired archives must not break chart data.
+                continue
+
+    def display(key):
+        if key in labels:
+            return labels[key]
+        if isinstance(key, str) and key.startswith("github:"):
+            value = key.removeprefix("github:")
+            return f"GitHub #{value}" if value.isdigit() else value or "未知账号"
+        return key
+
+    return [display(key) for key in account_keys]
+
+
 def repository_insights(session, repository_id, window_days=90):
     if session.get(Repository, repository_id) is None:
         raise AppError(404, "RESOURCE_NOT_FOUND", "本地仓库不存在")
@@ -222,6 +262,9 @@ def repository_insights(session, repository_id, window_days=90):
     metrics = calculate_insights(events, sources, start, end)
     status = _insight_status(metrics)
     result = json.loads(run.result_json)
+    chart_data = build_chart_data(events, sources, start, end)
+    archive_paths = source_archive_paths if isinstance(source_archive_paths, list) else []
+    chart_data["commit_accounts"] = _display_commit_accounts(chart_data["commit_accounts"], archive_paths)
     result.update({
         "status": status,
         "window_start": iso_z(start),
@@ -230,7 +273,7 @@ def repository_insights(session, repository_id, window_days=90):
         "source_archive_paths": source_archive_paths if isinstance(source_archive_paths, list) else [],
         "sources": sources,
         "insights": metrics,
-        "chart_data": build_chart_data(events, sources, start, end),
+        "chart_data": chart_data,
         "requested_window_days": window_days,
         "window_available": True,
         "available_window_days": available_days,
@@ -641,6 +684,26 @@ def repository_closed_issues(session, repository_id, search=None, *, include_bod
     }
 
 
+def repository_closed_issue_chart_data(session, repository_id, *, window_days=None):
+    """为 Issue 图表一次返回精简样本，避免前端分页反复扫描同一归档。"""
+    result = repository_closed_issues(session, repository_id, window_days=window_days)
+    records = result["items"]
+    items = [
+        {"closed_at": row["closed_at"], "duration_days": row["duration_days"]}
+        for row in records[:1000]
+    ]
+    return {
+        "available": result["available"],
+        "coverage": result["coverage"],
+        "note": result["note"],
+        "window_start": result["window_start"],
+        "window_end": result["window_end"],
+        "items": items,
+        "total": len(records),
+        "complete": len(items) >= len(records),
+    }
+
+
 def repository_pull_requests(session, repository_id, search=None, *, include_body=False, merged_from=None, merged_to=None, window_days=None):
     """返回最新分析归档中保存的已关闭 Pull Request。"""
     # 图表点选传入 UTC 左闭右开区间；兼容未带时区的查询值并统一成 UTC。
@@ -777,6 +840,32 @@ def repository_pull_requests(session, repository_id, search=None, *, include_bod
         "window_start": iso_z(scope_start),
         "window_end": iso_z(scope_end),
         "items": rows,
+    }
+
+
+def repository_pull_request_chart_data(session, repository_id, *, window_days=None):
+    """为 PR 图表一次读取精简样本，避免分页请求重复扫描相同归档。"""
+    result = repository_pull_requests(session, repository_id, window_days=window_days)
+    records = result["items"]
+    items = [
+        {
+            "merged_at": row["merged_at"],
+            "duration_days": row["duration_days"],
+            "state": row["state"],
+            "comments_count": row["comments_count"],
+        }
+        for row in records[:1000]
+    ]
+    return {
+        "available": result["available"],
+        "coverage": result["coverage"],
+        "note": result["note"],
+        "window_start": result["window_start"],
+        "window_end": result["window_end"],
+        "items": items,
+        "page_items": records[:10],
+        "total": len(records),
+        "complete": len(items) >= len(records),
     }
 
 

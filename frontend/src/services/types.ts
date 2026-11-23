@@ -8,6 +8,7 @@
 export type TimeWindow = 30 | 90 | 180
 
 export type RepositoryStatus = 'ready' | 'partial' | 'running' | 'idle' | 'failed'
+export type RepositoryDataStatus = 'fresh' | 'stale' | 'missing'
 
 /** 覆盖情况：未知数据不能显示为零，界面通过覆盖说明提示原因。 */
 export interface Coverage {
@@ -91,6 +92,12 @@ export interface ActivityTrend {
   comparisonReason: string | null
 }
 
+export interface RepositoryGroup {
+  id: string
+  name: string
+  repositoryIds: string[]
+}
+
 export interface RepositorySummary {
   /** 路由使用的后端仓库编号。 */
   id: string
@@ -109,6 +116,8 @@ export interface RepositorySummary {
   /** GitHub 的 open_issues_count 同时包含开放 Issue 和 PR。 */
   openIssuesAndPrCount?: number | null
   status: RepositoryStatus
+  /** Snapshot freshness returned by the repository library summary endpoint. */
+  dataStatus?: RepositoryDataStatus
   lastAnalyzedAt: string | null
   /** 最近 4 个完整周相对前 4 周的变化百分比；不可比较时为 null。 */
   activityDelta: number | null
@@ -198,6 +207,22 @@ export interface IssueRecordPage {
   windowEnd: string | null
 }
 
+export interface IssueChartSample {
+  closedAt: string
+  durationDays: number | null
+}
+
+export interface IssueChartData {
+  items: IssueChartSample[]
+  total: number
+  complete: boolean
+  available: boolean
+  coverage: Coverage
+  note: string
+  windowStart: string | null
+  windowEnd: string | null
+}
+
 export interface PullRequestActivityRecord {
   number: number
   title: string
@@ -246,6 +271,18 @@ export interface PullRequestActivityPage {
   windowEnd: string | null
 }
 
+export interface PullRequestChartData {
+  items: Array<Pick<PullRequestActivityRecord, 'mergedAt' | 'durationDays' | 'state' | 'commentsCount'>>
+  pageItems: PullRequestActivityRecord[]
+  total: number
+  complete: boolean
+  available: boolean
+  coverage: Coverage
+  note: string
+  windowStart: string | null
+  windowEnd: string | null
+}
+
 export interface ReleaseRecord {
   tag: string
   identifierType?: 'tag' | 'release_id'
@@ -285,7 +322,7 @@ export interface PrDurationPeriod {
 }
 
 export interface RepositoryChartData {
-  /** 所选窗口内按提交量排序的前五个可识别 GitHub 账号标识。 */
+  /** 所选窗口内按提交量排序的前五个 GitHub 账号显示名。 */
   commitAccounts: string[]
   /** 按周观察到的数量；complete=false 时不能视为完整一周的总量。 */
   commitWeekly: { start: string; complete: boolean; observedCommits: number; activeAuthors: number | null; contributors: number[]; otherCommits: number; unidentifiedCommits: number }[]
@@ -366,7 +403,6 @@ export interface RepositoryEvaluation {
   maintenancePattern: MaintenancePattern
   recentActivityChange: RecentActivityChange
   activityTrend: ActivityTrendPrediction
-  activityAnomaly: ActivityAnomalySummary
 }
 
 export interface ActivityTrendPrediction {
@@ -395,15 +431,6 @@ export interface RecentActivityChange {
   previousWindowEndExclusive: string | null
   recentWindowStart: string | null
   recentWindowEndExclusive: string | null
-  notes: string[]
-}
-
-export interface ActivityAnomalySummary {
-  status: 'baseline_only' | 'insufficient_data' | 'partial_data' | 'temporarily_unavailable'
-  method: 'statistical_baseline' | 'none'
-  suspected: boolean
-  reasonCode: string | null
-  weeks: { weekStart: string; commitCount: number; robustZ: number; direction: 'up' | 'down' | null }[]
   notes: string[]
 }
 
@@ -456,7 +483,7 @@ export interface SelectionResult {
   ranking: { id: string; name: string; score: number; evidence: { metric: SelectionMetric; value: number | null; unit: string; normalized: number; weight: number; contribution: number; quality: string; validSamples: number; windowStart: string | null; windowEnd: string | null; sourceRunId: string | null; sourceKind: string | null; missingPolicy: 'observed' | 'neutral_50' }[] }[]
   excluded: { id: string; name: string; reasons: string[] }[]
   sensitivity: { criterion: string; repositoryIds: string[] }[]
-  maintenance: { commonWindow: { start: string; end: string } | null; dataAsOf: string | null; repositories: { id: string; name: string; sampleRole: 'train' | 'test' | null; pattern: MaintenancePattern; recentActivityChange: RecentActivityChange; activityTrend: ActivityTrendPrediction; activityAnomaly: ActivityAnomalySummary }[] }
+  maintenance: { commonWindow: { start: string; end: string } | null; dataAsOf: string | null; repositories: { id: string; name: string; sampleRole: 'train' | 'test' | null; pattern: MaintenancePattern; recentActivityChange: RecentActivityChange; activityTrend: ActivityTrendPrediction }[] }
   notes: string[]
   reportMarkdown: string
   resultSignature: string
@@ -588,19 +615,6 @@ export interface ResearchDataset {
   limitations: string[]
 }
 
-export interface RepositoryDashboardData {
-  id: string
-  name: string
-  repositoryCount: number
-  courseSummary: {
-    dataAsOf: string | null
-    weeklyRecords: number
-    completeCommitRepositories: number
-  }
-  courseLanguageGroups: { language: string; repositoryCount: number; commitSampleCount: number; weeklyCommitMean: number | null }[]
-  courseRepositories: { repositoryId: string; fullName: string; language: string; weeklyCommitMean: number | null; activeWeeks: number | null; stars: number | null; forks: number | null; createdAt: string | null }[]
-}
-
 export type TaskStatus = 'queued' | 'running' | 'analyzing' | 'done' | 'partial' | 'failed' | 'cancelled'
 
 export interface TaskItem {
@@ -617,6 +631,7 @@ export interface TaskItem {
   phase?: string | null
   progressPercent?: number | null
   progressKind?: 'stages' | 'records' | 'indeterminate' | 'unknown'
+  progressMotion?: 'forward' | 'bounce'
   scopeKind?: 'quick' | 'window' | 'incremental' | 'backfill' | 'maintenance' | null
   windowDays?: number | null
   windowStart?: string | null
@@ -695,8 +710,9 @@ export interface FeaturedDatasetImportResult {
   alreadyCurrent: boolean
 }
 
-export interface CollectionSettings {
-  githubMaxPages: number
+export interface GitHubTokenSettings {
+  configured: boolean
+  managedByEnvironment: boolean
 }
 
 export interface DefinitionEntry {

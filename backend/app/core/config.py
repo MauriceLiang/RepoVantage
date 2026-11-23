@@ -9,7 +9,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(PROJECT_ROOT / ".env"), extra="ignore")
+    model_config = SettingsConfigDict(env_file=(PROJECT_ROOT / ".env"), extra="ignore", env_ignore_empty=True)
 
     internal_api_key: str | None = None
     github_token: str | None = None
@@ -20,7 +20,8 @@ class Settings(BaseSettings):
     worker_heartbeat_seconds: int = Field(default=10, gt=0)
     worker_lease_seconds: int = Field(default=120, gt=0)
     github_timeout_seconds: float = Field(default=15, gt=0)
-    github_max_pages: int = Field(default=10, ge=1, le=100)
+    # 0 means follow GitHub pagination until the selected time window is complete.
+    github_max_pages: int = Field(default=0, ge=0, le=10000)
     worker_stale_seconds: int = Field(default=45, gt=0)
 
     @property

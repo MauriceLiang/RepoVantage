@@ -37,12 +37,6 @@ def get_data_quality(request: Request, dataset_id: str, analysis_mode: Literal["
     return envelope(request, data_quality(session, dataset_id, expected_type))
 
 
-@router.get("/research/dashboard")
-def get_research_dashboard(request: Request, dataset_id: str = "course-research-300-v1", session: Session = Depends(get_session)):
-    from backend.app.services.course_research_dataset import course_research_dashboard
-    return envelope(request, course_research_dashboard(session, dataset_id))
-
-
 @router.post("/comparisons", response_model=SuccessEnvelope[ComparisonResponse])
 def compare(request: Request, body: ComparisonRequest, session: Session = Depends(get_session)):
     return envelope(request, compare_repositories(session, body.repository_ids, body.depth))
@@ -64,6 +58,12 @@ def get_model_status(request: Request):
 def get_model_monitoring(request: Request):
     from backend.app.services.model_registry import monitoring
     return envelope(request, monitoring())
+
+
+@router.get("/models/evaluation")
+def get_model_evaluation(request: Request):
+    from backend.app.services.model_evaluation_dashboard import evaluation_dashboard
+    return envelope(request, evaluation_dashboard())
 
 
 @router.post("/comparisons/selection", response_model=SuccessEnvelope[SelectionResult])

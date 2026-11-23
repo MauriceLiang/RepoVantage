@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { CustomSeriesRenderItem, EChartsOption } from 'echarts'
+import type { G2Spec } from '@antv/g2'
 import type { Coverage, NamedSeries } from '@/services/types'
 import { buildIssueTrend } from '@/lib/issueTrend'
-import { useUiStore } from '@/stores/ui'
-import EChart from './EChart.vue'
-import { comboTooltip, escapeHtml } from './comboHelpers'
-import { chartTheme, fontFamily, MONO } from './theme'
+import G2Chart from './G2Chart.vue'
 
 const props = withDefaults(defineProps<{
   series: NamedSeries[]
@@ -15,65 +12,53 @@ const props = withDefaults(defineProps<{
   windowEnd: string | null
   height?: number
 }>(), { height: 310 })
-const ui = useUiStore()
 const rows = computed(() => buildIssueTrend(props.series, props.coverage, props.windowStart, props.windowEnd))
-
-const option = computed<EChartsOption>(() => {
-  const t = chartTheme(ui.isDark)
-  const differenceColor = t.dark ? '#bb9ef5' : '#7054b5'
-  const segments = rows.value.slice(0, -1).flatMap((row, index) => {
-    const next = rows.value[index + 1]
-    return row.difference === null || next.difference === null ? [] : [[index, row.difference, next.difference]]
-  })
-  const renderArea: CustomSeriesRenderItem = (_params, api) => {
-    const index = Number(api.value(0)), left = Number(api.value(1)), right = Number(api.value(2))
-    const p0 = api.coord([index, left]), p1 = api.coord([index + 1, right])
-    const z0 = api.coord([index, 0]), z1 = api.coord([index + 1, 0])
-    const polygon = (points: number[][], positive: boolean) => ({ type: 'polygon' as const, shape: { points }, style: { fill: positive ? t.series[0] : t.series[3], opacity: 0.11 } })
-    if (left * right < 0) {
-      // 差值跨过零线时分别填充两侧，避免将下降区画成上升区。
-      const ratio = Math.abs(left) / (Math.abs(left) + Math.abs(right))
-      const crossing = [p0[0] + (p1[0] - p0[0]) * ratio, z0[1]]
-      return { type: 'group', children: [polygon([p0, z0, crossing], left > 0), polygon([crossing, z1, p1], right > 0)] }
-    }
-    return polygon([p0, p1, z1, z0], (left || right) >= 0)
+const counts = computed(() => rows.value.flatMap((row, dataIndex) => [
+  { date: row.date, group: '新增 Issue', value: row.added.value, complete: row.added.complete, quality: row.added.complete ? '完整周' : row.added.value === null ? '缺少数据' : '部分覆盖', dataIndex, seriesName: '新增 Issue' },
+  { date: row.date, group: '关闭 Issue', value: row.resolved.value, complete: row.resolved.complete, quality: row.resolved.complete ? '完整周' : row.resolved.value === null ? '缺少数据' : '部分覆盖', dataIndex, seriesName: '关闭 Issue' },
+]))
+const differences = computed(() => rows.value.map((row, dataIndex) => ({ date: row.date, value: row.difference, dataIndex, seriesName: '新增 − 关闭' })))
+function sourceCount(key: string, date: string) {
+  const source = props.series.find((item) => item.key === key || (key === 'opened' && item.key === 'created'))
+  return source?.points.find((point) => point.date === date)
+}
+const accessibleRows = computed(() => rows.value.map((row) => {
+  const format = (point: ReturnType<typeof sourceCount>, fallback: number | null, complete: boolean) => {
+    if (fallback !== null) return fallback + (complete ? '，完整覆盖' : '，部分覆盖')
+    if (!point) return '无可用数据'
+    if (point.observedValue !== null && point.observedValue !== undefined) return point.observedValue + ' 已观察，覆盖不完整'
+    return '无可用数据，覆盖不完整'
   }
-
   return {
-    animation: false,
-    grid: { left: 48, right: 18, top: 55, bottom: 30 },
-    legend: {
-      type: 'scroll', top: 0, left: 0, right: 0,
-      data: [{ name: '新增 Issue', icon: 'roundRect' }, { name: '关闭 Issue', icon: 'roundRect' }, { name: '新增 − 关闭', icon: 'circle' }],
-      textStyle: { color: t.muted, fontSize: 10.5, fontFamily }, itemWidth: 10, itemHeight: 8,
-    },
-    tooltip: {
-      ...comboTooltip(t), trigger: 'axis', confine: true, axisPointer: { type: 'line', lineStyle: { color: t.border } },
-      formatter: (params: unknown) => {
-        const items = (params as { dataIndex: number; seriesName: string; seriesType: string }[]).filter((item) => item.seriesType !== 'custom')
-        const row = rows.value[items[0]?.dataIndex]
-        if (!row) return ''
-        const names = new Set(items.map((item) => item.seriesName))
-        const count = (item: typeof row.added) => item.value === null ? '—' : `${item.value} 个${item.complete ? '' : '（已观察）'}`
-        const difference = row.difference === null ? '—（覆盖不完整）' : `${row.difference > 0 ? '+' : ''}${row.difference} 个`
-        return `<div>${escapeHtml(row.date)} 起的 UTC 周</div>` +
-          (names.has('新增 Issue') ? `<div>新增：<b>${count(row.added)}</b></div>` : '') +
-          (names.has('关闭 Issue') ? `<div>关闭：<b>${count(row.resolved)}</b></div>` : '') +
-          (names.has('新增 − 关闭') ? `<div>新增 − 关闭：<b>${difference}</b></div>` : '')
-      },
-    },
-    xAxis: { type: 'category', data: rows.value.map((row) => row.date), boundaryGap: true, axisLine: { onZero: false, lineStyle: { color: t.border } }, axisTick: { show: false }, axisLabel: { color: t.muted, fontFamily: MONO, fontSize: 10, formatter: (value: string) => value.slice(5), hideOverlap: true } },
-    yAxis: { type: 'value', minInterval: 1, name: '数量 / 差值（个）', nameTextStyle: { color: t.muted, fontSize: 10 }, axisLabel: { color: t.muted, fontSize: 10 }, splitLine: { lineStyle: { color: t.grid } } },
-    series: [
-      { name: '新增 − 关闭', type: 'custom', renderItem: renderArea, data: segments, itemStyle: { color: differenceColor }, silent: true, tooltip: { show: false }, z: 1 },
-      { name: '新增 Issue', type: 'bar', barMaxWidth: 19, barGap: '20%', itemStyle: { color: t.series[0], borderRadius: [3, 3, 0, 0] }, data: rows.value.map((row) => ({ value: row.added.value, itemStyle: { opacity: row.added.complete ? 1 : 0.5 } })), z: 2 },
-      { name: '关闭 Issue', type: 'bar', barMaxWidth: 19, itemStyle: { color: t.series[3], borderRadius: [3, 3, 0, 0] }, data: rows.value.map((row) => ({ value: row.resolved.value, itemStyle: { opacity: row.resolved.complete ? 1 : 0.5 } })), z: 2 },
-      { name: '新增 − 关闭', type: 'line', data: rows.value.map((row) => row.difference), connectNulls: false, symbol: 'circle', symbolSize: 6, lineStyle: { color: differenceColor, width: 2.5 }, itemStyle: { color: differenceColor }, markLine: { silent: true, symbol: 'none', label: { show: false }, lineStyle: { color: t.border, width: 1.3, type: 'solid' }, data: [{ yAxis: 0 }] }, z: 4 },
-    ],
+    date: row.date,
+    added: format(sourceCount('opened', row.date), row.added.value, row.added.complete),
+    closed: format(sourceCount('closed', row.date), row.resolved.value, row.resolved.complete),
+    difference: row.difference === null ? '覆盖不完整，未计算' : String(row.difference),
   }
-})
+}))
+const spec = computed<G2Spec>(() => ({
+  type: 'view',
+  scale: { color: { domain: ['新增 Issue', '关闭 Issue'], range: ['#e5a03a', '#ce3f7c'] } },
+  children: [
+    { type: 'interval', data: counts.value, transform: [{ type: 'dodgeX' }], encode: { x: 'date', y: 'value', color: 'group' }, style: { fillOpacity: 0.78 } },
+    { type: 'line', data: differences.value, encode: { x: 'date', y: 'value' }, style: { stroke: '#8177a0', lineWidth: 2.4 } },
+    { type: 'point', data: differences.value.filter((row) => row.value !== null), encode: { x: 'date', y: 'value' }, style: { fill: '#8177a0', r: 3 } },
+  ],
+  axis: { x: { labelFontSize: 9, labelAutoRotate: true }, y: { title: '数量 / 新增减关闭', gridLineDash: [3, 3] } },
+  legend: { color: { position: 'bottom' } },
+  interaction: { tooltip: { shared: true } },
+  tooltip: { title: 'date', items: [{ field: 'group', name: '指标' }, { field: 'value', name: '数量' }, { field: 'quality', name: '覆盖状态' }] },
+}))
 </script>
 
 <template>
-  <EChart :option="option" :height="height" data-testid="issue-trend-chart" />
+  <div data-testid="issue-trend-chart">
+    <G2Chart :spec="spec" label="Issue 每周新增、关闭及完整周差值" :height="height" />
+    <details class="issue-trend__data-list"><summary>查看 UTC 周数据与覆盖状态</summary><ul><li v-for="row in accessibleRows" :key="row.date">{{ row.date }}：新增 {{ row.added }}；关闭 {{ row.closed }}；新增减关闭 {{ row.difference }}</li></ul></details>
+  </div>
 </template>
+
+<style scoped>
+.issue-trend__data-list { color:var(--muted); font-size:10px; }
+.issue-trend__data-list ul { display:grid; gap:3px; max-height:160px; overflow:auto; margin:6px 0; padding-left:18px; }
+</style>

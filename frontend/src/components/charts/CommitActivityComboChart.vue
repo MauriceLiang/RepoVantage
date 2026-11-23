@@ -1,204 +1,91 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { EChartsOption } from 'echarts'
-import type { ReleaseRecord, RepositoryChartData, TimePoint } from '@/services/types'
+import type { G2Spec } from '@antv/g2'
+import type { RepositoryChartData, TimePoint } from '@/services/types'
 import { buildCommitActivity } from '@/lib/commitActivity'
-import { useUiStore } from '@/stores/ui'
-import EChart from './EChart.vue'
-import { comboTooltip, escapeHtml } from './comboHelpers'
-import { chartTheme, fontFamily, MONO } from './theme'
+import { buildCompleteFourWeekAverage } from '@/lib/commitAverages'
+import G2Chart from './G2Chart.vue'
 
 const props = withDefaults(defineProps<{
   points: TimePoint[]
   weeks: RepositoryChartData['commitWeekly']
-  releases: ReleaseRecord[]
   windowStart: string | null
   windowEnd: string | null
   height?: number
 }>(), { height: 420 })
-const emit = defineEmits<{
-  select: [index: number]
-  'select-releases': [payload: { date: string; releases: ReleaseRecord[] }]
-}>()
-const ui = useUiStore()
-const rows = computed(() => buildCommitActivity(props.points, props.weeks, props.releases, props.windowStart, props.windowEnd))
-
-const option = computed<EChartsOption>(() => {
-  const t = chartTheme(ui.isDark)
-  const dates = rows.value.map((row) => row.date)
-  const maxCommits = Math.max(0, ...rows.value.map((row) => row.commits ?? 0))
-  const commitAxisMax = Math.max(1, Math.ceil(maxCommits * 1.35))
-  // Release 是时间事件而非数量值，放在同一绘图区顶部预留带中，不另建子图或计数轴。
-  const releaseMarkerY = commitAxisMax * 0.93
-  const releaseWeeks = rows.value.filter((row) => row.releases.length > 0)
-
-  return {
-    animation: false,
-    grid: { left: 58, right: 62, top: 48, bottom: 38, containLabel: true },
-    legend: {
-      top: 0,
-      left: 0,
-      data: ['每周提交', '活跃账号', '正式发布'],
-      textStyle: { color: t.muted, fontSize: 10.5, fontFamily },
-      itemWidth: 11,
-      itemHeight: 9,
-    },
-    tooltip: {
-      ...comboTooltip(t),
-      trigger: 'axis',
-      triggerOn: 'mousemove',
-      axisPointer: { type: 'line', lineStyle: { color: t.border } },
-      formatter: (params: unknown) => {
-        const items = params as { dataIndex: number }[]
-        const row = rows.value[items[0]?.dataIndex]
-        if (!row) return ''
-        const display = (value: number | null, unit: string) => value === null
-          ? '—'
-          : `${value.toLocaleString('zh-CN', { maximumFractionDigits: 2 })} ${unit}`
-        const quality = row.complete ? '完整周' : '仅已观察样本，不代表完整周总量'
-        const releaseList = row.releases.slice(0, 3)
-          .map((release) => `${escapeHtml(release.identifierType === 'release_id' ? `#${release.tag}` : release.tag)}（${escapeHtml(new Date(release.publishedAt).toISOString().slice(0, 10))}）`)
-          .join('、')
-        const more = row.releases.length > 3 ? ` 等 ${row.releases.length} 个` : ''
-        return `<div>${escapeHtml(row.date)} 起的 UTC 周 · ${quality}</div>`
-          + `<div>提交：<b>${display(row.commits, '次')}</b></div>`
-          + `<div>已识别活跃账号：<b>${display(row.authors, '个')}</b></div>`
-          + `<div>未关联账号的提交：<b>${display(row.unidentifiedCommits, '次')}</b></div>`
-          + `<div>正式发布：<b>${row.releases.length ? `${releaseList}${more}` : '—'}</b></div>`
-      },
-    },
-    xAxis: {
-      type: 'category',
-      data: dates,
-      boundaryGap: false,
-      axisLine: { lineStyle: { color: t.border } },
-      axisTick: { show: false },
-      axisLabel: {
-        color: t.muted,
-        fontFamily: MONO,
-        fontSize: 10,
-        formatter: (value: string) => value.slice(5),
-        hideOverlap: true,
-      },
-    },
-    yAxis: [
-      {
-        type: 'value',
-        name: '提交 / 次',
-        nameLocation: 'end',
-        nameRotate: 0,
-        nameGap: 10,
-        min: 0,
-        max: commitAxisMax,
-        minInterval: 1,
-        nameTextStyle: { color: t.muted, fontSize: 10 },
-        axisLabel: { color: t.muted, fontSize: 10 },
-        splitLine: { lineStyle: { color: t.grid } },
-      },
-      {
-        type: 'value',
-        name: '活跃账号 / 个',
-        nameLocation: 'end',
-        nameRotate: 0,
-        nameGap: 10,
-        position: 'right',
-        min: 0,
-        minInterval: 1,
-        nameTextStyle: { color: t.muted, fontSize: 10 },
-        axisLabel: { color: t.muted, fontSize: 10 },
-        splitLine: { show: false },
-      },
-    ],
-    series: [
-      {
-        name: '每周提交',
-        type: 'line',
-        data: rows.value.map((row) => row.complete ? row.commits : null),
-        connectNulls: false,
-        symbol: 'circle',
-        symbolSize: 4,
-        showSymbol: true,
-        lineStyle: { color: t.series[0], width: 2.5 },
-        itemStyle: { color: t.series[0] },
-        areaStyle: { color: t.series[0], opacity: 0.16 },
-        markLine: releaseWeeks.length ? {
-          silent: true,
-          symbol: ['none', 'none'],
-          label: { show: false },
-          lineStyle: { color: t.series[2], type: 'dashed', opacity: 0.35, width: 1 },
-          data: releaseWeeks.map((row) => ({ xAxis: row.date })),
-        } : undefined,
-        z: 2,
-      },
-      {
-        name: '每周提交',
-        type: 'scatter',
-        data: rows.value.map((row) => !row.complete && row.commits !== null ? [row.date, row.commits] : null),
-        symbol: 'emptyCircle',
-        symbolSize: 8,
-        itemStyle: { color: t.panel, borderColor: t.series[0], borderWidth: 2 },
-        z: 4,
-      },
-      {
-        name: '活跃账号',
-        type: 'line',
-        yAxisIndex: 1,
-        data: rows.value.map((row) => row.complete ? row.authors : null),
-        connectNulls: false,
-        symbol: 'circle',
-        symbolSize: 5,
-        lineStyle: { color: t.series[3], width: 2 },
-        itemStyle: { color: t.series[3] },
-        z: 3,
-      },
-      {
-        name: '活跃账号',
-        type: 'scatter',
-        xAxisIndex: 0,
-        yAxisIndex: 1,
-        data: rows.value.map((row) => !row.complete && row.authors !== null ? [row.date, row.authors] : null),
-        symbol: 'emptyCircle',
-        symbolSize: 8,
-        itemStyle: { color: t.panel, borderColor: t.series[3], borderWidth: 2 },
-        z: 4,
-      },
-      {
-        name: '正式发布',
-        type: 'scatter',
-        data: rows.value.map((row) => row.releases.length ? {
-          value: [row.date, releaseMarkerY],
-          count: row.releases.length,
-        } : null),
-        symbol: 'diamond',
-        symbolSize: 11,
-        itemStyle: { color: t.series[2] },
-        label: {
-          show: true,
-          position: 'top',
-          color: t.series[2],
-          fontSize: 9,
-          formatter: (params: unknown) => {
-            const count = (params as { data?: { count?: number } }).data?.count ?? 0
-            return count > 1 ? String(count) : ''
-          },
-        },
-        z: 5,
-      },
-    ],
-  }
+const emit = defineEmits<{ select: [index: number] }>()
+const rows = computed(() => buildCommitActivity(props.points, props.weeks, props.windowStart, props.windowEnd))
+const commitRows = computed(() => rows.value.map((row) => ({
+  date: row.date,
+  plotted: row.complete ? row.commits : null,
+  observed: row.commits,
+  complete: row.complete,
+  quality: row.complete ? '完整周' : row.commits === null ? '缺少数据' : '仅已观察样本',
+  sourceIndex: row.sourceIndex,
+  dataIndex: row.sourceIndex,
+  seriesName: '每周提交',
+})))
+const authorRows = computed(() => rows.value.map((row) => ({
+  date: row.date,
+  plotted: row.complete ? row.authors : null,
+  observed: row.authors,
+  quality: row.complete ? '完整周' : row.authors === null ? '缺少数据' : '仅已观察样本',
+  sourceIndex: row.sourceIndex,
+  dataIndex: row.sourceIndex,
+  seriesName: '活跃账号',
+})))
+const commitAverages = computed(() => {
+  const byDate = new Map(buildCompleteFourWeekAverage(props.points).map((point) => [point.date, point]))
+  return rows.value.map((row) => ({
+    date: row.date,
+    value: byDate.get(row.date)?.value ?? null,
+    sourceIndex: row.sourceIndex,
+    dataIndex: row.sourceIndex,
+    seriesName: '连续四个完整周均值',
+  }))
 })
-
-function select(payload: { dataIndex: number; seriesName: string }) {
-  const row = rows.value[payload.dataIndex]
-  if (!row) return
-  if (payload.seriesName === '正式发布') {
-    if (row.releases.length) emit('select-releases', { date: row.date, releases: row.releases })
-    return
-  }
-  if (payload.seriesName === '每周提交' || payload.seriesName === '活跃账号') emit('select', row.sourceIndex)
+const commitsSpec = computed<G2Spec>(() => ({
+  type: 'view',
+  scale: { color: { domain: ['完整周', '仅已观察样本'], range: ['#e5a03a', '#ffffff'] } },
+  children: [
+    { type: 'interval', data: commitRows.value.filter((row) => row.complete), encode: { x: 'date', y: 'observed', color: 'quality' }, style: { fillOpacity: 0.84 } },
+    { type: 'line', data: commitAverages.value, encode: { x: 'date', y: 'value' }, style: { stroke: '#2e8fcb', lineWidth: 2.5, lineDash: [5, 3] } },
+    { type: 'point', data: commitRows.value.filter((row) => row.observed !== null && !row.complete), encode: { x: 'date', y: 'observed' }, style: { fill: '#ffffff', stroke: '#e5a03a', lineWidth: 2, r: 3.8 } },
+  ],
+  axis: { x: { labelFontSize: 8, labelAutoRotate: true }, y: { title: 'Commit / 周', gridLineDash: [3, 3] } },
+  interaction: { tooltip: { shared: true } },
+  tooltip: { title: 'date', items: [{ field: 'observed', name: '已观察提交数' }, { field: 'value', name: '连续四个完整周均值' }, { field: 'quality', name: '覆盖状态' }] },
+}))
+const authorsSpec = computed<G2Spec>(() => ({
+  type: 'view',
+  children: [
+    { type: 'area', data: authorRows.value, encode: { x: 'date', y: 'plotted' }, style: { fill: '#2e8fcb', fillOpacity: 0.16 } },
+    { type: 'line', data: authorRows.value, encode: { x: 'date', y: 'plotted' }, style: { stroke: '#2e8fcb', lineWidth: 2.2 } },
+    { type: 'point', data: authorRows.value.filter((row) => row.observed !== null), encode: { x: 'date', y: 'observed', color: 'quality' }, scale: { color: { domain: ['完整周', '仅已观察样本'], range: ['#2e8fcb', '#ffffff'] } }, style: { stroke: '#2e8fcb', lineWidth: 2, r: 3.5 } },
+  ],
+  axis: { x: { labelFontSize: 8, labelAutoRotate: true }, y: { title: '活跃账号 / 周', gridLineDash: [3, 3] } },
+  interaction: { tooltip: { shared: true } },
+  tooltip: { title: 'date', items: [{ field: 'observed', name: '活跃账号' }, { field: 'quality', name: '覆盖状态' }] },
+}))
+function selectCommit(payload: { dataIndex: number; seriesName: string }) {
+  if (payload.seriesName === '每周提交' || payload.seriesName === '活跃账号') emit('select', payload.dataIndex)
 }
 </script>
 
 <template>
-  <EChart :option="option" :height="height" hide-tooltip-on-select class="relative z-0" data-testid="commit-activity-chart" @select="select" />
+  <div class="commit-activity-charts" data-testid="commit-activity-chart">
+    <div class="commit-activity-charts__metrics">
+      <section><h4>每周 Commit <span class="chart-hint">柱：完整周 · 虚线：连续四个完整周均值</span></h4><G2Chart :spec="commitsSpec" label="每周 Commit 柱状图与连续四个完整周均值，空心点为部分覆盖" :height="Math.max(140, Math.round(height * 0.48))" @select="selectCommit" /></section>
+      <section><h4>活跃账号 <span class="chart-hint">面积：活跃范围 · 空心点：部分覆盖</span></h4><G2Chart :spec="authorsSpec" label="每周活跃账号面积趋势，空心点为部分覆盖" :height="Math.max(140, Math.round(height * 0.48))" @select="selectCommit" /></section>
+    </div>
+  </div>
 </template>
+
+<style scoped>
+.commit-activity-charts { display:grid; gap:8px; }
+.commit-activity-charts__metrics { display:grid; grid-template-columns:minmax(0,1fr); gap:10px; }
+.commit-activity-charts section { min-width:0; }
+.commit-activity-charts h4 { display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; margin:0 0 2px; color:var(--muted); font-size:10px; font-weight:600; }
+.commit-activity-charts .chart-hint { font-size:9px; font-weight:400; }
+@media (min-width: 900px) { .commit-activity-charts__metrics { grid-template-columns:minmax(0,1fr) minmax(0,1fr); } }
+</style>

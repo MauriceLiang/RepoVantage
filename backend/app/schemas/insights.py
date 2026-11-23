@@ -173,6 +173,25 @@ class PullRequestPage(BaseModel):
     total: int = Field(ge=0)
 
 
+class PullRequestChartSample(BaseModel):
+    merged_at: str | None
+    duration_days: float | None
+    state: Literal["closed", "merged"]
+    comments_count: int | None = Field(ge=0)
+
+
+class PullRequestChartData(BaseModel):
+    available: bool
+    coverage: DetailCoverage
+    note: str
+    window_start: str | None
+    window_end: str | None
+    items: list[PullRequestChartSample]
+    page_items: list[PullRequestRecord]
+    total: int = Field(ge=0)
+    complete: bool
+
+
 class ClosedIssuePage(BaseModel):
     available: bool
     coverage: IssueCoverage
@@ -183,6 +202,22 @@ class ClosedIssuePage(BaseModel):
     page: int
     per_page: int
     total: int
+
+
+class ClosedIssueChartSample(BaseModel):
+    closed_at: str
+    duration_days: float | None
+
+
+class ClosedIssueChartData(BaseModel):
+    available: bool
+    coverage: IssueCoverage
+    note: str
+    window_start: str | None
+    window_end: str | None
+    items: list[ClosedIssueChartSample]
+    total: int = Field(ge=0)
+    complete: bool
 
 
 class CommitDailyCount(BaseModel):
@@ -251,6 +286,7 @@ class RepositoryInsights(BaseModel):
     source_task_ids: list[str] = Field(description="覆盖证明运行关联的来源任务。")
     source_archive_paths: list[str] = Field(description="覆盖证明运行关联的归档，并非当前事件的完整归档清单。")
     origin: str | None
+    canonical_dataset_id: str | None = None
     sources: dict[str, dict[str, Any]]
     insights: dict[str, CommitActivity | DurationMetric | ReleaseMetric]
     chart_data: dict[str, Any] | None = None

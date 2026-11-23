@@ -11,7 +11,6 @@ from backend.app.worker.dataset_import import execute_dataset_import_job, fail_d
 from backend.app.worker.executor import execute_task
 from backend.app.worker.maintenance import execute_maintenance_task
 from backend.app.worker.queue import claim_next_dataset_import_job, claim_next_task, heartbeat
-from backend.app.worker.scheduler import start_scheduler
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -54,7 +53,6 @@ def main() -> None:
     active_task: dict[str, str | None] = {"id": None, "type": None}
     active_lock = threading.Lock()
     stop = threading.Event()
-    scheduler = start_scheduler()
     session = SessionLocal()
     try:
         heartbeat(session, worker_id, None, settings.worker_lease_seconds)
@@ -83,6 +81,9 @@ def main() -> None:
     logger.info("Worker started")
     try:
         while True:
+            # Reload environment-backed credentials and limits between tasks so a
+            # token or GITHUB_MAX_PAGES update in Settings/.env takes effect safely.
+            get_settings.cache_clear()
             session = SessionLocal()
             try:
                 dataset_job = claim_next_dataset_import_job(session, worker_id, settings.worker_lease_seconds)
@@ -134,7 +135,7 @@ def main() -> None:
                 with GitHubClient(
                     request_id=task.task_id,
                     max_pages=max_pages,
-                    unbounded=(task.scope_kind in {"window", "incremental"}),
+                    unbounded=(max_pages is None),
                     on_response=_persist_rate_limit_state,
                 ) as github:
                     if task.scope_kind == "maintenance":
@@ -151,7 +152,6 @@ def main() -> None:
         logger.info("Worker stopping")
     finally:
         stop.set()
-        scheduler.shutdown(wait=False)
         thread.join(timeout=2)
 
 

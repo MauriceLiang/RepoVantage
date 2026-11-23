@@ -6,7 +6,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from backend.app.core.clock import utc_now
-from backend.app.services.application_settings import get_github_max_pages
+from backend.app.core.config import get_settings
 from backend.app.persistence.models import CollectionTask, TaskModuleProgress
 
 
@@ -19,6 +19,8 @@ MODULE_LABELS = {
     "releases": "Releases",
 }
 MODULE_PROGRESS = {"profile": 12, "commits": 28, "issues": 48, "pulls": 68, "releases": 88}
+MODULE_START_PROGRESS = {"profile": 0, "commits": 12, "issues": 28, "pulls": 48, "releases": 68}
+UNBOUNDED_PROGRESS_PAGE_TARGET = 10
 TERMINAL_MODULE_STATUSES = {"complete", "partial", "failed", "skipped"}
 
 
@@ -37,6 +39,7 @@ class TaskProgressReporter:
         self.task_id = task_id
         self.attempt = attempt
         self.lease_owner = lease_owner
+        self._module_page_offsets: dict[str, int] = {}
 
     def begin_module(self, module: str, page_cap: int | None, *, pages_fetched: int = 0, observed_items: int = 0) -> None:
         _validate_module(module)
@@ -74,14 +77,27 @@ class TaskProgressReporter:
             task.phase = "collecting"
             task.current_module = module
             task.message = f"正在采集{MODULE_LABELS[module]}"
+            self._module_page_offsets[module] = pages_fetched
+            module_percent = _module_progress_percent(module, 0, page_cap)
+            task.progress_kind = "stages"
+            task.progress_percent = max(task.progress_percent or 0, module_percent)
             _touch_task(task, now)
 
         self._write(update)
 
-    def page_fetched(self, module: str, pages_fetched: int, observed_items: int) -> None:
+    def page_fetched(
+        self,
+        module: str,
+        pages_fetched: int,
+        observed_items: int,
+        *,
+        total_pages: int | None = None,
+    ) -> None:
         _validate_module(module)
         if pages_fetched < 0 or observed_items < 0:
             raise ValueError("Page and item counts must be non-negative")
+        if total_pages is not None and total_pages < 1:
+            raise ValueError("Total pages must be positive")
 
         def update(session: Session, task: CollectionTask, now: datetime) -> None:
             progress = _running_module(session, self.task_id, module, self.attempt)
@@ -92,6 +108,16 @@ class TaskProgressReporter:
             progress.last_updated_at = now
             task.current_module = module
             task.message = f"正在采集{MODULE_LABELS[module]}：已获取 {pages_fetched} 页"
+            pages_this_attempt = max(0, pages_fetched - self._module_page_offsets.get(module, 0))
+            module_percent = _module_progress_percent(
+                module,
+                pages_this_attempt,
+                progress.page_cap,
+                total_pages=total_pages,
+                page_offset=self._module_page_offsets.get(module, 0),
+            )
+            task.progress_kind = "stages"
+            task.progress_percent = max(task.progress_percent or 0, module_percent)
             _touch_task(task, now)
 
         self._write(update)
@@ -128,8 +154,8 @@ class TaskProgressReporter:
             progress.error_code = error_code
             progress.last_updated_at = now
             task.current_module = None
-            if status == "complete":
-                task.progress_percent = max(task.progress_percent or 0, MODULE_PROGRESS[module])
+            task.progress_kind = "stages"
+            task.progress_percent = max(task.progress_percent or 0, MODULE_PROGRESS[module])
             task.message = _module_result_message(module, status)
             _touch_task(task, now)
 
@@ -143,6 +169,7 @@ class TaskProgressReporter:
             task.phase = phase
             task.message = message
             if progress_percent is not None:
+                task.progress_kind = "stages"
                 task.progress_percent = max(task.progress_percent or 0, progress_percent)
             _touch_task(task, now)
 
@@ -174,7 +201,8 @@ class TaskProgressReporter:
 
 
 def initialize_attempt_progress(session: Session, task: CollectionTask, now: datetime) -> None:
-    github_max_pages = None if task.scope_kind in {"window", "incremental"} else get_github_max_pages(session)
+    configured_page_cap = get_settings().github_max_pages
+    github_max_pages = None if configured_page_cap == 0 else configured_page_cap
     for module in MODULE_ORDER:
         session.add(TaskModuleProgress(
             task_id=task.task_id,
@@ -204,8 +232,35 @@ def _validate_module(module: str) -> None:
 
 
 def _touch_task(task: CollectionTask, now: datetime) -> None:
-    task.progress_kind = "stages"
     task.progress_updated_at = now
+
+
+def _module_progress_percent(
+    module: str,
+    pages_fetched: int,
+    page_cap: int | None,
+    *,
+    total_pages: int | None = None,
+    page_offset: int = 0,
+) -> float:
+    """Estimate task progress from the current module and pages fetched.
+
+    When GitHub reports the endpoint's total page count, use that as the denominator.
+    A configured page cap limits that denominator. If the total is unknown, use a
+    diminishing page-count estimate. The estimate affects display only and never
+    limits collection.
+    """
+    if total_pages is not None and total_pages > 0:
+        remaining_pages = max(1, total_pages - page_offset)
+        page_target = min(remaining_pages, page_cap) if page_cap is not None and page_cap > 0 else remaining_pages
+        fraction = min(1.0, pages_fetched / page_target)
+    elif page_cap is None or page_cap < 1:
+        fraction = pages_fetched / (pages_fetched + UNBOUNDED_PROGRESS_PAGE_TARGET) if pages_fetched else 0
+    else:
+        fraction = min(1.0, pages_fetched / page_cap)
+    start = MODULE_START_PROGRESS[module]
+    end = MODULE_PROGRESS[module]
+    return round(start + (end - start) * fraction, 2)
 
 
 def _module_result_message(module: str, status: str) -> str:

@@ -2,11 +2,14 @@
 import { computed, ref } from 'vue'
 import ReleaseCadenceChart from '@/components/charts/ReleaseCadenceChart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
-import { coveredCommitPoints } from '@/components/charts/comboHelpers'
-import KpiStrip from '@/components/common/KpiStrip.vue'
+import DonutChart from '@/components/charts/DonutChart.vue'
+import BoxPlotChart from '@/components/charts/BoxPlotChart.vue'
+import G2Chart from '@/components/charts/G2Chart.vue'
 import GdButton from '@/components/ui/GdButton.vue'
 import GdCard from '@/components/ui/GdCard.vue'
 import type { RepositoryAnalysis } from '@/services/types'
+import type { G2Spec } from '@antv/g2'
+import { histogram } from '@/lib/chartAnalytics'
 import { useReleaseDrawer } from '@/composables/useReleaseDrawer'
 
 const props = defineProps<{ analysis: RepositoryAnalysis }>()
@@ -19,10 +22,6 @@ const cadenceRanges = [
 ]
 
 const yearReleases = computed(() => props.analysis.releases)
-const commitPoints = computed(() => {
-  const points = props.analysis.commits.series[0]?.points ?? []
-  return props.analysis.chartData ? coveredCommitPoints(points, props.analysis.chartData.commitWeekly) : points
-})
 const releaseHistory = computed(() => {
   const saved = props.analysis.chartData?.releaseHistory ?? []
   if (saved.length) return saved
@@ -38,8 +37,6 @@ const allCadenceItems = computed(() => {
     date: interval.publishedAt,
     days: interval.days,
     previousDate: interval.previousPublishedAt,
-    commitCount: interval.commitCount,
-    reason: interval.reason,
   }))
 
   const formal = yearReleases.value.filter((release) => !release.prerelease).sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
@@ -48,15 +45,24 @@ const allCadenceItems = computed(() => {
     return {
       tag: release.tag, previousTag: previous.tag, date: release.publishedAt,
       days: release.intervalDays ?? Math.max(0, (Date.parse(release.publishedAt) - Date.parse(previous.publishedAt)) / 86400000),
-      previousDate: previous.publishedAt, commitCount: null, reason: 'Commit 未完整覆盖此发布间隔',
+      previousDate: previous.publishedAt,
     }
   })
 })
-const cadenceEnd = computed(() => Date.parse(props.analysis.commits.window.endUtc ?? props.analysis.metrics.window.end ?? props.analysis.collectedAt ?? new Date().toISOString()))
+const releaseWindowEnd = computed(() => {
+  const metricsEnd = props.analysis.metrics.window.end
+  if (metricsEnd) return Date.parse(metricsEnd)
+  const latestRelease = yearReleases.value.map((release) => Date.parse(release.publishedAt)).filter(Number.isFinite).sort((a, b) => b - a)[0]
+  return latestRelease ?? Date.parse(props.analysis.collectedAt ?? new Date().toISOString())
+})
+const recentFormalReleaseCount = computed(() => yearReleases.value.filter((release) => {
+  const publishedAt = Date.parse(release.publishedAt)
+  return !release.prerelease && Number.isFinite(publishedAt) && publishedAt >= releaseWindowEnd.value - 365 * 86400000 && publishedAt < releaseWindowEnd.value
+}).length)
 const cadenceItems = computed(() => {
   const days = cadenceRange.value === 'year' ? 365 : cadenceRange.value === 'threeYears' ? 365 * 3 : null
-  const cutoff = days === null ? Number.NEGATIVE_INFINITY : cadenceEnd.value - days * 86400000
-  return allCadenceItems.value.filter((item) => Date.parse(item.date) >= cutoff && Date.parse(item.date) < cadenceEnd.value)
+  const cutoff = days === null ? Number.NEGATIVE_INFINITY : releaseWindowEnd.value - days * 86400000
+  return allCadenceItems.value.filter((item) => Date.parse(item.date) >= cutoff && Date.parse(item.date) < releaseWindowEnd.value)
 })
 const identifierLabel = computed(() => yearReleases.value[0]?.identifierType === 'release_id' ? 'Release ID' : '版本')
 const sorted = computed(() => [...yearReleases.value].sort((a, b) => +new Date(b.publishedAt) - +new Date(a.publishedAt)))
@@ -78,7 +84,22 @@ const releaseCoverageNote = computed(() => {
   if (state === 'partial') return 'Release 采集不完整，间隔可能跨过未采集版本'
   return '仅展示当前本地可读取的 Release'
 })
-const hasCommitCounts = computed(() => cadenceItems.value.some((item) => item.commitCount !== null))
+const releaseTypeRows = computed(() => [
+  ...(yearReleases.value.filter((release) => !release.prerelease).length ? [{ label: '正式版', value: yearReleases.value.filter((release) => !release.prerelease).length }] : []),
+  ...(yearReleases.value.filter((release) => release.prerelease).length ? [{ label: '预发布版', value: yearReleases.value.filter((release) => release.prerelease).length }] : []),
+])
+const releaseIntervalHistogram = computed(() => histogram(cadenceValues.value, [
+  { label: '≤ 7 天', max: 7 }, { label: '8–30 天', max: 30 }, { label: '31–90 天', max: 90 },
+  { label: '91–180 天', max: 180 }, { label: '181–365 天', max: 365 }, { label: '> 365 天', max: Number.POSITIVE_INFINITY },
+]))
+const releaseIntervalSamples = computed(() => cadenceItems.value.map((item) => ({ group: '正式版间隔', value: item.days })))
+const releaseHistogramSpec = computed<G2Spec>(() => ({
+  type: 'interval', data: releaseIntervalHistogram.value,
+  encode: { x: 'label', y: 'count' },
+  style: { fill: '#5c8b91', fillOpacity: 0.82 },
+  axis: { x: { labelFontSize: 9 }, y: { title: '间隔数量', gridLineDash: [3, 3] } },
+  tooltip: { title: 'label', items: [{ field: 'count', name: '发布间隔数' }] },
+}))
 
 function openReleaseByTag(tag: string) {
   const release = yearReleases.value.find((item) => item.tag === tag)
@@ -96,20 +117,18 @@ function openReleaseByTag(tag: string) {
 </script>
 
 <template>
-  <KpiStrip :metrics="analysis.metrics.metrics" />
-
-  <GdCard class="h-[360px] overflow-hidden">
-    <div class="flex flex-wrap items-start justify-between gap-3">
+  <GdCard class="h-[360px] overflow-hidden" padding="sm" :gap="false">
+    <div class="mb-1 flex flex-wrap items-start justify-between gap-3">
       <div>
         <h3 class="m-0 text-[15.5px] font-semibold">发布时间线</h3>
-        <p class="mt-0.5 text-[12px] text-muted">提交活动面积与 Release 标记 · 默认显示最近 90 天 · 滑块浏览近 365 天</p>
+        <p class="mt-0.5 text-[12px] text-muted">按周、月或季度统计已采集的 Release · 日期范围默认近 90 天</p>
       </div>
-    <span class="text-[11.5px] text-muted">正式发布 {{ yearReleases.length }} 次</span>
+    <span class="text-[11.5px] text-muted">近 365 天正式发布 {{ recentFormalReleaseCount }} 次</span>
     </div>
-    <TimelineChart :releases="yearReleases" :commits="commitPoints" :height="220" @select="openRelease" />
-    <div class="flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
-      <span>Release 显示近 365 天；标记纵向位置不代表提交数。提交仅显示当前分析窗口的周数据，空白不代表没有提交。</span>
-      <span>点击圆点或下方记录查看 Release 详情</span>
+    <TimelineChart :releases="yearReleases" :height="220" />
+    <div class="mt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] text-muted">
+      <span>柱形按周、月或季度统计正式版与预发布版数量；采集不完整时，空档可能包含未采集的发布记录。</span>
+      <span>具体版本与发布日期见下方记录表</span>
     </div>
   </GdCard>
 
@@ -133,8 +152,7 @@ function openReleaseByTag(tag: string) {
       </div>
       <ReleaseCadenceChart v-if="cadenceItems.length" :items="cadenceItems" :height="235" @select="openReleaseByTag" />
       <div v-else class="flex min-h-0 flex-1 items-center justify-center rounded-md bg-soft px-4 text-center text-[12px] text-muted">当前范围暂未形成可计算的正式发布间隔。</div>
-      <p v-if="cadenceItems.length && !hasCommitCounts" class="mb-0 mt-1 text-[10.5px] text-warnfg">当前没有 Commit 完整覆盖这些发布间隔的数据；提交数不可比较，不代表 0。</p>
-      <p v-else class="mb-0 mt-1 text-[10.5px] text-muted">横轴为前版日期 → 新版日期；间隔按本地已采集记录计算，采集不完整时可能跨过遗漏版本。折线只显示 Commit 覆盖完整的区间，点击柱查看新版说明。</p>
+      <p v-if="cadenceItems.length" class="mb-0 mt-1 text-[10.5px] text-muted">柱表示相邻已采集正式发布的天数间隔；采集不完整时区间可能跨过遗漏版本。点击柱查看 Release 说明。</p>
       <p class="mb-0 mt-1 text-[10px] text-muted">{{ releaseCoverageNote }}；“全部已采集”不代表 GitHub 全历史。</p>
     </GdCard>
 
@@ -167,6 +185,27 @@ function openReleaseByTag(tag: string) {
           </tbody>
         </table>
       </div>
+    </GdCard>
+  </div>
+
+  <div class="grid gap-4 xl:grid-cols-3">
+    <GdCard class="min-w-0" data-testid="release-type-donut-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">正式版与预发布版</h3><p class="mt-0.5 text-[12px] text-muted">当前本地可读取的 Release 类型构成</p></div>
+      <DonutChart v-if="releaseTypeRows.length" :rows="releaseTypeRows" :total="yearReleases.length.toLocaleString('zh-CN')" center-label="Release" label="正式版与预发布版构成环形图" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-[12px] text-muted">暂无 Release 类型样本</div>
+      <p class="m-0 text-[10.5px] text-muted">正式 {{ yearReleases.filter((release) => !release.prerelease).length }} 条 · 预发布 {{ yearReleases.filter((release) => release.prerelease).length }} 条 · {{ releaseCoverageNote }}</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="release-interval-histogram-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">发布间隔分布</h3><p class="mt-0.5 text-[12px] text-muted">相邻正式 Release 的间隔天数，按区间统计</p></div>
+      <G2Chart v-if="cadenceValues.length" :spec="releaseHistogramSpec" label="正式 Release 间隔天数直方图" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-[12px] text-muted">暂无可计算的正式版间隔</div>
+      <p class="m-0 text-[10.5px] text-muted">有效间隔 n={{ cadenceValues.length }} · P50 {{ median?.toLocaleString('zh-CN', { maximumFractionDigits: 1 }) ?? '—' }} 天。</p>
+    </GdCard>
+    <GdCard class="min-w-0" data-testid="release-interval-boxplot-card">
+      <div><h3 class="m-0 text-[15.5px] font-semibold">发布间隔箱线图</h3><p class="mt-0.5 text-[12px] text-muted">整体正式版间隔分布；样本少于 5 时保留表格和统计值</p></div>
+      <BoxPlotChart v-if="releaseIntervalSamples.length >= 5" :samples="releaseIntervalSamples" label="正式 Release 间隔箱线图" unit="间隔（天）" :height="270" />
+      <div v-else class="flex h-[270px] items-center justify-center text-center text-[12px] text-muted">当前只有 {{ releaseIntervalSamples.length }} 个有效间隔；至少 5 个样本后显示箱线图。</div>
+      <p class="m-0 text-[10.5px] text-muted">仅纳入有相邻发布时间的正式版间隔；未覆盖的版本间隔可能不完整。</p>
     </GdCard>
   </div>
 </template>

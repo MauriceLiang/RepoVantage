@@ -1,6 +1,10 @@
 {
   "schema_version": 1,
-  "dataset_id": "course-test-events-v1",
+  "dataset_id": "course-research-events-300-v1",
+  "legacy_dataset_ids": ["course-test-events-v1"],
+  "metadata_revision": 2,
+  "previous_dataset_id": "course-test-events-v1",
+  "previous_manifest_sha256": "e608bf2c0685a61455bb43eca37e35267f1eb852bb96fd7a802519946ac3a16b",
   "source_dataset_id": "repo-evaluation-2026-v1",
   "sample_dataset_id": "course-research-300-v1",
   "repository_count": 300,

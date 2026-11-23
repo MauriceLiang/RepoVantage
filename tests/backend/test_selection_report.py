@@ -251,15 +251,15 @@ def test_maintenance_evidence_matches_report_without_changing_rule_ranking(backe
         assert "最近 4 周实际变化" in data["report_markdown"]
         assert "未来 4 周活动趋势预测（M2）" in data["report_markdown"]
         assert pattern["display_name"] in data["report_markdown"]
-        assert "近期活动异常提示（MAD 规则）" in data["report_markdown"]
-        assert "未发现明显异常" in data["report_markdown"]
+        assert "近期活动异常提示" not in data["report_markdown"]
+        assert "MAD 规则" not in data["report_markdown"]
     exported = client.post("/api/v1/reports/selection.md", json=body(), headers=HEADERS)
     assert exported.status_code == 200 and exported.text == data["report_markdown"]
     assert "不参与规则得分" in exported.text
     assert "## 数据口径与适用性说明" in exported.text
     assert "## 技术选型辅助结论（规则与证据分别说明）" in exported.text
     assert "当前候选综合分并列" in exported.text
-    assert "M1、M2 与 M3 只作为近期维护行为证据，不参与规则排名" in exported.text
+    assert "M1、M2 与最近 4 周实际变化只作为近期维护行为证据，不参与规则排名" in exported.text
     with factory() as session:
         session.delete(session.get(MaintenanceRun, 'maintenance-322'))
         session.commit()

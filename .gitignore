@@ -1,34 +1,60 @@
+# Local secrets and Python environments
 .env
 .venv/
 __pycache__/
+*.py[cod]
 .pytest_cache/
-data/*
-!data/.gitkeep
-!data/manifests/
-!data/manifests/**
-!data/datasets/
-data/datasets/*
-!data/datasets/featured-v1/
-!data/datasets/featured-v1/**
-!data/datasets/course-research-300-v1/
-!data/datasets/course-research-300-v1/**
-!data/datasets/course-test-events-v1/
-!data/datasets/course-test-events-v1/**
-!data/datasets/course-research-events-300-v1/
-!data/datasets/course-research-events-300-v1/**
+
+# Local database and runtime data; only frozen, reviewed datasets are versioned
+/data/*
+!/data/.gitkeep
+!/data/manifests/
+!/data/manifests/**
+!/data/datasets/
+/data/datasets/*
+!/data/datasets/featured-v1/
+!/data/datasets/featured-v1/**
+!/data/datasets/course-research-300-v1/
+!/data/datasets/course-research-300-v1/**
+!/data/datasets/course-test-events-v1/
+!/data/datasets/course-test-events-v1/**
+!/data/datasets/course-research-events-300-v1/
+!/data/datasets/course-research-events-300-v1/**
 /data/collected/
 /data/raw/
 /data/*.db
 /data/*.sqlite
-*.py[cod]
-docs/*
-!docs/ux/
-docs/ux/*
-!docs/ux/v22-progress.md
-.idea
-frontend/node_modules/
-frontend/dist/
-!docs/insights/
-docs
-dataprepare
+
+# Frontend dependencies and generated bundles
+/frontend/node_modules/
+/frontend/dist/
+/frontend/ml-console/dist/
+/frontend/.vite/
+
+# Local editor, agent, package-manager and operating-system state
+.idea/
+.agents/
+.openidea/
+.pnpm-store/
 .DS_Store
+
+# Legacy, unreviewed frontend handoff notes and screenshots
+/frontend/docs/
+
+# Approved project docs are allow-listed; local design packs and working notes stay local.
+/docs/*
+!/docs/featured-dataset-import-performance.md
+!/docs/architecture/
+/docs/architecture/*
+!/docs/architecture/project-layout.md
+!/docs/guides/
+/docs/guides/*
+!/docs/guides/backend-operations.md
+!/docs/insights/
+/docs/insights/**
+!/docs/insights/02_collection_contract.md
+!/docs/insights/06_window_acceptance.md
+!/docs/insights/window-schema.json
+
+# Local preparation workspace
+/dataprepare/

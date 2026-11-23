@@ -193,12 +193,10 @@ try {
 
     if (theme === 'light') {
       await navigate('/research')
-      await page.waitForSelector('[data-testid="research-empty-state"]')
-      assert.match(await text('[data-testid="research-empty-state"]'), /默认 300 仓库数据暂不可用/, '演示模式不能伪造真实默认仓库样本')
-      assert.equal(await page.$('[data-testid="research-kpis"]'), null, '没有真实标准样本时不应展示空指标与图表')
-      assert.equal(await page.$('[data-testid="export-research-statistics"]'), null, '空样本不应导出统计结果')
-      assert.equal(await page.$('[data-testid="research-mode"]'), null, '研究页固定使用默认仓库数据，不保留模式选择')
-      assert.equal(await page.$('[data-testid="import-featured"]'), null, '研究页不再提供旧精选导入入口')
+      await page.waitForSelector('[data-testid="research-atlas-error"]')
+      assert.match(await text('[data-testid="research-atlas-error"]'), /研究图谱暂不可用/, '缺少真实课程数据时应明确显示 API 错误')
+      assert.equal(await page.$('.research-g2-chart'), null, '没有真实标准样本时不应绘制图谱')
+      assert.equal(await page.$('.atlas-meta-row'), null, '没有真实标准样本时不应显示数据摘要')
       const repositoryPages = await page.evaluate(async () => {
         const { HttpRepositoryDataSource } = await import('/src/services/httpRepositoryDataSource.ts')
         const originalFetch = window.fetch

@@ -1,4 +1,4 @@
-"""Course-version ML outcomes: three recent-activity tasks with explicit fallback states."""
+"""Course-version ML outcomes for the two retained maintenance tasks."""
 import json
 
 from sqlalchemy import select
@@ -21,9 +21,6 @@ def model_decisions():
         artifact = _artifact(artifact_name)
         models.append({"model_id": model_id, "status": "available" if artifact else "model_unavailable",
                        "reason": reason, "version": artifact.get("version") if artifact else None})
-    models.append({"model_id": "M3-activity-anomaly", "status": "baseline_only",
-                   "reason": "IsolationForest 仅保留研究；产品只显示待核查的 MAD 统计提示，真实人工复核尚未完成。",
-                   "version": "mad-12w-v1"})
     return {"models": models}
 
 
@@ -58,7 +55,6 @@ def repository_evaluation(session: Session, repository_id: int):
             "maintenance_pattern": observation["maintenance_pattern"],
             "recent_activity_change": recent_commit_change(observation["weeks"]),
             "activity_trend": observation["activity_trend"],
-            "activity_anomaly": observation["activity_anomaly"],
             "research_sample": research_sample,
-            "limitations": ["课程设计版仅包含维护行为聚类、未来四周活跃趋势分类和活动异常提示。",
+            "limitations": ["课程设计版仅包含维护行为聚类和未来四周活跃趋势分类。",
                             "未来活动预测只输出无概率类别；低活跃或覆盖不足时回退为事实统计。"]}

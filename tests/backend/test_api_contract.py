@@ -84,6 +84,52 @@ def test_add_is_idempotent_and_reuses_queued_task(backend_client):
     assert tasks == 1
 
 
+def test_library_groups_persist_memberships_and_follow_library_removal(backend_client, monkeypatch):
+    client, factory, github = backend_client
+    groups = "/api/v1/library/groups"
+    library = "/api/v1/library/repositories"
+    add_body = {"full_name": "example/project", "auto_analyze": False}
+    repository_id = client.post(library, json=add_body, headers=HEADERS).json()["data"]["repository_id"]
+    with factory() as session:
+        session.add(Repository(repository_id=456, full_name="example/candidate", html_url="https://github.com/example/candidate"))
+        session.flush()
+        session.add(DatasetRepository(dataset_id=LIBRARY_ID, repository_id=456, selection_source="candidate"))
+        session.commit()
+
+    with monkeypatch.context() as patch:
+        patch.setattr(github, "repository", {**github.repository, "id": 456, "full_name": "example/candidate"})
+        search = client.get("/api/v1/github/search?q=example", headers=HEADERS)
+        assert search.json()["data"]["items"][0]["already_in_library"] is False
+
+    assert client.post(groups, json={"name": "   "}, headers=HEADERS).status_code == 422
+    rejected = client.post(groups, json={"name": "验证", "repository_ids": [repository_id, 456]}, headers=HEADERS)
+    assert rejected.status_code == 409
+    assert client.get(groups, headers=HEADERS).json()["data"] == []
+
+    first = client.post(groups, json={"name": " 前端 "}, headers=HEADERS)
+    assert first.status_code == 201
+    group = first.json()["data"]
+    assert group["name"] == "前端"
+    assert group["repository_ids"] == []
+    assert client.post(groups, json={"name": "前端"}, headers=HEADERS).status_code == 409
+
+    members = f"{groups}/{group['id']}/repositories"
+    for _ in range(2):
+        response = client.post(members, json={"repository_ids": [repository_id, repository_id]}, headers=HEADERS)
+        assert response.status_code == 200
+        assert response.json()["data"]["repository_ids"] == [repository_id]
+    second = client.post(groups, json={"name": "待评估", "repository_ids": [repository_id]}, headers=HEADERS).json()["data"]
+    assert client.get(groups, headers=HEADERS).json()["data"] == [
+        {**group, "repository_ids": [repository_id]}, second,
+    ]
+
+    assert client.delete(f"{members}/{repository_id}", headers=HEADERS).json()["data"]["repository_ids"] == []
+    assert client.get(library, headers=HEADERS).json()["data"]["items"][0]["repository_id"] == repository_id
+    assert client.delete(f"{library}/{repository_id}", headers=HEADERS).status_code == 204
+    assert client.post(library, json=add_body, headers=HEADERS).status_code == 201
+    assert client.get(groups, headers=HEADERS).json()["data"] == [group, {**second, "repository_ids": []}]
+
+
 def test_search_add_worker_analysis_flow_uses_real_persisted_snapshot(backend_client, monkeypatch):
     client, factory, github = backend_client
     monkeypatch.setattr("backend.app.worker.executor.archive_json", lambda *_args, **_kwargs: "123/2026-10-13/task/repository.json.gz")
