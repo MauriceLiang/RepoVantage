@@ -107,6 +107,10 @@ try {
   await page.waitForFunction(() => !document.querySelector('.overview-filter-summary'))
 
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1 })
+  await page.waitForFunction(() => [...document.querySelectorAll('.g2-chart__canvas')].every((host) => {
+    const canvas = host.querySelector('canvas')
+    return !canvas || canvas.clientWidth <= host.clientWidth + 2
+  }), { timeout: 20000 })
   await page.screenshot({ path: outputDir + '/overview-mobile.png', fullPage: true })
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   assert.ok(overflow <= 2, '移动端存在 ' + overflow + 'px 横向溢出')
