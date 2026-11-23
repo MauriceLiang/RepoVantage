@@ -1,4 +1,4 @@
-interface Envelope<T> { data: T; meta?: Record<string, unknown> }
+export interface Envelope<T> { data: T; meta?: Record<string, unknown> }
 interface ApiError { error?: { code?: string; message?: string }; request_id?: string }
 
 let csrfToken: string | null = null
@@ -26,7 +26,7 @@ async function openSession() {
   await sessionRequest
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   await openSession()
   const headers = new Headers(init.headers)
   headers.set('X-GDA-Request', 'browser')
