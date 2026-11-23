@@ -21,6 +21,7 @@ htmlcov/
 !/data/manifests/**
 !/data/datasets/
 /data/datasets/*
+!/data/datasets/featured-v1.zip
 !/data/datasets/featured-v1/
 !/data/datasets/featured-v1/**
 !/data/datasets/course-research-300-v1/

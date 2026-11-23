@@ -56,7 +56,6 @@ def backend_client(tmp_path, monkeypatch):
     monkeypatch.setattr(collection_archive, "COLLECTED_ROOT", tmp_path / "collected-pages")
     monkeypatch.setattr("backend.app.main.SessionLocal", factory)
     monkeypatch.setattr("backend.app.worker.main.SessionLocal", factory)
-    monkeypatch.setattr("backend.app.worker.scheduler.SessionLocal", factory)
 
     @event.listens_for(engine, "connect")
     def enable_foreign_keys(connection, _record):
