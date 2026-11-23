@@ -19,6 +19,17 @@ from backend.app.pipeline.event_normalizer import normalize_events
 from backend.app.pipeline.raw_archive import read_archive
 from backend.app.services.insight_record_helpers import METRIC_VERSION, _select_insight_run
 
+from backend.app.services.insight_commits import repository_commit_activity
+from backend.app.services.insight_issues import (
+    repository_closed_issues, repository_closed_issue_chart_data,
+    repository_closed_issue_detail, repository_closed_issue_online_detail,
+)
+from backend.app.services.insight_pulls import (
+    repository_pull_requests, repository_pull_request_chart_data,
+    repository_pull_request_detail, repository_pull_request_online_detail,
+)
+from backend.app.services.insight_releases import repository_release_detail
+
 METRIC_VERSION = "insights-v1"
 MODULES = ("commits", "issues", "pulls", "releases")
 PAGE_LIMIT_NOTE = "已达到用户设置的接口页数预算；仍有后续页未采集，当前指标只反映已观察样本。"
@@ -336,16 +347,3 @@ def repository_insights_for_window(session, repository_id, start, end, source_re
         "limitations": limitations,
     })
     return result
-
-
-
-from backend.app.services.insight_commits import repository_commit_activity
-from backend.app.services.insight_issues import (
-    repository_closed_issues, repository_closed_issue_chart_data,
-    repository_closed_issue_detail, repository_closed_issue_online_detail,
-)
-from backend.app.services.insight_pulls import (
-    repository_pull_requests, repository_pull_request_chart_data,
-    repository_pull_request_detail, repository_pull_request_online_detail,
-)
-from backend.app.services.insight_releases import repository_release_detail

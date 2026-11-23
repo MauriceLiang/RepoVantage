@@ -35,9 +35,6 @@ from backend.app.persistence.models import (
     RepositorySnapshot,
 )
 from backend.app.services.repositories import FEATURED_ID, LIBRARY_ID, repository_from_github
-
-
-logger = logging.getLogger("repovantage.dataset_import")
 from backend.app.services.dataset_import_common import (
     ALLOWED_FILES,
     BUNDLE_MAX_BYTES,
@@ -59,6 +56,11 @@ from backend.app.services.dataset_import_common import (
     _nonnegative_int,
     _positive_int,
 )
+from backend.app.services.dataset_bundle_reader import _load_bundle
+from backend.app.services.dataset_record_writer import _import_records
+
+
+logger = logging.getLogger("repovantage.dataset_import")
 
 @contextmanager
 def _bundle_directory(source: Path) -> Iterator[Path]:
@@ -460,6 +462,3 @@ def dataset_coverage(session: Session, dataset_id: str) -> dict[str, Any]:
 
 
 
-# Retain patchable module-level entry points used by the API and the dataset worker.
-from backend.app.services.dataset_bundle_reader import _load_bundle
-from backend.app.services.dataset_record_writer import _import_records
