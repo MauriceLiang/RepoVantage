@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_SOURCE = ROOT / "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz"
+DEFAULT_SOURCE = ROOT / "ml/course/datasets/repo-evaluation-2026-v1/repository_weekly_features.csv.gz"
 DEFAULT_PROFILES = ROOT / "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_profiles.jsonl.gz"
 DEFAULT_MANIFEST = ROOT / "ml/course/splits/repositories-150-150-v1.json"
 DEFAULT_AUDIT = ROOT / "reports/course-150-150/p1-split-audit.md"

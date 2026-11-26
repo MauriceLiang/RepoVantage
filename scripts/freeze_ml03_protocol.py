@@ -70,7 +70,8 @@ def main():
                            'previously_viewed_test_repository_ids': split['test'],
                            'test_reuse_policy': '仅开发诊断，不能用于新外部验收；候选选择只使用 train 和 validation。',
                            'history_start': '2025-11-03T00:00:00Z', 'history_end_exclusive': '2026-11-02T00:00:00Z'})
-    files = [coverage, historical, old, shadow, predictions, RESERVES, SOURCE/'repository_weekly_features.csv.gz',
+    files = [coverage, historical, old, shadow, predictions, RESERVES,
+             ROOT/'ml/course/datasets/repo-evaluation-2026-v1/repository_weekly_features.csv.gz',
              SOURCE/'capture_manifest.json', ROOT/'pyproject.toml', ROOT/'uv.lock', ROOT/'dataprepare/MachineLearn/research_s1/requirements.txt']
     write_new(source_path, {'frozen_at': now, 'git_commit': subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip(),
                             'workspace_dirty': bool(subprocess.check_output(['git','status','--porcelain'], cwd=ROOT, text=True).strip()),

@@ -74,8 +74,8 @@ npm run test:overview-charts
 
 ## 数据与机器学习边界
 
-- `data/manifests/comparison-repositories-v1.json` 是仓库页一键导入清单，分组说明见 [docs/仓库采集清单.md](docs/仓库采集清单.md)。`data/datasets/featured-v1/` 是独立的首页精选数据集，不会自动加入“我的仓库”；`data/datasets/course-research-300-v1/` 包含 300 仓库、12 个完整 UTC 周的历史研究快照。
-- 300 个样本按固定 **150 训练 / 150 留出** 角色划分。模型、切分与评估结果保存在 `ml/course/`，数据来源与限制见各数据包的 README / DATA_NOTICE。
+- `data/manifests/comparison-repositories-v1.json` 是仓库页的演示导入清单，分组说明见 [docs/仓库采集清单.md](docs/仓库采集清单.md)。新克隆后“我的仓库”默认为空；需要演示时，点击仓库页上方的“导入比较仓库”才会将清单加入。
+- M1、M2 使用的 300 仓库、52 周聚合训练输入保存在 `ml/course/datasets/repo-evaluation-2026-v1/`，按固定 **150 训练 / 150 留出** 切分；模型、切分与评估结果保存在 `ml/course/`。该训练数据不导入个人仓库列表。
 - M1 使用 K-Means 描述维护活动模式；M2 使用逻辑回归评估活动趋势。评估属于既定历史样本上的课程研究，不能外推到所有 GitHub 仓库。
 - `ml-production/approved/` 当前没有批准的生产模型。模型注册和研究材料不构成生产准入。
 - `data/app.db`、`data/collected/`、`data/raw/`、`.env` 属于本机运行状态，不应提交到仓库；冻结数据包与模型可复现材料应保留版本记录。

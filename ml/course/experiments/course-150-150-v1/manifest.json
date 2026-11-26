@@ -7,7 +7,7 @@
   "repositories": 300,
   "scikit_learn": "1.9.1",
   "seed": 20261111,
-  "source": "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz",
+  "source": "ml/course/datasets/repo-evaluation-2026-v1/repository_weekly_features.csv.gz",
   "source_sha256": "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d",
   "split": {
     "test": 150,

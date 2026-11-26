@@ -103,7 +103,7 @@ def main():
                        "bootstrap": bootstrap_difference(np.asarray([row["target"] for row in rows]), baseline, routed)}
     args.output.parent.mkdir(parents=True, exist_ok=True)
     result = {"status": "research_only", "evaluation_type": "historical_evaluation_not_independent", "seed": SEED,
-              "sources_sha256": {"weekly": sha256(ROOT / "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz")},
+              "sources_sha256": {"weekly": sha256(ROOT / "ml/course/datasets/repo-evaluation-2026-v1/repository_weekly_features.csv.gz")},
               "validation_origins": [starts[i].isoformat() for i in (40, 44)], "test_origin": starts[48].isoformat(),
               "routes": routes, "historical_test": tests,
               "limitations": ["测试仓库和时段此前已被研究实验查看，不能作为新的发布验收。", "默认分支历史成员关系不可回溯，PR 创建量仅作为对应模块完整的历史协变量。"]}

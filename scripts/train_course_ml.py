@@ -30,7 +30,7 @@ from backend.app.analytics.course_ml_features import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "dataprepare/MachineLearn/run/repo-evaluation-2026-v1/repository_weekly_features.csv.gz"
+SOURCE = ROOT / "ml/course/datasets/repo-evaluation-2026-v1/repository_weekly_features.csv.gz"
 SPLIT_DEFAULT = ROOT / "ml/course/splits/repositories-150-150-v1.json"
 EXPECTED_SOURCE_SHA256 = "5a463e44da2260d943a7851c872277984552fba3034e12eb8d5bb14c7c2c148d"
 SEED = 20261111
