@@ -335,18 +335,19 @@ void reloadLibrary()
 
 <template>
   <div class="stack app-page repositories-page">
-    <UiPageHeader title="仓库" />
-
-    <UiPanel class="repository-workspace">
+    <section class="repository-workspace">
       <div class="repository-workspace-header">
-        <nav class="repository-views" aria-label="仓库视图">
-          <RouterLink to="/repositories" custom v-slot="{ href, navigate }">
-            <a :href="href" :aria-current="isLibraryView ? 'page' : undefined" @click="navigate"><Library :size="15" aria-hidden="true" />我的仓库</a>
-          </RouterLink>
-          <RouterLink :to="discoveryRoute" custom v-slot="{ href, navigate }">
-            <a :href="href" :aria-current="!isLibraryView ? 'page' : undefined" @click="navigate"><Compass :size="15" aria-hidden="true" />发现</a>
-          </RouterLink>
-        </nav>
+        <div class="repository-workspace-leading">
+          <h1 class="repository-page-title">仓库</h1>
+          <nav class="repository-views" aria-label="仓库视图">
+            <RouterLink to="/repositories" custom v-slot="{ href, navigate }">
+              <a :href="href" :aria-current="isLibraryView ? 'page' : undefined" @click="navigate"><Library :size="15" aria-hidden="true" />我的仓库</a>
+            </RouterLink>
+            <RouterLink :to="discoveryRoute" custom v-slot="{ href, navigate }">
+              <a :href="href" :aria-current="!isLibraryView ? 'page' : undefined" @click="navigate"><Compass :size="15" aria-hidden="true" />发现</a>
+            </RouterLink>
+          </nav>
+        </div>
         <div v-if="isLibraryView" class="repository-header-actions">
           <span v-if="curatedImportStatus?.collecting" class="curated-import-progress" role="status">
             清单采集进行中 · {{ curatedImportStatus.taskCounts.completed }}/{{ curatedImportStatus.taskCounts.total }} 项任务完成
@@ -411,7 +412,10 @@ void reloadLibrary()
         >
           <template v-if="showLibrary">
             <div class="repository-results-heading">
-              <h2 id="repository-results-title">{{ groupTitle }}</h2>
+              <div class="repository-results-title">
+                <h2 id="repository-results-title">{{ groupTitle }}</h2>
+                <span v-if="showLibrary" class="repository-result-count">{{ formatNumber(filtered.length) }} 个结果</span>
+              </div>
               <UiButton
                 v-if="activeGroup && groupRepositories.length"
                 variant="outline"
@@ -496,7 +500,7 @@ void reloadLibrary()
                   </td>
                   <td class="repository-language nowrap" data-label="语言" role="cell">{{ repository.language || '未知' }}</td>
                   <td class="repository-stars mono" data-label="Stars" role="cell">{{ formatNumber(repository.stars) }}</td>
-                  <td v-if="showLibrary" class="repository-status" role="cell"><UiBadge :tone="statusInfo(repository.status).tone">{{ statusInfo(repository.status).label }}</UiBadge><span v-if="repository.hasHistoricalData" class="repository-history small muted">含本地历史数据</span></td>
+                  <td v-if="showLibrary" class="repository-status" data-label="状态" role="cell"><UiBadge :tone="statusInfo(repository.status).tone">{{ statusInfo(repository.status).label }}</UiBadge><span v-if="repository.hasHistoricalData" class="repository-history small muted">含本地历史数据</span></td>
                   <td v-if="showLibrary" class="repository-date mono small nowrap" data-label="最近分析" role="cell">{{ dateLabel(repository.lastAnalyzedAt) }}</td>
                   <td class="repository-actions-cell" role="cell">
                     <div v-if="showLibrary" class="repository-row-actions">
@@ -557,9 +561,6 @@ void reloadLibrary()
             <UiButton variant="outline" @click="githubSearchForm?.querySelector('input')?.focus()">修改搜索词</UiButton>
           </div>
 
-          <footer v-if="showLibrary && filtered.length" class="small muted">
-            共 {{ formatNumber(filtered.length) }} 个仓库
-          </footer>
         </section>
       </div>
 
@@ -576,7 +577,7 @@ void reloadLibrary()
           </div>
         </aside>
       </Transition>
-    </UiPanel>
+    </section>
 
     <RepositoryGroupDialog :action="groupAction" :repositories="repositories" :groups="groups" @close="groupAction = null" @saved="groupSaved" />
   </div>
@@ -587,28 +588,29 @@ void reloadLibrary()
   width: 100%;
   max-width: none;
   block-size: max(420px, calc(100dvh - var(--topbar-height)));
-  grid-template-rows: auto minmax(0, 1fr);
-  gap: 18px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: 0;
   margin-inline: 0;
+  padding-block-start: 14px;
   padding-block-end: 24px;
 }
-.repositories-page :deep(.page-header) { margin-bottom: 0; }
 .repository-workspace {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   min-block-size: 0;
   container: repository-workspace / inline-size;
-  padding: 0;
 }
 .repository-workspace-header {
   display: flex;
-  min-height: 56px;
+  min-height: 54px;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 0 0 6px;
   border-bottom: 1px solid var(--line);
 }
+.repository-workspace-leading { display: flex; min-width: 0; align-items: center; gap: 24px; }
+.repository-page-title { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: -.6px; line-height: 1.2; white-space: nowrap; }
 .repository-header-actions {
   display: flex;
   min-width: 0;
@@ -621,25 +623,26 @@ void reloadLibrary()
 .curated-import-button, .curated-import-ready { min-height: 34px; }
 .repository-views {
   display: flex;
-  gap: 4px;
+  align-self: stretch;
+  gap: 18px;
 }
 .repository-views a {
   display: inline-flex;
-  min-height: 38px;
+  min-height: 44px;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
-  border-radius: 7px;
+  padding: 0 3px;
+  border-bottom: 2px solid transparent;
   color: var(--muted);
   font-size: 13px;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
 }
-.repository-views a:hover { color: var(--ink); background: var(--surface-soft); }
+.repository-views a:hover { color: var(--ink); }
 .repository-views a[aria-current='page'] {
   color: var(--primary-ink);
-  background: var(--primary-soft);
+  border-bottom-color: var(--primary);
 }
 .repository-body {
   display: grid;
@@ -653,10 +656,8 @@ void reloadLibrary()
   flex-direction: column;
   min-width: 0;
   min-block-size: 0;
-  padding: 14px 12px;
+  padding: 14px 12px 14px 0;
   border-inline-end: 1px solid var(--line);
-  border-end-start-radius: calc(var(--radius) - 1px);
-  background: var(--surface-soft);
 }
 .repository-groups-heading, .repository-results-heading {
   display: flex;
@@ -670,31 +671,32 @@ void reloadLibrary()
   display: grid;
   min-block-size: 0;
   align-content: start;
-  gap: 3px;
+  gap: 6px;
   overflow-y: auto;
   overscroll-behavior-y: contain;
   padding: 3px;
 }
 .repository-group {
   display: grid;
-  min-height: 36px;
+  min-height: 38px;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 0 8px;
-  border: 0;
-  border-radius: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   color: var(--ink);
-  background: transparent;
+  background: var(--surface);
   font-size: 13px;
   text-align: start;
   cursor: pointer;
+  transition: border-color var(--motion-fast), background var(--motion-fast), color var(--motion-fast);
 }
 .repository-group svg, .repository-group small { color: var(--muted); }
 .repository-group span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .repository-group small { font-variant-numeric: tabular-nums; }
-.repository-group:hover { background: var(--surface); }
-.repository-group[aria-pressed='true'] { color: var(--primary-ink); background: var(--primary-soft); font-weight: 600; }
+.repository-group:hover { border-color: color-mix(in srgb, var(--line) 78%, var(--muted)); background: var(--surface-soft); }
+.repository-group[aria-pressed='true'] { border-color: color-mix(in srgb, var(--primary) 34%, var(--line)); color: var(--primary-ink); background: var(--primary-soft); font-weight: 600; }
 .repository-group[aria-pressed='true'] svg, .repository-group[aria-pressed='true'] small { color: inherit; }
 .repository-group:disabled { opacity: .65; cursor: default; }
 .repository-results {
@@ -704,14 +706,46 @@ void reloadLibrary()
   gap: 14px;
   overflow: auto;
   overscroll-behavior-y: contain;
-  padding: 14px 20px 20px;
+  padding: 14px 0 20px 22px;
   scroll-padding-block: 14px 20px;
 }
 .repository-results-discovery--landing { align-content: stretch; }
-.repository-results .table-wrap { min-block-size: 96px; }
+.repository-results .table-wrap {
+  min-block-size: 96px;
+  border: 0;
+  border-radius: 0;
+}
+.repository-results .data-table thead,
+.repository-results .data-table thead th { background: var(--surface-soft); }
+.repository-results .data-table thead tr { border-block: 1px solid var(--line); }
+.repository-results .data-table { font-size: 12.5px; }
+.repository-results .data-table th { padding-block: 11px; font-size: 11px; }
+.repository-results .data-table td { padding-block: 14px; }
+.repository-results .repository-table-library tbody tr { background: var(--surface); }
+.repository-results .repository-table-library tbody tr:nth-child(even) { background: var(--surface-soft); }
+.repository-results .repository-table-library tbody tr + tr td { border-top-color: color-mix(in srgb, var(--line) 84%, var(--muted)); }
+.repository-results .repository-table-library tbody tr:hover { background: var(--primary-soft); }
+.repository-results .repository-table-library { table-layout: fixed; }
+.repository-results .repository-table-library th:nth-child(1), .repository-results .repository-table-library td:nth-child(1) { width: 3%; }
+.repository-results .repository-table-library th:nth-child(2), .repository-results .repository-table-library td:nth-child(2) { width: 38%; }
+.repository-results .repository-table-library th:nth-child(3), .repository-results .repository-table-library td:nth-child(3) { width: 11%; }
+.repository-results .repository-table-library th:nth-child(4), .repository-results .repository-table-library td:nth-child(4) { width: 8%; }
+.repository-results .repository-table-library th:nth-child(5), .repository-results .repository-table-library td:nth-child(5) { width: 11%; }
+.repository-results .repository-table-library th:nth-child(6), .repository-results .repository-table-library td:nth-child(6) { width: 11%; }
+.repository-results .repository-table-library th:nth-child(7), .repository-results .repository-table-library td:nth-child(7) { width: 18%; }
+.repository-results .data-table:not(.repository-table-library) { table-layout: fixed; }
+.repository-results .data-table:not(.repository-table-library) th:nth-child(1), .repository-results .data-table:not(.repository-table-library) td:nth-child(1) { width: 56%; }
+.repository-results .data-table:not(.repository-table-library) th:nth-child(2), .repository-results .data-table:not(.repository-table-library) td:nth-child(2) { width: 14%; }
+.repository-results .data-table:not(.repository-table-library) th:nth-child(3), .repository-results .data-table:not(.repository-table-library) td:nth-child(3) { width: 10%; }
+.repository-results .data-table:not(.repository-table-library) th:nth-child(4), .repository-results .data-table:not(.repository-table-library) td:nth-child(4) { width: 20%; }
+.repository-results .repository-actions-cell { text-align: end; }
 .repository-results .table-wrap:focus-visible { outline-offset: -3px; }
 .repository-results-heading { min-height: 36px; flex-wrap: wrap; }
+.repository-results-title { display: flex; min-width: 0; align-items: baseline; gap: 10px; }
 .repository-results h2 { margin: 0; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+.repository-result-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.repository-results .repo-link { max-width: 100%; overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.repository-results .repo-description { max-width: 640px; margin-top: 4px; font-size: 11.5px; }
 .repository-filter { width: 136px; max-width: 100%; }
 .repository-history { display: block; margin-top: 4px; }
 .repository-select-filtered span { display: none; }
@@ -820,10 +854,9 @@ void reloadLibrary()
     grid-template-rows: auto minmax(0, 1fr);
   }
   .repository-groups {
-    padding: 8px 12px 10px;
+    padding: 8px 0 10px;
     border-inline-end: 0;
     border-bottom: 1px solid var(--line);
-    border-end-start-radius: 0;
   }
   .repository-groups-heading { margin-bottom: 2px; }
   .repository-group-list {
@@ -834,16 +867,20 @@ void reloadLibrary()
   }
   .repository-group { flex: 0 0 auto; max-width: min(200px, 100%); }
 }
-@container repository-workspace (max-width: 700px) {
-  .repository-workspace-header { padding-inline: 10px; }
+@container repository-workspace (max-width: 1000px) {
+  .repository-workspace-header { flex-wrap: wrap; padding: 0 10px 8px; }
+  .repository-workspace-leading { gap: 14px; }
+  .repository-page-title { font-size: 20px; }
+  .repository-views { gap: 12px; }
   .repository-header-actions { gap: 5px; }
   .curated-import-progress { max-width: 210px; font-size: 11px; text-align: end; }
   .curated-import-button { padding-inline: 8px; font-size: 11px; }
-  .repository-results { padding: 12px 12px 16px; }
+  .repository-results { padding: 12px 0 16px; }
   .repository-empty { gap: 10px; padding: 14px; }
   .repository-empty-icon { width: 34px; height: 34px; }
   .repository-results .data-table, .repository-results tbody, .repository-table-library thead, .repository-table-library thead tr { display: block; }
-  .repository-results .data-table { position: relative; }
+  .repository-results .data-table { position: relative; table-layout: auto; }
+  .repository-results .data-table th, .repository-results .data-table td { width: auto; }
   .repository-results .data-table:not(.repository-table-library) thead, .repository-table-library th:not(:first-child) {
     position: absolute;
     width: 1px;
@@ -860,30 +897,36 @@ void reloadLibrary()
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: center;
+    align-content: start;
     gap: 8px;
     padding: 12px 10px;
   }
   .repository-results .repository-table-library tbody tr {
-    grid-template-columns: 18px repeat(3, minmax(0, 1fr));
+    grid-template-columns: 18px repeat(4, minmax(0, 1fr));
   }
   .repository-results tbody tr + tr { border-top: 1px solid var(--line); }
-  .repository-results tbody td { padding: 0; border: 0; }
+  .repository-results .data-table tbody td { padding: 0; border: 0; }
   .repository-checkbox { grid-column: 1; grid-row: 1; align-self: start; padding-top: 2px; }
-  .repository-results .repository-cell { grid-column: -4 / -1; grid-row: 1; min-width: 0; }
-  .repository-results .repo-link { overflow-wrap: anywhere; }
+  .repository-results .repository-cell { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+  .repository-results .repository-table-library .repository-cell { grid-column: 2 / -1; }
+  .repository-results .repo-link { overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
   .repository-results .repo-description { white-space: normal; }
-  .repository-language { grid-column: -4; grid-row: 2; white-space: normal; overflow-wrap: anywhere; }
-  .repository-stars { grid-column: -3; grid-row: 2; }
-  .repository-date { grid-column: -2; grid-row: 2; }
+  .repository-results-discovery .repository-language { grid-column: 1; grid-row: 2; }
+  .repository-results-discovery .repository-stars { grid-column: 2; grid-row: 2; }
+  .repository-results .repository-table-library .repository-language { grid-column: 2; grid-row: 2; }
+  .repository-results .repository-table-library .repository-stars { grid-column: 3; grid-row: 2; }
+  .repository-results .repository-table-library .repository-status { grid-column: 4; grid-row: 2; }
+  .repository-results .repository-table-library .repository-date { grid-column: 5; grid-row: 2; }
   .repository-results td[data-label]::before {
-    display: block;
+    display: inline;
+    margin-inline-end: 6px;
     color: var(--muted);
     font-family: inherit;
     font-size: 10px;
     content: attr(data-label);
   }
-  .repository-status { grid-column: -4; grid-row: 3; }
-  .repository-actions-cell { grid-column: -3 / -1; grid-row: 3; justify-self: end; }
+  .repository-results .repository-table-library .repository-actions-cell { grid-column: 2 / -1; grid-row: 3; justify-self: end; }
+  .repository-results-discovery .repository-actions-cell { grid-column: 3; grid-row: 2; justify-self: end; }
   .repository-row-actions { flex-wrap: wrap; justify-content: flex-end; }
 }
 @media (max-width: 640px) {
@@ -899,5 +942,11 @@ void reloadLibrary()
   .repository-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .repository-filters .search-field { grid-column: 1 / -1; }
   .repository-filters .repository-filter { width: 100%; }
+  .repository-results .repository-table-library tbody tr { grid-template-columns: 18px repeat(2, minmax(0, 1fr)); }
+  .repository-results .repository-table-library .repository-language { grid-column: 2; grid-row: 2; }
+  .repository-results .repository-table-library .repository-stars { grid-column: 3; grid-row: 2; }
+  .repository-results .repository-table-library .repository-status { grid-column: 2; grid-row: 3; }
+  .repository-results .repository-table-library .repository-date { grid-column: 3; grid-row: 3; }
+  .repository-results .repository-table-library .repository-actions-cell { grid-column: 2 / -1; grid-row: 4; }
 }
 </style>
