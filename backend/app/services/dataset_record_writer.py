@@ -28,7 +28,6 @@ from backend.app.persistence.models import (
     DatasetImportJob,
     DatasetImportStagingRecord,
     DatasetRepository,
-    ApplicationSetting,
     Repository,
     RepositoryActivityEvent,
     RepositoryInsightRun,
@@ -36,7 +35,7 @@ from backend.app.persistence.models import (
 )
 from backend.app.services.repositories import FEATURED_ID, LIBRARY_ID, repository_from_github
 
-from backend.app.services.dataset_import_common import FEATURED_LIBRARY_SEEDED_KEY, MODULES, BundleError, _positive_int, _nonnegative_int, _json_object
+from backend.app.services.dataset_import_common import MODULES, BundleError, _positive_int, _nonnegative_int, _json_object
 
 
 def _import_records(
@@ -54,7 +53,6 @@ def _import_records(
     source_task_id = task_id or f"bundle-{metadata['version']}-{bundle_hash[:12]}"
     begin_immediate(session)
     try:
-        seed_featured_library = session.get(ApplicationSetting, FEATURED_LIBRARY_SEEDED_KEY) is None
         dataset = session.get(Dataset, FEATURED_ID)
         if dataset is not None:
             source_meta = _json_object(dataset.source_metadata_json)
@@ -69,7 +67,7 @@ def _import_records(
             session.flush()
         library = session.get(Dataset, LIBRARY_ID)
         if library is None:
-            library = Dataset(dataset_id=LIBRARY_ID, name="我的分析库", type="library", description="本地分析仓库")
+            library = Dataset(dataset_id=LIBRARY_ID, name="我的仓库", type="library", description="仅包含用户主动导入或添加的仓库")
             session.add(library)
             session.flush()
         dataset.rules_version = metadata["version"]
@@ -103,33 +101,20 @@ def _import_records(
 
         counts = {"imported_count": 0, "already_present_count": 0, "snapshot_count": 0, "event_count": 0, "warning_count": 0, "skipped_count": 0}
         for repository_id in repo_rows:
-            for dataset_id in (FEATURED_ID, LIBRARY_ID):
-                member = session.get(DatasetRepository, (dataset_id, repository_id))
-                if member is None:
-                    if dataset_id == LIBRARY_ID and not seed_featured_library:
-                        continue
-                    source_member = membership_by_repo[repository_id]
-                    session.add(DatasetRepository(
-                        dataset_id=dataset_id,
-                        repository_id=repository_id,
-                        added_at=parse_github_datetime(source_member.get("added_at")) or now,
-                        selection_tier=source_member.get("selection_tier") if dataset_id == FEATURED_ID else None,
-                        inclusion_reason=source_member.get("inclusion_reason") if dataset_id == FEATURED_ID else None,
-                        selection_source="featured bundle v1" if dataset_id == FEATURED_ID else None,
-                    ))
-                    if dataset_id == FEATURED_ID:
-                        counts["imported_count"] += 1
-                elif dataset_id == LIBRARY_ID and seed_featured_library:
-                    # Promote bundled samples into the visible repository picker once.
-                    member.selection_source = None
-                elif dataset_id == FEATURED_ID:
-                    counts["already_present_count"] += 1
-
-        if seed_featured_library:
-            session.add(ApplicationSetting(
-                setting_key=FEATURED_LIBRARY_SEEDED_KEY,
-                setting_value=json.dumps({"version": metadata["version"], "bundle_hash": bundle_hash}),
-            ))
+            member = session.get(DatasetRepository, (FEATURED_ID, repository_id))
+            if member is None:
+                source_member = membership_by_repo[repository_id]
+                session.add(DatasetRepository(
+                    dataset_id=FEATURED_ID,
+                    repository_id=repository_id,
+                    added_at=parse_github_datetime(source_member.get("added_at")) or now,
+                    selection_tier=source_member.get("selection_tier"),
+                    inclusion_reason=source_member.get("inclusion_reason"),
+                    selection_source="featured bundle v1",
+                ))
+                counts["imported_count"] += 1
+            else:
+                counts["already_present_count"] += 1
 
         for row in records["snapshots"]:
             repository_id = _positive_int(row["repository_id"])

@@ -1,6 +1,6 @@
 import type {
   ActivityTrend, GitHubTokenSettings, CommitActivityPage, ComparisonBundle, ComparisonMode, MaintenanceCollectionResult, ReleaseDetails, RepositoryAnalysis, RepositoryEvaluation, RepositoryGroup, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
+  CuratedRepositoryImportResult, CuratedRepositoryImportStatus, FeaturedDatasetImportResult, FeaturedDatasetStatus, IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimeWindow,
 } from './types'
 
 /**
@@ -16,6 +16,8 @@ export interface RepositoryDataSource {
 
   listRepositories(): Promise<RepositorySummary[]>
   listRepositoryGroups(): Promise<RepositoryGroup[]>
+  getCuratedRepositoryImportStatus(): Promise<CuratedRepositoryImportStatus>
+  importCuratedRepositories(): Promise<CuratedRepositoryImportResult>
   createRepositoryGroup(name: string, repositoryIds?: string[]): Promise<RepositoryGroup>
   addRepositoriesToGroup(groupId: string, repositoryIds: string[]): Promise<RepositoryGroup>
   removeRepositoryFromGroup(groupId: string, repositoryId: string): Promise<RepositoryGroup>

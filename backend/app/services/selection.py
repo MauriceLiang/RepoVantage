@@ -238,6 +238,7 @@ def selection_markdown(result):
         labels = {
             "not_collected": "尚未采集维护活动数据",
             "short_history": "最近 8 个完整 UTC 周不足，无法判断实际变化",
+            "insufficient_complete_weeks": "前后两个四周窗口至少各需 1 个完整 UTC 周",
             "insufficient_history": "尚无可观察的完整 UTC 周",
             "short_observation_window": "完整观察周不足 12 周",
             "incomplete_commits_coverage": "Commit 覆盖不完整，缺失周不作为零活动",
@@ -272,9 +273,11 @@ def selection_markdown(result):
             label = (pattern.get('display_name') or pattern.get('pattern_name')) if pattern['method'] == 'machine_learning' else '事实画像'
             recent_change = row.get('recent_activity_change') or {}
             trend = row.get('activity_trend') or {}
-            if recent_change.get('status') == 'available':
-                actual_change = (f"最近 4 周实际变化（统计事实）：{recent_change['trend']}（{recent_change['recent_4w_commits']} vs "
-                                 f"{recent_change['previous_4w_commits']} Commit）；此前窗口 "
+            if recent_change.get('status') in {'available', 'partial_data'}:
+                actual_change = (f"最近 4 周实际变化（统计事实）：{recent_change['trend']}（完整周均 "
+                                 f"{recent_change['recent_weekly_mean']:.1f} vs {recent_change['previous_weekly_mean']:.1f} Commit/周；"
+                                 f"纳入 {recent_change['recent_complete_weeks']}/4 vs {recent_change['previous_complete_weeks']}/4 周；"
+                                 f"排除不完整周 {', '.join(str(value)[:10] for value in recent_change.get('incomplete_week_starts', [])) or '无'}）；此前窗口 "
                                  f"{recent_change['previous_window_start_utc']} 至 {recent_change['previous_window_end_exclusive_utc']}；"
                                  f"最近窗口 {recent_change['recent_window_start_utc']} 至 {recent_change['recent_window_end_exclusive_utc']}。")
             else:
@@ -322,8 +325,15 @@ def selection_markdown(result):
             pattern_reason = explain_reason(pattern.get('reason_code'))
             actual_reason = explain_reason(recent_change.get('reason_code') or recent_change.get('status'))
             forecast_reason = explain_reason(trend.get('reason_code') or trend.get('status'))
+            if recent_change.get('status') in {'available', 'partial_data'}:
+                actual_summary = (f"最近活动变化（统计事实）：{recent_change['trend']}，完整周均 "
+                                  f"{recent_change['recent_weekly_mean']:.1f} vs {recent_change['previous_weekly_mean']:.1f} Commit/周；"
+                                  f"纳入 {recent_change['recent_complete_weeks']}/4 vs {recent_change['previous_complete_weeks']}/4 周；"
+                                  f"排除不完整周 {', '.join(str(value)[:10] for value in recent_change.get('incomplete_week_starts', [])) or '无'}。")
+            else:
+                actual_summary = f"最近活动变化（统计事实）无法判定：{safe(actual_reason)}。"
             lines.append(f"- {safe(row['full_name'])}：近期默认分支提交模式（M1）不可用：{safe(pattern_reason)}；"
-                         f"最近 4 周实际变化（统计事实）无法判定：{safe(actual_reason)}；"
+                         f"{safe(actual_summary)}"
                          f"暂不提供未来 4 周活动趋势预测（M2）：{safe(forecast_reason)}。")
     lines.extend(["", "## 比较结果", ""])
     for index, row in enumerate(result["ranking"], 1):

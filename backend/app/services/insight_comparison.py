@@ -11,6 +11,11 @@ from backend.app.services.insights import repository_insights, repository_insigh
 from backend.app.services.repositories import LIBRARY_ID, STANDARD_TEST_ID
 
 INSIGHT_FIELDS = {'commits_weekly_mean': ('commit_activity', 'commits/week'), 'issue_median_hours': ('issue_resolution', 'hours'), 'pr_median_hours': ('pr_merges', 'hours'), 'release_interval_days': ('release_cadence', 'days')}
+EVENT_COUNT_FIELDS = {
+    'issue_closed_count': ('issue_resolution', 'observed_terminal_count', 'issues'),
+    'pr_merged_count': ('pr_merges', 'observed_terminal_count', 'pull requests'),
+    'release_count': ('release_cadence', 'release_count', 'releases'),
+}
 
 
 def metric_value(result, key, *, include_observed=False):
@@ -227,6 +232,41 @@ def compare_insights(session, ids, mode='same_period', window_days=90):
                 'reason': comparison_basis['reason'] if reason_code in {'NO_SHARED_WINDOW', 'MISSING_REPOSITORY_WINDOW', 'SHARED_WINDOW_BELOW_THRESHOLD'} else metric['quality'].get('reason') if metric else None,
                 'window_start': start,
                 'window_end': end,
+            }
+        for key, (name, count_field, unit) in EVENT_COUNT_FIELDS.items():
+            metric = result['insights'].get(name)
+            metric_quality = (metric or {}).get('quality', {})
+            coverage = metric_quality.get('coverage', 'not_collected')
+            source_status = metric_quality.get('status', 'missing')
+            observed_count = (metric or {}).get(count_field)
+            count_quality = (
+                'missing' if metric is None or source_status in {'missing', 'failed'} or coverage == 'not_collected'
+                else 'ready' if coverage == 'complete'
+                else 'partial'
+            )
+            value = observed_count if count_quality in {'ready', 'partial'} and type(observed_count) is int and observed_count >= 0 else None
+            comparable = (mode == 'individual_periods' or comparison_basis['status'] == 'comparable') and value is not None
+            if mode == 'same_period' and comparison_basis['status'] != 'comparable':
+                comparable = False
+                reason_code = comparison_basis['reason_code']
+            elif count_quality == 'partial':
+                reason_code = 'PARTIAL_OBSERVATION'
+            elif value is None:
+                reason_code = 'METRIC_QUALITY_NOT_READY'
+            else:
+                reason_code = None
+            values[key] = {
+                'value': value if comparable else None,
+                'unit': unit,
+                'comparable': comparable,
+                'valid_samples': value if value is not None else 0,
+                'source_run_id': metric.get('source_run_id') if metric else None,
+                'source_kind': metric.get('source_kind') if metric else None,
+                'quality': count_quality,
+                'reason_code': reason_code,
+                'reason': comparison_basis['reason'] if reason_code in {'NO_SHARED_WINDOW', 'MISSING_REPOSITORY_WINDOW', 'SHARED_WINDOW_BELOW_THRESHOLD'} else metric_quality.get('reason') if metric and count_quality != 'ready' else None,
+                'window_start': metric.get('window_start') if metric else None,
+                'window_end': metric.get('window_end') if metric else None,
             }
         original_start, original_end = candidate_windows[len(rows)]
         rows.append({

@@ -1,0 +1,144 @@
+{
+  "research": [
+    {
+      "kind": "Issue / PR 散点图",
+      "chartWidth": 354,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "kind": "离散程度箱线图",
+      "chartWidth": 354,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "kind": "Issue / PR 散点图",
+      "chartWidth": 502,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "kind": "离散程度箱线图",
+      "chartWidth": 502,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "kind": "Issue / PR 散点图",
+      "chartWidth": 918,
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "kind": "离散程度箱线图",
+      "chartWidth": 918,
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "kind": "Issue / PR 散点图",
+      "chartWidth": 1062,
+      "scroll": 1440,
+      "width": 1440
+    },
+    {
+      "kind": "离散程度箱线图",
+      "chartWidth": 1062,
+      "scroll": 1440,
+      "width": 1440
+    }
+  ],
+  "comparison": [
+    {
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "scroll": 1440,
+      "width": 1440
+    }
+  ],
+  "real": [
+    {
+      "kind": "heatmap",
+      "chartWidth": 354,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "kind": "cumulative",
+      "chartWidth": 354,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "kind": "box",
+      "chartWidth": 354,
+      "scroll": 390,
+      "width": 390
+    },
+    {
+      "kind": "heatmap",
+      "chartWidth": 502,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "kind": "cumulative",
+      "chartWidth": 502,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "kind": "box",
+      "chartWidth": 502,
+      "scroll": 768,
+      "width": 768
+    },
+    {
+      "kind": "heatmap",
+      "chartWidth": 918,
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "kind": "cumulative",
+      "chartWidth": 918,
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "kind": "box",
+      "chartWidth": 918,
+      "scroll": 1280,
+      "width": 1280
+    },
+    {
+      "kind": "heatmap",
+      "chartWidth": 1062,
+      "scroll": 1440,
+      "width": 1440
+    },
+    {
+      "kind": "cumulative",
+      "chartWidth": 1062,
+      "scroll": 1440,
+      "width": 1440
+    },
+    {
+      "kind": "box",
+      "chartWidth": 1062,
+      "scroll": 1440,
+      "width": 1440
+    }
+  ]
+}

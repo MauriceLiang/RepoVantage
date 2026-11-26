@@ -74,6 +74,9 @@ const short = (label: string) => label.split('/')[1]
 const formatCount = (value: number | null | undefined) => value === null || value === undefined
   ? '—'
   : value.toLocaleString('zh-CN', { maximumFractionDigits: 0 })
+const formatWeeklyMean = (value: number | null) => value === null
+  ? '—'
+  : value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })
 const maintenancePatternValue = (pattern: MaintenancePattern) => pattern.method === 'machine_learning' && pattern.status === 'available'
   ? pattern.displayName ?? pattern.patternName ?? '模式未分类'
   : pattern.coverage.commits === 'partial' ? 'Commit 覆盖不完整'
@@ -86,11 +89,11 @@ const maintenancePatternDetail = (pattern: MaintenancePattern) => {
   if (total === undefined) return pattern.reasonCode ? maintenanceReason(pattern.reasonCode) : '等待可用 Commit 数据'
   return `${pattern.coverage.commits === 'partial' ? '至少 ' : ''}${formatCount(total)} 次 Commit${activeWeeks === undefined ? '' : ` · 活跃 ${formatCount(activeWeeks)}/${pattern.windowWeeks || 12} 周`}`
 }
-const maintenanceChangeValue = (change: RecentActivityChange) => change.status === 'available'
-  ? `${change.trend ?? '变化已统计'} · ${formatCount(change.recent4wCommits)} vs ${formatCount(change.previous4wCommits)} 次 Commit`
+const maintenanceChangeValue = (change: RecentActivityChange) => change.status !== 'insufficient_data'
+  ? `${change.trend ?? '变化已统计'} · ${formatWeeklyMean(change.recentWeeklyMean)} vs ${formatWeeklyMean(change.previousWeeklyMean)} Commit/周`
   : '暂不可判定'
-const maintenanceChangeDetail = (change: RecentActivityChange) => change.status === 'available'
-  ? '最近 4 周 vs 此前 4 周'
+const maintenanceChangeDetail = (change: RecentActivityChange) => change.status !== 'insufficient_data'
+  ? `完整周均：最近 ${change.recentCompleteWeeks}/4 周 vs 此前 ${change.previousCompleteWeeks}/4 周${change.incompleteWeekStarts.length ? ` · 排除 ${change.incompleteWeekStarts.length} 个不完整周` : ''}`
   : maintenanceReason(change.reasonCode ?? change.status)
 const maintenanceForecastValue = (trend: ActivityTrendPrediction) => trend.status === 'available' && trend.method === 'machine_learning' && trend.trend
   ? trend.trend : '暂不可用'
@@ -105,31 +108,49 @@ const maintenanceSnapshot = (evaluation: { researchSample: { sampleRole: 'train'
   }
   return evaluation.maintenancePattern.asOf ? `截至 ${evaluation.maintenancePattern.asOf.slice(0, 10)} UTC` : ''
 }
-const radarAxes = [
-  { key: 'commitsWeekly', label: '每周 Commit', direction: 'higher' as const },
-  { key: 'issueP50Days', label: 'Issue P50', direction: 'lower' as const },
-  { key: 'prP50Days', label: 'PR P50', direction: 'lower' as const },
-  { key: 'releaseIntervalDays', label: 'Release 间隔', direction: 'lower' as const },
-  { key: 'activeWeekRatio', label: '有效周占比', direction: 'higher' as const },
+type ComparisonRadarMetricKey = 'commitsWeekly' | 'issueClosedCount' | 'prMergedCount' | 'releaseCount' | 'activeWeekRatio'
+const radarAxes: Array<{ key: ComparisonRadarMetricKey; label: string; direction: 'higher' | 'lower'; sampleKey?: string; sampleTotalKey?: string; qualityKey?: string }> = [
+  { key: 'commitsWeekly', label: '每周 Commit', direction: 'higher' as const, sampleKey: 'commitWeekSamples', sampleTotalKey: 'commitWeekTotal' },
+  { key: 'issueClosedCount', label: 'Issue 关闭数', direction: 'higher' as const, qualityKey: 'issueCountQuality' },
+  { key: 'prMergedCount', label: 'PR 合并数', direction: 'higher' as const, qualityKey: 'prCountQuality' },
+  { key: 'releaseCount', label: 'Release 数量', direction: 'higher' as const, qualityKey: 'releaseCountQuality' },
+  { key: 'activeWeekRatio', label: '有效周占比', direction: 'higher' as const, sampleKey: 'commitWeekSamples', sampleTotalKey: 'commitWeekTotal' },
 ]
 const comparisonRadarRows = computed(() => {
   const raw = selectionBasisEntries.value.map((entry) => {
     const validWeeks = entry.points.flatMap((point) => point.value !== null ? [point.value] : [])
+    const usableIssueCount = ['ready', 'partial'].includes(entry.issueCountQuality) && entry.issueClosedCount !== null
+    const usablePrCount = ['ready', 'partial'].includes(entry.prCountQuality) && entry.prMergedCount !== null
+    const usableReleaseCount = ['ready', 'partial'].includes(entry.releaseCountQuality) && entry.releaseCount !== null
     return {
       repository: entry.label,
       color: entry.color,
       commitsWeekly: validWeeks.length ? validWeeks.reduce((sum, value) => sum + value, 0) / validWeeks.length : null,
-      issueP50Days: entry.issueP50,
-      prP50Days: entry.prP50,
-      releaseIntervalDays: entry.releaseMedianDays,
+      issueClosedCount: usableIssueCount ? entry.issueClosedCount : null,
+      prMergedCount: usablePrCount ? entry.prMergedCount : null,
+      releaseCount: usableReleaseCount ? entry.releaseCount : null,
       activeWeekRatio: entry.points.length && validWeeks.length ? validWeeks.length / entry.points.length * 100 : null,
       commitWeekSamples: validWeeks.length,
+      commitWeekTotal: entry.points.length,
       issueSamples: entry.issueSample,
       prSamples: entry.prSample,
-      coverage: entry.coverage.label,
+      issueCountQuality: entry.issueCountQuality,
+      prCountQuality: entry.prCountQuality,
+      releaseCountQuality: entry.releaseCountQuality,
+      issueQuality: entry.issueQuality,
+      prQuality: entry.prQuality,
+      releaseQuality: entry.releaseQuality,
     }
   })
-  return normalizeMetrics(raw, radarAxes.map((axis) => ({ key: axis.key, direction: axis.direction })))
+  const normalized = normalizeMetrics(raw, radarAxes.map(({ key, direction }) => ({ key, direction })))
+  return normalized.map((row) => {
+    const comparable = { ...row }
+    for (const axis of radarAxes) {
+      const repositoriesWithValue = raw.filter((candidate) => typeof candidate[axis.key] === 'number' && Number.isFinite(candidate[axis.key])).length
+      if (repositoriesWithValue < 2) comparable[`${axis.key}Score`] = null
+    }
+    return comparable
+  })
 })
 const basisWindowLabel = computed(() => comparisonBasis.value?.sharedWindow
   ? `${comparisonBasis.value.sharedWindow.start.replace('T', ' ').replace('Z', ' UTC')} — ${comparisonBasis.value.sharedWindow.end.replace('T', ' ').replace('Z', ' UTC')}`
@@ -378,13 +399,13 @@ async function exportComparison() {
     </UiPanel>
 
     <div class="grid min-w-0 items-stretch gap-4 xl:h-[clamp(560px,62vh,680px)] xl:grid-cols-2">
-      <UiPanel as="section" class="flex min-h-0 flex-col" data-testid="comparison-diverse-charts">
-        <div><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] text-muted">展示所有已加入对比的仓库；每项指标按可用仓库各自归一到 0–100，耗时和发布间隔反向。缺失指标保留为空，不代表健康评分。</p></div>
-        <div class="mt-3 flex min-h-0 flex-1 flex-col">
-          <div v-if="comparisonRadarRows.length" class="min-w-0">
-            <div class="mb-2 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
+      <UiPanel as="section" class="flex min-h-0 flex-col overflow-hidden" data-testid="comparison-diverse-charts">
+        <div class="shrink-0"><h3 class="m-0 text-[15.5px] font-semibold">多维指标对照</h3><p class="mt-0.5 text-[12px] leading-relaxed text-muted">雷达图对每项指标分别归一：当前仓库中最高值为 100、最低值为 0，相同值均为 50。展示每周 Commit、Issue 关闭数、PR 合并数、近 365 天正式 Release 数和活跃周占比；相对值反映事件规模，不代表项目质量。</p></div>
+        <div class="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div v-if="comparisonRadarRows.length" class="flex min-h-0 flex-1 flex-col">
+            <div class="mb-1 flex shrink-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1"><h4 class="m-0 text-[12px] font-semibold">仓库指标雷达图</h4><span class="text-[10.5px] text-muted">{{ comparisonRadarRows.length }} 个已选仓库 · 归一值 0–100</span></div>
             <RepositoryComparisonRadar :rows="comparisonRadarRows" :dimensions="radarAxes" />
-            <p class="m-0 mt-1 text-[10.5px] leading-relaxed text-muted">点位轻微错开仅用于分辨仓库，连线仍按原值绘制；悬停查看原始值，缺失指标不补值。</p>
+            <p class="m-0 mt-1 shrink-0 text-[10.5px] leading-relaxed text-muted">悬停数据点查看原始数量与覆盖状态；部分采集仅表示已观察数。完整采集下的 0 条记录正常参与比较，未采集数据不按 0 处理。</p>
           </div>
           <p v-else class="m-0 flex-1 rounded-md bg-soft px-3 py-6 text-center text-[12px] text-muted">当前没有可展示的已选仓库。</p>
         </div>

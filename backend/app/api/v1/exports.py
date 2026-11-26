@@ -97,19 +97,23 @@ def export_comparison_csv(
     else:
         from backend.app.services.insight_comparison import compare_insights
         comparison = compare_insights(session, ids, mode, window_days)
-        writer.writerow(["仓库", "对比方式", "分析窗口", "完整周数", "每周提交均值", "Issue 关闭耗时 P50（天）", "Issue 有效样本", "PR 合并耗时 P50（天）", "PR 有效样本", "Release 间隔 P50（天）", "Commit 覆盖", "采集时间", "所选窗口天数", "窗口开始", "窗口结束", "窗口可用", "范围缺失原因", "共同窗口开始", "共同窗口结束", "共同窗口有效天数", "比较状态", "比较原因码", "比较原因"])
+        writer.writerow(["仓库", "对比方式", "分析窗口", "完整周数", "每周提交均值", "Issue 关闭数", "PR 合并数", "近 365 天正式 Release 数", "Issue 关闭耗时 P50（天）", "Issue 有效样本", "PR 合并耗时 P50（天）", "PR 有效样本", "Release 间隔 P50（天）", "Commit 覆盖", "采集时间", "所选窗口天数", "窗口开始", "窗口结束", "窗口可用", "范围缺失原因", "共同窗口开始", "共同窗口结束", "共同窗口有效天数", "比较状态", "比较原因码", "比较原因"])
         mode_label = "同期对比" if mode == "same_period" else "各自窗口"
         basis = comparison["comparison_basis"]
         shared_window = basis["shared_window"] or {}
         for repo in comparison["repositories"]:
             metrics = repo["metrics"]
             commit_metric = metrics["commits_weekly_mean"]
+            issue_count_metric = metrics["issue_closed_count"]
+            pr_count_metric = metrics["pr_merged_count"]
+            release_count_metric = metrics["release_count"]
             issue_metric = metrics["issue_median_hours"]
             pr_metric = metrics["pr_median_hours"]
             release_metric = metrics["release_interval_days"]
             window = f"{repo['window_start'] or '—'} 至 {repo['window_end'] or '—'}"
             writer.writerow([
                 repo["full_name"], mode_label, window, len(repo["weekly_commits"]), commit_metric["value"],
+                issue_count_metric["value"], pr_count_metric["value"], release_count_metric["value"],
                 round(issue_metric["value"] / 24, 1) if issue_metric["value"] is not None else None,
                 issue_metric["valid_samples"],
                 round(pr_metric["value"] / 24, 1) if pr_metric["value"] is not None else None,

@@ -23,7 +23,7 @@ COURSE_RESEARCH_ID = "course-research-300-v1"
 
 def ensure_default_datasets(session: Session) -> None:
     defaults = (
-        (LIBRARY_ID, "我的仓库", "library", None, None, "包含精选仓库和用户主动添加的仓库；机器学习研究样本单独保存"),
+        (LIBRARY_ID, "我的仓库", "library", None, None, "仅包含用户主动导入或添加的仓库；机器学习研究样本单独保存"),
         (COURSE_RESEARCH_ID, "机器学习研究样本（300 个仓库）", "research", COURSE_RESEARCH_ID, None, "仅供机器学习数据页与详细研究视图使用；不加入仓库列表"),
         (STANDARD_TEST_ID, STANDARD_TEST_NAME, "research", STANDARD_TEST_ID, None, "从 300 仓库机器学习数据中固定选出的 150 个留出测试仓库；不用于模型训练"),
         (FEATURED_ID, "首页精选", "featured", None, None, "人工维护的公开仓库集合"),

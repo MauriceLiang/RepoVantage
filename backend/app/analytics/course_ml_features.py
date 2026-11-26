@@ -76,8 +76,8 @@ def _series(weeks, field, coverage_field, *, required):
     return values if complete else None
 
 
-def validate_week_rows(weeks, *, max_weeks=EXTENDED_WINDOW_WEEKS):
-    """Validate ordered, complete UTC week boundaries without treating gaps as zero."""
+def _validate_week_boundaries(weeks, *, max_weeks=EXTENDED_WINDOW_WEEKS):
+    """Validate ordered, contiguous UTC week boundaries."""
     if not isinstance(weeks, list) or not 1 <= len(weeks) <= max_weeks:
         raise InsufficientCourseData("invalid_observation_length")
     previous = None
@@ -90,6 +90,11 @@ def validate_week_rows(weeks, *, max_weeks=EXTENDED_WINDOW_WEEKS):
                 or end - start != timedelta(days=7) or (previous is not None and start != previous)):
             raise InsufficientCourseData("noncontiguous_weeks")
         previous = end
+
+
+def validate_week_rows(weeks, *, max_weeks=EXTENDED_WINDOW_WEEKS):
+    """Validate ordered, complete UTC week boundaries without treating gaps as zero."""
+    _validate_week_boundaries(weeks, max_weeks=max_weeks)
     commits = _series(weeks, "commits", "commit_coverage", required=True)
     prs = _series(weeks, "prs_created", "pr_created_coverage", required=False)
     return commits, prs
@@ -176,10 +181,12 @@ def trend_label(past4, future4, *, relative_threshold=0.25, absolute_threshold=3
 
 
 def recent_commit_change(weeks):
-    """Describe the last two complete four-week periods as historical facts."""
+    """Compare complete-week Commit averages across the last two four-week periods."""
     empty = {
         "status": "insufficient_data", "method": "factual", "reason_code": "short_history",
         "previous_4w_commits": None, "recent_4w_commits": None, "change_count": None,
+        "previous_weekly_mean": None, "recent_weekly_mean": None, "weekly_mean_change": None,
+        "previous_complete_weeks": 0, "recent_complete_weeks": 0, "incomplete_week_starts": [],
         "threshold": None, "trend": None,
         "previous_window_start_utc": None, "previous_window_end_exclusive_utc": None,
         "recent_window_start_utc": None, "recent_window_end_exclusive_utc": None,
@@ -189,22 +196,66 @@ def recent_commit_change(weeks):
         return empty
     recent_eight = weeks[-8:]
     try:
-        commits, _ = validate_week_rows(recent_eight, max_weeks=8)
+        _validate_week_boundaries(recent_eight, max_weeks=8)
     except InsufficientCourseData as exc:
-        status = "partial_data" if exc.reason == "incomplete_commits_coverage" else "insufficient_data"
-        return {**empty, "status": status, "reason_code": exc.reason,
-                "notes": ["最近 8 周 Commit 覆盖不完整；只保留已核验事实，不把缺失周补为零。"]}
+        return {**empty, "reason_code": exc.reason,
+                "notes": ["最近周边界或顺序无效，无法可靠划分前后两个四周窗口。"]}
 
-    previous, recent = sum(commits[:4]), sum(commits[4:])
-    threshold = max(3, 0.25 * previous)
-    trend = trend_label(commits[:4], commits[4:])
-    notes = ["实际变化使用此前 4 周与最近 4 周的完整 Commit 聚合，不代表未来预测。"]
+    counts = []
+    incomplete_week_starts = []
+    for row in recent_eight:
+        coverage, count = row.get("commit_coverage"), row.get("commits")
+        if coverage not in {"complete", "true_zero"}:
+            counts.append(None)
+            incomplete_week_starts.append(row["week_start_utc"])
+            continue
+        if type(count) is not int or count < 0 or (coverage == "true_zero" and count != 0):
+            return {**empty, "reason_code": "invalid_commits_count",
+                    "notes": ["完整周的 Commit 数值无效，无法进行周均比较。"]}
+        counts.append(count)
+
+    previous_counts = [count for count in counts[:4] if count is not None]
+    recent_counts = [count for count in counts[4:] if count is not None]
+    if not previous_counts or not recent_counts:
+        return {
+            **empty,
+            "reason_code": "insufficient_complete_weeks",
+            "previous_4w_commits": sum(previous_counts),
+            "recent_4w_commits": sum(recent_counts),
+            "previous_complete_weeks": len(previous_counts),
+            "recent_complete_weeks": len(recent_counts),
+            "incomplete_week_starts": incomplete_week_starts,
+            "notes": ["前后至少各需要一个完整覆盖周，才能比较已观测周均。"],
+        }
+
+    previous = sum(previous_counts)
+    recent = sum(recent_counts)
+    previous_mean = previous / len(previous_counts)
+    recent_mean = recent / len(recent_counts)
+    weekly_mean_change = recent_mean - previous_mean
+    threshold = max(0.75, 0.25 * previous_mean)
+    if weekly_mean_change >= threshold:
+        trend = "上升"
+    elif weekly_mean_change <= -threshold:
+        trend = "下降"
+    else:
+        trend = "基本稳定"
+    is_partial = len(previous_counts) < 4 or len(recent_counts) < 4
+    notes = ["比较前后两个四周窗口中覆盖完整周的 Commit 周均；部分周不会补零或计入均值。"]
+    if is_partial:
+        notes.append("本次结果为部分覆盖；完整周数量不同或不足四周，周均仅基于已核验周。")
     if previous == 0 and recent == 0:
-        notes.append("此前与最近 4 周均为零 Commit；表示持续无默认分支提交活动。")
+        notes.append("已核验的前后完整周均为零 Commit。")
     return {
-        "status": "available", "method": "factual", "reason_code": None,
+        "status": "partial_data" if is_partial else "available",
+        "method": "factual", "reason_code": "incomplete_commits_coverage" if is_partial else None,
         "previous_4w_commits": previous, "recent_4w_commits": recent,
-        "change_count": recent - previous, "threshold": threshold, "trend": f"近期{trend}",
+        "change_count": recent - previous if len(previous_counts) == len(recent_counts) else None,
+        "previous_weekly_mean": previous_mean, "recent_weekly_mean": recent_mean,
+        "weekly_mean_change": weekly_mean_change,
+        "previous_complete_weeks": len(previous_counts), "recent_complete_weeks": len(recent_counts),
+        "incomplete_week_starts": incomplete_week_starts,
+        "threshold": threshold, "trend": f"近期{trend}",
         "previous_window_start_utc": recent_eight[0]["week_start_utc"],
         "previous_window_end_exclusive_utc": recent_eight[4]["week_start_utc"],
         "recent_window_start_utc": recent_eight[4]["week_start_utc"],

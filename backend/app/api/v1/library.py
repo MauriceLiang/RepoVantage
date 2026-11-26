@@ -19,9 +19,20 @@ from backend.app.schemas.repositories import (
     RepositoryGroupResponse,
 )
 from backend.app.services.repositories import LIBRARY_ID, add_idempotency_response, cached_idempotency_response, enqueue_add, summaries
+from backend.app.services.curated_library import curated_library_status, import_curated_library
 
 
 router = APIRouter(prefix="/library", tags=["library"])
+
+
+@router.get("/curated-import/status")
+def get_curated_import_status(request: Request, session: Session = Depends(get_session)):
+    return envelope(request, curated_library_status(session))
+
+
+@router.post("/curated-import")
+def post_curated_import(request: Request, session: Session = Depends(get_session)):
+    return envelope(request, import_curated_library(session))
 
 
 @router.post("/repositories", response_model=SuccessEnvelope[AddRepositoryResponse], status_code=201, responses={200: {"model": SuccessEnvelope[AddRepositoryResponse]}})

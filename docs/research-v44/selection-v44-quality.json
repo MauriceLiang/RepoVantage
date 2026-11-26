@@ -1,0 +1,345 @@
+{
+  "schema_version": 1,
+  "snapshot_version": "selection-v44-historical-1",
+  "source": "featured-v1",
+  "as_of": "2026-10-22T08:32:31Z",
+  "selected_repositories": 11,
+  "formal_comparison_candidates": 14,
+  "supplement_repositories_pending": 3,
+  "reference_repositories": 4,
+  "baseline_repositories_reused": 15,
+  "historical_comparison_candidates_reused": 11,
+  "reference_candidates_reused": 4,
+  "new_repository_profiles_added_without_metrics": 3,
+  "new_repositories_collected": 0,
+  "duplicate_github_ids": 0,
+  "http_requests": 0,
+  "metrics_by_coverage_status": {
+    "complete": 53,
+    "partial": 0,
+    "failed": 0,
+    "not_collected": 0,
+    "true_zero": 2
+  },
+  "metrics_by_key": {
+    "weekly_commit_mean": {
+      "unit": "commits/week",
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "window_days": 84,
+      "method": "12 个完整 UTC 周内 Commit 总数除以 12。",
+      "repository_count": 11,
+      "value_count": 11,
+      "null_value_count": 0,
+      "sample_count_min": 12,
+      "sample_count_max": 12,
+      "coverage_status_counts": {
+        "complete": 11,
+        "partial": 0,
+        "failed": 0,
+        "not_collected": 0,
+        "true_zero": 0
+      }
+    },
+    "weekly_pr_open_mean": {
+      "unit": "pull_requests/week",
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "window_days": 84,
+      "method": "12 个完整 UTC 周内新建 PR 总数除以 12。",
+      "repository_count": 11,
+      "value_count": 11,
+      "null_value_count": 0,
+      "sample_count_min": 12,
+      "sample_count_max": 12,
+      "coverage_status_counts": {
+        "complete": 11,
+        "partial": 0,
+        "failed": 0,
+        "not_collected": 0,
+        "true_zero": 0
+      }
+    },
+    "issue_closed_median_days": {
+      "unit": "days",
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "window_days": 84,
+      "method": "观察窗口内已关闭 Issue 的 closed_at-created_at 中位数，n<5 时不输出数值。",
+      "repository_count": 11,
+      "value_count": 11,
+      "null_value_count": 0,
+      "sample_count_min": 9,
+      "sample_count_max": 870,
+      "coverage_status_counts": {
+        "complete": 11,
+        "partial": 0,
+        "failed": 0,
+        "not_collected": 0,
+        "true_zero": 0
+      }
+    },
+    "pr_merged_median_days": {
+      "unit": "days",
+      "window_start": "2026-07-27T00:00:00Z",
+      "window_end_exclusive": "2026-10-19T00:00:00Z",
+      "window_days": 84,
+      "method": "观察窗口内已合并 PR 的 merged_at-created_at 中位数，n<5 时不输出数值。",
+      "repository_count": 11,
+      "value_count": 10,
+      "null_value_count": 1,
+      "sample_count_min": 4,
+      "sample_count_max": 1053,
+      "coverage_status_counts": {
+        "complete": 11,
+        "partial": 0,
+        "failed": 0,
+        "not_collected": 0,
+        "true_zero": 0
+      }
+    },
+    "release_interval_median_days": {
+      "unit": "days",
+      "window_start": "2025-10-22T08:32:31Z",
+      "window_end_exclusive": "2026-10-22T08:32:31Z",
+      "window_days": 365,
+      "method": "单独 365 天窗口内正式 Release 的相邻间隔中位数；不设方向。",
+      "repository_count": 11,
+      "value_count": 9,
+      "null_value_count": 2,
+      "sample_count_min": 0,
+      "sample_count_max": 121,
+      "coverage_status_counts": {
+        "complete": 9,
+        "partial": 0,
+        "failed": 0,
+        "not_collected": 0,
+        "true_zero": 2
+      }
+    }
+  },
+  "selection_groups": [
+    {
+      "scenario": "go-http-api",
+      "candidate_count": 4,
+      "compare_repository_ids": [
+        20904437,
+        31504491,
+        234231371
+      ],
+      "metrics_ready_repository_ids": [
+        31504491,
+        234231371
+      ],
+      "historical_snapshot_not_fully_comparable_repository_ids": [
+        20904437
+      ],
+      "pending_collection_repository_ids": [
+        44344606
+      ]
+    },
+    {
+      "scenario": "python-api",
+      "candidate_count": 3,
+      "compare_repository_ids": [
+        160919119,
+        596892
+      ],
+      "metrics_ready_repository_ids": [
+        160919119
+      ],
+      "historical_snapshot_not_fully_comparable_repository_ids": [
+        596892
+      ],
+      "pending_collection_repository_ids": [
+        435625572
+      ]
+    },
+    {
+      "scenario": "jvm-services",
+      "candidate_count": 3,
+      "compare_repository_ids": [
+        6296790,
+        139914932,
+        124230204
+      ],
+      "metrics_ready_repository_ids": [
+        6296790,
+        139914932,
+        124230204
+      ],
+      "historical_snapshot_not_fully_comparable_repository_ids": [],
+      "pending_collection_repository_ids": []
+    },
+    {
+      "scenario": "frontend-ui",
+      "candidate_count": 4,
+      "compare_repository_ids": [
+        10270250,
+        137078487,
+        74293321
+      ],
+      "metrics_ready_repository_ids": [
+        10270250,
+        137078487,
+        74293321
+      ],
+      "historical_snapshot_not_fully_comparable_repository_ids": [],
+      "pending_collection_repository_ids": [
+        130884470
+      ]
+    }
+  ],
+  "metric_thresholds": {
+    "duration_n_lt_5": "insufficient_evidence",
+    "duration_n_5_to_9": "exploratory",
+    "duration_n_ge_10": "descriptive_comparison"
+  },
+  "repositories": [
+    {
+      "repository_id": 160919119,
+      "full_name": "fastapi/fastapi",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 596892,
+      "full_name": "pallets/flask",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 10270250,
+      "full_name": "react/react",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 137078487,
+      "full_name": "vuejs/core",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 74293321,
+      "full_name": "sveltejs/svelte",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 6296790,
+      "full_name": "spring-projects/spring-boot",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 139914932,
+      "full_name": "quarkusio/quarkus",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 124230204,
+      "full_name": "micronaut-projects/micronaut-core",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 20904437,
+      "full_name": "gin-gonic/gin",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 31504491,
+      "full_name": "labstack/echo",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    },
+    {
+      "repository_id": 234231371,
+      "full_name": "gofiber/fiber",
+      "source_coverage": {
+        "commits": "complete",
+        "issues": "complete",
+        "pulls": "complete",
+        "releases": "complete"
+      },
+      "source_window_start": "2026-07-24T08:26:02Z",
+      "source_window_end": "2026-10-22T08:26:02Z",
+      "full_12_week_window_contained": true
+    }
+  ],
+  "fingerprint": "6cb7afb6a062be59cfad38c72161c19d3ca85ae75f9816ca7a0181a15e6d60ed",
+  "quality_report_path": "data/manifests/selection-v44-historical-1.json"
+}

@@ -425,6 +425,12 @@ export interface RecentActivityChange {
   previous4wCommits: number | null
   recent4wCommits: number | null
   changeCount: number | null
+  previousWeeklyMean: number | null
+  recentWeeklyMean: number | null
+  weeklyMeanChange: number | null
+  previousCompleteWeeks: number
+  recentCompleteWeeks: number
+  incompleteWeekStarts: string[]
   threshold: number | null
   trend: string | null
   previousWindowStart: string | null
@@ -527,6 +533,12 @@ export interface ComparisonEntry {
   windowEnd: string | null
   windowAvailable: boolean
   windowReason: string | null
+  issueClosedCount: number | null
+  issueCountQuality: string
+  prMergedCount: number | null
+  prCountQuality: string
+  releaseCount: number | null
+  releaseCountQuality: string
   issueP50: number | null
   issueSample: number
   issueQuality: string
@@ -708,6 +720,35 @@ export interface FeaturedDatasetImportResult {
   bundleHash: string
   status: DatasetImportTaskStatus
   alreadyCurrent: boolean
+}
+
+export interface CuratedImportTaskCounts {
+  total: number
+  queued: number
+  running: number
+  completed: number
+  failed: number
+}
+
+export interface CuratedRepositoryImportStatus {
+  available: boolean
+  manifestId: string
+  title: string
+  repositoryCount: number
+  groupCount: number
+  imported: boolean
+  collecting: boolean
+  taskCounts: CuratedImportTaskCounts
+}
+
+export interface CuratedRepositoryImportResult {
+  alreadyImported: boolean
+  repositoryCount: number
+  newRepositoryCount?: number
+  existingRepositoryCount?: number
+  groupCount: number
+  queuedTaskCount: number
+  taskCounts: CuratedImportTaskCounts
 }
 
 export interface GitHubTokenSettings {

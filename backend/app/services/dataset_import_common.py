@@ -10,7 +10,6 @@ BUNDLE_MAX_BYTES = 256 * 1024 * 1024
 UNCOMPRESSED_MAX_BYTES = 1024 * 1024 * 1024
 MAX_RECORDS = 1_000_000
 MODULES = ("commits", "issues", "pulls", "releases")
-FEATURED_LIBRARY_SEEDED_KEY = "featured_library_seeded_v1"
 DATA_FILES = (
     "repositories.jsonl.gz",
     "snapshots.jsonl.gz",

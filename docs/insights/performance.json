@@ -1,0 +1,54 @@
+{
+  "sqlite_bytes": 1765376,
+  "telemetry": [
+    {
+      "depth": "basic",
+      "duration_ms": 971.273,
+      "event": "collection_task_finished",
+      "http_calls": 1,
+      "rate_limited_count": 0,
+      "repository_id": 1945034,
+      "request_duration_ms": 953.873,
+      "status": "succeeded",
+      "task_id": "139d09c6-2702-4779-b07d-0a7b3b0331f0",
+      "timeout_count": 0
+    },
+    {
+      "depth": "deep",
+      "duration_ms": 10017.527,
+      "event": "collection_task_finished",
+      "http_calls": 8,
+      "rate_limited_count": 0,
+      "repository_id": 1945034,
+      "request_duration_ms": 9589.572,
+      "status": "succeeded",
+      "task_id": "8d36106e-ec80-4f2e-9774-d35d77880244",
+      "timeout_count": 0
+    },
+    {
+      "depth": "deep",
+      "duration_ms": 24802.096,
+      "event": "collection_task_finished",
+      "http_calls": 27,
+      "rate_limited_count": 0,
+      "repository_id": 137078487,
+      "request_duration_ms": 23166.798,
+      "status": "partial",
+      "task_id": "c5eff414-6218-463c-9635-c6f7dbf86a87",
+      "timeout_count": 0
+    },
+    {
+      "depth": "deep",
+      "duration_ms": 20040.203,
+      "event": "collection_task_finished",
+      "http_calls": 22,
+      "rate_limited_count": 0,
+      "repository_id": 1105953775,
+      "request_duration_ms": 18892.058,
+      "status": "partial",
+      "task_id": "83e8cca8-319d-44e8-978b-8b6af2e63136",
+      "timeout_count": 0
+    }
+  ],
+  "note": "任务日志包含HTTP次数、耗时与限流；本轮未取得隔离进程峰值内存，不能视为内存基准。"
+}

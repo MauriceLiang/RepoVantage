@@ -1,0 +1,314 @@
+{
+  "schema_version": 1,
+  "manifest_id": "comparison-repository-catalog-v1",
+  "version": "1.0.0",
+  "title": "GitHub 项目比较仓库清单",
+  "description": "按相近技术用途整理的公开 GitHub 仓库清单。首次安装不自动导入；用户在仓库页主动导入后，系统将逐个创建分组并按清单顺序排队采集。",
+  "collection": {
+    "activity_window_days": 90,
+    "maintenance_window_weeks": 12
+  },
+  "groups": [
+    {
+      "name": "A1. Java 后端框架",
+      "repositories": [
+        {
+          "repository_id": 1272129,
+          "full_name": "dropwizard/dropwizard"
+        },
+        {
+          "repository_id": 124230204,
+          "full_name": "micronaut-projects/micronaut-core"
+        },
+        {
+          "repository_id": 139914932,
+          "full_name": "quarkusio/quarkus"
+        },
+        {
+          "repository_id": 6296790,
+          "full_name": "spring-projects/spring-boot"
+        },
+        {
+          "repository_id": 1148753,
+          "full_name": "spring-projects/spring-framework"
+        }
+      ]
+    },
+    {
+      "name": "A2. Python Web 框架",
+      "repositories": [
+        {
+          "repository_id": 4164482,
+          "full_name": "django/django"
+        },
+        {
+          "repository_id": 160919119,
+          "full_name": "fastapi/fastapi"
+        },
+        {
+          "repository_id": 435625572,
+          "full_name": "litestar-org/litestar"
+        },
+        {
+          "repository_id": 596892,
+          "full_name": "pallets/flask"
+        },
+        {
+          "repository_id": 59720190,
+          "full_name": "sanic-org/sanic"
+        }
+      ]
+    },
+    {
+      "name": "A3. Go Web 框架",
+      "repositories": [
+        {
+          "repository_id": 20904437,
+          "full_name": "gin-gonic/gin"
+        },
+        {
+          "repository_id": 44344606,
+          "full_name": "go-chi/chi"
+        },
+        {
+          "repository_id": 234231371,
+          "full_name": "gofiber/fiber"
+        },
+        {
+          "repository_id": 31504491,
+          "full_name": "labstack/echo"
+        },
+        {
+          "repository_id": 285864199,
+          "full_name": "zeromicro/go-zero"
+        }
+      ]
+    },
+    {
+      "name": "A4. 前端 UI 框架",
+      "repositories": [
+        {
+          "repository_id": 24195339,
+          "full_name": "angular/angular"
+        },
+        {
+          "repository_id": 10270250,
+          "full_name": "react/react"
+        },
+        {
+          "repository_id": 130884470,
+          "full_name": "solidjs/solid"
+        },
+        {
+          "repository_id": 74293321,
+          "full_name": "sveltejs/svelte"
+        },
+        {
+          "repository_id": 137078487,
+          "full_name": "vuejs/core"
+        }
+      ]
+    },
+    {
+      "name": "B1. AI Agent / 多智能体项目",
+      "repositories": [
+        {
+          "repository_id": 974157595,
+          "full_name": "ModelEngine-Group/nexent"
+        },
+        {
+          "repository_id": 909213664,
+          "full_name": "TauricResearch/TradingAgents"
+        },
+        {
+          "repository_id": 790704526,
+          "full_name": "agentuniverse-ai/agentUniverse"
+        },
+        {
+          "repository_id": 710601088,
+          "full_name": "crewAIInc/crewAI"
+        },
+        {
+          "repository_id": 552661142,
+          "full_name": "langchain-ai/langchain"
+        }
+      ]
+    },
+    {
+      "name": "B2. 工作流自动化平台",
+      "repositories": [
+        {
+          "repository_id": 573661753,
+          "full_name": "activepieces/activepieces"
+        },
+        {
+          "repository_id": 33884891,
+          "full_name": "apache/airflow"
+        },
+        {
+          "repository_id": 193215554,
+          "full_name": "n8n-io/n8n"
+        },
+        {
+          "repository_id": 12618379,
+          "full_name": "node-red/node-red"
+        },
+        {
+          "repository_id": 488804911,
+          "full_name": "windmill-labs/windmill"
+        }
+      ]
+    },
+    {
+      "name": "B3. 日志、搜索与可观测性",
+      "repositories": [
+        {
+          "repository_id": 15111821,
+          "full_name": "grafana/grafana"
+        },
+        {
+          "repository_id": 129717717,
+          "full_name": "grafana/loki"
+        },
+        {
+          "repository_id": 334274271,
+          "full_name": "opensearch-project/OpenSearch"
+        },
+        {
+          "repository_id": 520784735,
+          "full_name": "parseablehq/parseable"
+        },
+        {
+          "repository_id": 6838921,
+          "full_name": "prometheus/prometheus"
+        }
+      ]
+    },
+    {
+      "name": "B4. 基础设施即代码（IaC）",
+      "repositories": [
+        {
+          "repository_id": 3638964,
+          "full_name": "ansible/ansible"
+        },
+        {
+          "repository_id": 147886080,
+          "full_name": "crossplane/crossplane"
+        },
+        {
+          "repository_id": 17728164,
+          "full_name": "hashicorp/terraform"
+        },
+        {
+          "repository_id": 679421146,
+          "full_name": "opentofu/opentofu"
+        },
+        {
+          "repository_id": 72477752,
+          "full_name": "pulumi/pulumi"
+        }
+      ]
+    },
+    {
+      "name": "C1. 代码编辑器 / IDE",
+      "repositories": [
+        {
+          "repository_id": 83050680,
+          "full_name": "eclipse-theia/theia"
+        },
+        {
+          "repository_id": 268424739,
+          "full_name": "helix-editor/helix"
+        },
+        {
+          "repository_id": 41881900,
+          "full_name": "microsoft/vscode"
+        },
+        {
+          "repository_id": 16408992,
+          "full_name": "neovim/neovim"
+        },
+        {
+          "repository_id": 340547520,
+          "full_name": "zed-industries/zed"
+        }
+      ]
+    },
+    {
+      "name": "C2. 前端构建工具",
+      "repositories": [
+        {
+          "repository_id": 61137153,
+          "full_name": "evanw/esbuild"
+        },
+        {
+          "repository_id": 99598595,
+          "full_name": "parcel-bundler/parcel"
+        },
+        {
+          "repository_id": 35640229,
+          "full_name": "rollup/rollup"
+        },
+        {
+          "repository_id": 257485422,
+          "full_name": "vitejs/vite"
+        },
+        {
+          "repository_id": 3678731,
+          "full_name": "webpack/webpack"
+        }
+      ]
+    },
+    {
+      "name": "C3. 终端与 SSH 客户端",
+      "repositories": [
+        {
+          "repository_id": 77213120,
+          "full_name": "Eugeny/tabby"
+        },
+        {
+          "repository_id": 51980455,
+          "full_name": "alacritty/alacritty"
+        },
+        {
+          "repository_id": 106087444,
+          "full_name": "electerm/electerm"
+        },
+        {
+          "repository_id": 501045649,
+          "full_name": "wavetermdev/waveterm"
+        },
+        {
+          "repository_id": 120568143,
+          "full_name": "wezterm/wezterm"
+        }
+      ]
+    },
+    {
+      "name": "D1. 命令行文本与文件工具",
+      "repositories": [
+        {
+          "repository_id": 53631945,
+          "full_name": "BurntSushi/ripgrep"
+        },
+        {
+          "repository_id": 193526915,
+          "full_name": "dandavison/delta"
+        },
+        {
+          "repository_id": 671832156,
+          "full_name": "eza-community/eza"
+        },
+        {
+          "repository_id": 130464961,
+          "full_name": "sharkdp/bat"
+        },
+        {
+          "repository_id": 90793418,
+          "full_name": "sharkdp/fd"
+        }
+      ]
+    }
+  ],
+  "repository_count": 60
+}

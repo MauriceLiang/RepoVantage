@@ -42,7 +42,6 @@ from backend.app.services.dataset_import_common import (
     CREDENTIAL_PATTERN,
     DATA_FILES,
     EMAIL_PATTERN,
-    FEATURED_LIBRARY_SEEDED_KEY,
     HASH_LINE,
     MACHINE_PATH_PATTERN,
     MAX_RECORDS,

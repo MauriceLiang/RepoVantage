@@ -11,6 +11,7 @@ import DonutChart from '@/components/charts/DonutChart.vue'
 import G2Chart from '@/components/charts/G2Chart.vue'
 import TimelineChart from '@/components/charts/TimelineChart.vue'
 import { coveredCommitPoints } from '@/components/charts/comboHelpers'
+import { maintenanceReason } from '@/lib/maintenanceSummary'
 import MaintenanceInsights from './MaintenanceInsights.vue'
 import { useAsyncData } from '@/composables/useAsyncData'
 import { useDataSource } from '@/composables/useDataSource'
@@ -80,28 +81,36 @@ const contributorTotal = computed(() => contributorRows.value.reduce((sum, row) 
 const completeCommitWeeks = computed(() => props.analysis.chartData?.commitWeekly.filter((week) => week.complete).length ?? 0)
 const waterfallData = computed(() => {
   const change = evaluation.value?.recentActivityChange
-  if (!change || change.status !== 'available'
-      || change.previous4wCommits === null || change.recent4wCommits === null || change.changeCount === null
+  if (!change || change.status === 'insufficient_data'
+      || change.previousWeeklyMean === null || change.recentWeeklyMean === null || change.weeklyMeanChange === null
       || !change.previousWindowStart || !change.previousWindowEndExclusive
       || !change.recentWindowStart || !change.recentWindowEndExclusive
-      || change.previous4wCommits + change.changeCount !== change.recent4wCommits) return []
-  const afterChange = change.previous4wCommits + change.changeCount
+      || change.previousCompleteWeeks === 0 || change.recentCompleteWeeks === 0) return []
+  const afterChange = change.previousWeeklyMean + change.weeklyMeanChange
   return [
-    { stage: '此前 4 周', kind: '窗口合计', start: 0, end: change.previous4wCommits, value: change.previous4wCommits, window: `${change.previousWindowStart.slice(0, 10)} 至 ${change.previousWindowEndExclusive.slice(0, 10)}` },
-    { stage: '变化量', kind: change.changeCount >= 0 ? '增加' : '减少', start: Math.min(change.previous4wCommits, afterChange), end: Math.max(change.previous4wCommits, afterChange), value: change.changeCount, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}` },
-    { stage: '最近 4 周', kind: '窗口合计', start: 0, end: change.recent4wCommits, value: change.recent4wCommits, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}` },
+    { stage: `此前周均 (${change.previousCompleteWeeks}/4 周)`, kind: '完整周均', start: 0, end: change.previousWeeklyMean, value: change.previousWeeklyMean, window: `${change.previousWindowStart.slice(0, 10)} 至 ${change.previousWindowEndExclusive.slice(0, 10)}`, completeWeeks: change.previousCompleteWeeks },
+    { stage: '周均变化', kind: change.weeklyMeanChange >= 0 ? '增加' : '减少', start: Math.min(change.previousWeeklyMean, afterChange), end: Math.max(change.previousWeeklyMean, afterChange), value: change.weeklyMeanChange, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}`, completeWeeks: change.recentCompleteWeeks },
+    { stage: `最近周均 (${change.recentCompleteWeeks}/4 周)`, kind: '完整周均', start: 0, end: change.recentWeeklyMean, value: change.recentWeeklyMean, window: `${change.recentWindowStart.slice(0, 10)} 至 ${change.recentWindowEndExclusive.slice(0, 10)}`, completeWeeks: change.recentCompleteWeeks },
   ]
+})
+const waterfallUnavailableReason = computed(() => {
+  const change = evaluation.value?.recentActivityChange
+  if (!change) return '没有可读取的维护分析记录。'
+  if (change.reasonCode === 'insufficient_complete_weeks') return '前后两个窗口至少各需 1 个完整 UTC 周；不完整周已单独排除。'
+  if (change.reasonCode === 'short_history') return '最近两个四周窗口的数据不足，暂不能比较。'
+  return maintenanceReason(change.reasonCode ?? change.status)
 })
 const waterfallSpec = computed<G2Spec>(() => ({
   type: 'interval',
   data: waterfallData.value,
   encode: { x: 'stage', y: ['end', 'start'], color: 'kind' },
-  scale: { color: { domain: ['窗口合计', '增加', '减少'], range: ['#73828d', '#4e927d', '#c47a59'] }, y: { zero: true } },
-  axis: { x: { labelFontSize: 10 }, y: { title: 'Commit 总量', gridLineDash: [3, 3] } },
+  scale: { color: { domain: ['完整周均', '增加', '减少'], range: ['#73828d', '#4e927d', '#c47a59'] }, y: { zero: true } },
+  axis: { x: { labelFontSize: 10 }, y: { title: 'Commit / 完整周', gridLineDash: [3, 3] } },
   legend: false,
   tooltip: { title: 'stage', items: [
     { field: 'kind', name: '阶段' },
-    { field: 'value', name: 'Commit' },
+    { field: 'value', name: 'Commit / 完整周' },
+    { field: 'completeWeeks', name: '纳入完整周' },
     { field: 'window', name: 'UTC 窗口' },
   ] },
 }))
@@ -166,12 +175,12 @@ function repositorySizeLabel(sizeKb: number | null | undefined) {
     </GdCard>
 
     <GdCard class="min-w-0" data-testid="overview-activity-waterfall">
-      <div><h3 class="m-0 text-[15.5px] font-semibold">最近 4 周活动变化</h3><p class="mt-0.5 text-[12px] text-muted">前后完整窗口的 Commit 总量与净变化</p></div>
+      <div><h3 class="m-0 text-[15.5px] font-semibold">最近 4 周活动变化</h3><p class="mt-0.5 text-[12px] text-muted">比较前后两个四周窗口的完整周 Commit 均值；不完整周单独标记并排除</p></div>
       <div v-if="evaluationLoading" class="flex h-[245px] items-center justify-center text-[12px] text-muted" role="status">正在读取维护窗口…</div>
       <div v-else-if="evaluationError" class="flex h-[245px] items-center justify-center text-center text-[12px] text-muted" role="alert">读取失败：{{ evaluationError }}</div>
-      <G2Chart v-else-if="waterfallData.length" :spec="waterfallSpec" label="最近与此前四周 Commit 总量的瀑布变化图" :height="245" />
-      <div v-else class="flex h-[245px] items-center justify-center text-center text-[12px] text-muted">{{ evaluation?.recentActivityChange.reasonCode ?? '当前没有可比较的完整前后窗口' }}</div>
-      <p v-if="waterfallData.length" class="m-0 text-[10.5px] leading-relaxed text-muted">前后各 4 个完整 UTC 周的半开区间；变化量只表示 Commit 数差，不等于待处理工作量。</p>
+      <G2Chart v-else-if="waterfallData.length" :spec="waterfallSpec" label="最近与此前四周窗口完整周 Commit 均值变化图" :height="245" />
+      <div v-else class="flex h-[245px] items-center justify-center px-5 text-center text-[12px] leading-relaxed text-muted">{{ waterfallUnavailableReason }}</div>
+      <p v-if="waterfallData.length" class="m-0 text-[10.5px] leading-relaxed text-muted">按完整周周均比较，避免两侧有效周数不同造成总量偏差。<template v-if="evaluation?.recentActivityChange.incompleteWeekStarts.length">已排除 {{ evaluation.recentActivityChange.incompleteWeekStarts.length }} 个覆盖不完整周：{{ evaluation.recentActivityChange.incompleteWeekStarts.map((date) => date.slice(0, 10)).join('、') }}。</template></p>
     </GdCard>
   </div>
 

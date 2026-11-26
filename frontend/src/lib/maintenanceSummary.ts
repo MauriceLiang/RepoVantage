@@ -9,13 +9,14 @@ export interface MaintenanceSummaryView {
 const REASON_LABELS: Record<string, string> = {
   not_collected: '尚未采集最近 12 个完整 UTC 周。',
   insufficient_history: '仓库尚无可观察的完整 UTC 周。',
-  incomplete_commits_coverage: 'Commit 覆盖不完整；缺失周不按零计算。',
+  incomplete_commits_coverage: '个别周 Commit 覆盖不完整；未覆盖周不补零，周均只按完整周计算。',
   maintenance_page_budget_exceeded: 'Commit 采集达到课程版页数预算；只保留已观察事实，模型暂不可用。',
   stale: '维护活动数据已过期，请重新采集。',
   source_integrity_mismatch: '来源校验不一致，请重新采集。',
   source_archive_unavailable: '来源归档不可用，暂不能确认模型输入。',
   short_observation_window: '完整观察周不足 12 周，只展示可核实事实。',
-  short_history: '最近 8 个完整 UTC 周不足，无法判断实际变化。',
+  short_history: '最近两个四周窗口的数据不足，无法判断实际变化。',
+  insufficient_complete_weeks: '前后两个四周窗口至少各需 1 个完整 UTC 周。',
   invalid_observation_length: '完整观察周数不足或无效，只展示可核实事实。',
   model_unavailable: '模型文件不可用，只展示近期事实。',
   low_activity_scope: '近期提交活动不足，不提供未来趋势预测。',
@@ -69,15 +70,15 @@ export function buildMaintenanceSummary(
   const headline = patternAvailable
     ? `近 12 周默认分支为「${patternLabel}」`
     : incomplete
-      ? '近期 Commit 覆盖不完整'
+      ? '个别周覆盖不完整，已保留完整周趋势'
       : !hasPatternEvidence && pattern.reasonCode === 'not_collected'
         ? '尚未生成近期分析'
         : hasPatternEvidence
           ? '近期默认分支 Commit 事实可读，模式模型暂不可用'
           : '近期分析证据有限'
 
-  const actualLine = recent.status === 'available'
-    ? `最近 4 周实际变化：${recent.trend ?? '已统计'}（${recent.recent4wCommits ?? '—'} vs ${recent.previous4wCommits ?? '—'} Commit）。`
+  const actualLine = recent.status === 'available' || recent.status === 'partial_data'
+    ? `最近活动实际变化：${recent.trend ?? '已统计'}（完整周均 ${recent.recentWeeklyMean?.toFixed(1) ?? '—'} vs ${recent.previousWeeklyMean?.toFixed(1) ?? '—'} Commit/周；纳入 ${recent.recentCompleteWeeks}/4 vs ${recent.previousCompleteWeeks}/4 周${recent.incompleteWeekStarts.length ? `，排除 ${recent.incompleteWeekStarts.length} 个不完整周` : ''}）。`
     : `最近 4 周实际变化无法判定：${maintenanceReason(recent.reasonCode)} `
   const forecastLine = isMachineLearningTrend(evaluation)
     ? `未来 4 周活动趋势预测：${trend.trend}，可能存在预测误差。`

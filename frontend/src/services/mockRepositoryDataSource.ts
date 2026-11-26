@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, AuthorContribution, CommitActivityPage, CommitEvent, ComparisonBundle, ComparisonEntry, Coverage, HistogramResult,
   IssueChartData, IssueOnlineDetail, IssueRecord, IssueRecordDetail, IssueRecordPage, Metric, PullRequestActivityDetail, PullRequestActivityRecord, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, ReleaseDetails, ReleaseRecord, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositorySummary,
-  ComparisonMode, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
+  ComparisonMode, CuratedRepositoryImportResult, CuratedRepositoryImportStatus, FeaturedDatasetTaskSummary, ResearchAnalysisMode, ResearchDataset, SelectionFeedback, SelectionRequest, SelectionResult, TaskItem, TimePoint, TimeSeriesResult, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 import { addDays, addWeeks, iso, REPOSITORIES, repoSeed, type RepoSeed } from '@/mocks/catalog'
@@ -475,6 +475,23 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
     return this.repositoryGroups.map((group) => ({ ...group, repositoryIds: [...group.repositoryIds] }))
   }
 
+  async getCuratedRepositoryImportStatus(): Promise<CuratedRepositoryImportStatus> {
+    return {
+      available: false,
+      manifestId: 'comparison-repository-catalog-v1',
+      title: 'GitHub 项目比较仓库清单',
+      repositoryCount: 0,
+      groupCount: 0,
+      imported: false,
+      collecting: false,
+      taskCounts: { total: 0, queued: 0, running: 0, completed: 0, failed: 0 },
+    }
+  }
+
+  async importCuratedRepositories(): Promise<CuratedRepositoryImportResult> {
+    throw new Error('演示模式不支持导入仓库清单')
+  }
+
   async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
     const normalized = name.trim()
     if (!normalized || normalized.length > 80) throw new Error('分组名称须为 1–80 个字符')
@@ -561,7 +578,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         featureSchemaVersion: null, patternId: null, patternName: null, displayName: null, asOf: null, historyStart: null, sourceRunId: null, sourceSha256: null,
         collectedAt: null, coverage: {}, windowWeeks: 0, evidence: {}, limitations: ['演示模式没有近期维护活动来源。'] },
       recentActivityChange: { status: 'insufficient_data', method: 'factual', reasonCode: 'not_collected', previous4wCommits: null,
-        recent4wCommits: null, changeCount: null, threshold: null, trend: null, previousWindowStart: null, previousWindowEndExclusive: null,
+        recent4wCommits: null, changeCount: null, previousWeeklyMean: null, recentWeeklyMean: null, weeklyMeanChange: null,
+        previousCompleteWeeks: 0, recentCompleteWeeks: 0, incompleteWeekStarts: [], threshold: null, trend: null, previousWindowStart: null, previousWindowEndExclusive: null,
         recentWindowStart: null, recentWindowEndExclusive: null, notes: ['演示数据没有最近 8 个完整 UTC 周。'] },
       activityTrend: { status: 'insufficient_data', method: 'none', trend: null, modelId: null, modelVersion: null, horizonWeeks: 4,
         probabilities: null, reasonCode: 'not_collected', evidence: {}, notes: ['演示数据没有近期趋势模型输入。'] } }
@@ -868,11 +886,16 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       const observationWindow = available ? windowRange(seed, window) : { start: null, end: null }
       const issueSample = available ? histogram(seed, window, 'issue').sampleSize : 0
       const prSample = available ? histogram(seed, window, 'pr').sampleSize : 0
+      const issueClosedCount = available ? (issuesSeries(seed, window).series.find((item) => item.key === 'closed')?.points ?? []).reduce((sum, point) => sum + (point.value ?? 0), 0) : null
+      const prMergedCount = available ? (prSeries(seed, window).series.find((item) => item.key === 'merged')?.points ?? []).reduce((sum, point) => sum + (point.value ?? 0), 0) : null
+      const issueCountQuality = !available || seed.issueCoverage.state === 'missing' ? 'missing' : seed.issueCoverage.state !== 'complete' ? 'partial' : 'ready'
+      const prCountQuality = !available || seed.coverage.state === 'missing' ? 'missing' : seed.coverage.state !== 'complete' ? 'partial' : 'ready'
       const issueQuality = !available || seed.issueCoverage.state === 'missing' ? 'missing' : seed.issueCoverage.state !== 'complete' ? 'partial' : issueSample === 0 ? 'insufficient_samples' : 'ready'
       const prQuality = !available || seed.coverage.state === 'missing' ? 'missing' : seed.coverage.state !== 'complete' ? 'partial' : prSample === 0 ? 'insufficient_samples' : 'ready'
       const end = Date.parse(seed.lastAnalyzedAt ?? DATASET_END)
       const formal = seed.releases.filter((release) => !release.prerelease && Date.parse(release.publishedAt) >= end - 365 * DAY && Date.parse(release.publishedAt) < end)
         .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
+      const releaseCountQuality = !available || seed.coverage.state === 'missing' ? 'missing' : seed.coverage.state !== 'complete' ? 'partial' : 'ready'
       const gaps = formal.slice(1).map((release, index) => (Date.parse(release.publishedAt) - Date.parse(formal[index].publishedAt)) / DAY).sort((a, b) => a - b)
       const releaseMedian = gaps.length ? (gaps[Math.floor((gaps.length - 1) / 2)] + gaps[Math.floor(gaps.length / 2)]) / 2 : null
       const releaseQuality = !available ? 'missing' : releaseMedian !== null ? 'ready' : formal.length > 0 ? 'insufficient_samples' : 'missing'
@@ -887,6 +910,12 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
         windowEnd: observationWindow.end,
         windowAvailable: available,
         windowReason: reason,
+        issueCountQuality,
+        issueClosedCount: ['ready', 'partial'].includes(issueCountQuality) ? issueClosedCount : null,
+        prMergedCount: ['ready', 'partial'].includes(prCountQuality) ? prMergedCount : null,
+        prCountQuality,
+        releaseCount: ['ready', 'partial'].includes(releaseCountQuality) ? formal.length : null,
+        releaseCountQuality,
         sampleRole: null,
         sourceKind: null,
         issueP50: issueQuality === 'ready' ? seed.issueP50 : null,
@@ -919,6 +948,9 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
       entries = entries.map((entry) => ({
         ...entry,
         points: entry.points.filter((point) => commonWeeks.has(point.date)),
+        issueClosedCount: sameObservationWindow ? entry.issueClosedCount : null,
+        prMergedCount: sameObservationWindow ? entry.prMergedCount : null,
+        releaseCount: sameObservationWindow ? entry.releaseCount : null,
         issueP50: sameObservationWindow ? entry.issueP50 : null,
         prP50: sameObservationWindow ? entry.prP50 : null,
         releaseMedianDays: sameObservationWindow ? entry.releaseMedianDays : null,
@@ -1151,8 +1183,8 @@ export class MockRepositoryDataSource implements RepositoryDataSource {
   async exportComparison(ids: string[], windowDays: TimeWindow, mode: ComparisonMode): Promise<Blob> {
     const { entries } = await this.getComparison(ids, windowDays, mode)
     const cells = [
-      ['repository', 'comparison_mode', 'window_days', 'window_start', 'window_end', 'window_available', 'window_reason', 'complete_weeks', 'weekly_commit_mean', 'issue_p50_days', 'issue_samples', 'pr_p50_days', 'pr_samples', 'release_interval_p50_days', 'commit_coverage', 'collected_at'],
-      ...entries.map((entry) => [entry.label, mode, windowDays, entry.windowStart ?? '', entry.windowEnd ?? '', entry.windowAvailable, entry.windowReason ?? '', entry.points.length, entry.points.length ? entry.points.reduce((sum, point) => sum + (point.value ?? 0), 0) / entry.points.length : '', entry.issueP50 ?? '', entry.issueSample, entry.prP50 ?? '', entry.prSample, entry.releaseMedianDays ?? '', entry.coverage.state, entry.collectedAt]),
+      ['repository', 'comparison_mode', 'window_days', 'window_start', 'window_end', 'window_available', 'window_reason', 'complete_weeks', 'weekly_commit_mean', 'issue_closed_count', 'pr_merged_count', 'release_count_365d', 'issue_p50_days', 'issue_samples', 'pr_p50_days', 'pr_samples', 'release_interval_p50_days', 'commit_coverage', 'collected_at'],
+      ...entries.map((entry) => [entry.label, mode, windowDays, entry.windowStart ?? '', entry.windowEnd ?? '', entry.windowAvailable, entry.windowReason ?? '', entry.points.length, entry.points.length ? entry.points.reduce((sum, point) => sum + (point.value ?? 0), 0) / entry.points.length : '', entry.issueClosedCount ?? '', entry.prMergedCount ?? '', entry.releaseCount ?? '', entry.issueP50 ?? '', entry.issueSample, entry.prP50 ?? '', entry.prSample, entry.releaseMedianDays ?? '', entry.coverage.state, entry.collectedAt]),
     ]
     return new Blob(['\ufeff', cells.map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' })
   }

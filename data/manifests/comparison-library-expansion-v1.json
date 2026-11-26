@@ -1,0 +1,2720 @@
+{
+  "captured_at": "2026-11-25T13:01:03",
+  "collection_note": "事件覆盖状态由采集任务逐模块记录；达到页数上限或接口限制时保留为 partial，不将缺失当作零。",
+  "collection_result": {
+    "activity_window": {
+      "days": 90,
+      "end_utc": "2026-11-25T13:01:03Z",
+      "start_utc": "2026-08-27T13:01:03Z"
+    },
+    "comparison_metric_totals": {
+      "commits_90d": 14450,
+      "issues_closed_90d": 5068,
+      "pr_merged_90d": 13954,
+      "release_count_365d": 1385
+    },
+    "completed_at_utc": "2026-11-26T03:18:12.425233Z",
+    "coverage": {
+      "commits": "24/24 complete",
+      "issues": "24/24 complete",
+      "maintenance": "24/24 complete, 12 weeks each",
+      "profile": "24/24 complete",
+      "pull_requests": "24/24 complete",
+      "releases": "24/24 complete"
+    },
+    "final_maintenance_tasks_succeeded": 24,
+    "final_window_tasks_succeeded": 24,
+    "maintenance_week_rows": 288,
+    "normalized_unique_records": {
+      "commit": 14450,
+      "issue": 9497,
+      "pull_request": 25980,
+      "release": 6990
+    },
+    "note": "Grafana Pull Requests used weekly GitHub GraphQL search after REST pagination became very slow. The GraphQL records were archived under the same collection fingerprint and de-duplicated by REST database ID before the normal analysis snapshot was rebuilt.",
+    "release_window_days": 365,
+    "repositories_added": 24,
+    "status": "complete"
+  },
+  "created_groups": [
+    "D1. 命令行文本与文件工具"
+  ],
+  "dataset_id": "library-default",
+  "groups": [
+    {
+      "name": "A1. Java 后端框架",
+      "repositories": [
+        "dropwizard/dropwizard",
+        "micronaut-projects/micronaut-core",
+        "quarkusio/quarkus",
+        "spring-projects/spring-boot",
+        "spring-projects/spring-framework"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "A2. Python Web 框架",
+      "repositories": [
+        "django/django",
+        "fastapi/fastapi",
+        "litestar-org/litestar",
+        "pallets/flask",
+        "sanic-org/sanic"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "A3. Go Web 框架",
+      "repositories": [
+        "gin-gonic/gin",
+        "go-chi/chi",
+        "gofiber/fiber",
+        "labstack/echo",
+        "zeromicro/go-zero"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "A4. 前端 UI 框架",
+      "repositories": [
+        "angular/angular",
+        "react/react",
+        "solidjs/solid",
+        "sveltejs/svelte",
+        "vuejs/core"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "B1. AI Agent / 多智能体项目",
+      "repositories": [
+        "ModelEngine-Group/nexent",
+        "TauricResearch/TradingAgents",
+        "agentuniverse-ai/agentUniverse",
+        "crewAIInc/crewAI",
+        "langchain-ai/langchain"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "B2. 工作流自动化平台",
+      "repositories": [
+        "activepieces/activepieces",
+        "apache/airflow",
+        "n8n-io/n8n",
+        "node-red/node-red",
+        "windmill-labs/windmill"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "B3. 日志、搜索与可观测性",
+      "repositories": [
+        "grafana/grafana",
+        "grafana/loki",
+        "opensearch-project/OpenSearch",
+        "parseablehq/parseable",
+        "prometheus/prometheus"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "B4. 基础设施即代码（IaC）",
+      "repositories": [
+        "ansible/ansible",
+        "crossplane/crossplane",
+        "hashicorp/terraform",
+        "opentofu/opentofu",
+        "pulumi/pulumi"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "C1. 代码编辑器 / IDE",
+      "repositories": [
+        "eclipse-theia/theia",
+        "helix-editor/helix",
+        "microsoft/vscode",
+        "neovim/neovim",
+        "zed-industries/zed"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "C2. 前端构建工具",
+      "repositories": [
+        "evanw/esbuild",
+        "parcel-bundler/parcel",
+        "rollup/rollup",
+        "vitejs/vite",
+        "webpack/webpack"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "C3. 终端与 SSH 客户端",
+      "repositories": [
+        "Eugeny/tabby",
+        "alacritty/alacritty",
+        "electerm/electerm",
+        "wavetermdev/waveterm",
+        "wezterm/wezterm"
+      ],
+      "repository_count": 5
+    },
+    {
+      "name": "D1. 命令行文本与文件工具",
+      "repositories": [
+        "BurntSushi/ripgrep",
+        "dandavison/delta",
+        "eza-community/eza",
+        "sharkdp/bat",
+        "sharkdp/fd"
+      ],
+      "repository_count": 5
+    }
+  ],
+  "manifest_id": "comparison-library-expansion-v1",
+  "new_repositories": [
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 648,
+            "coverage": "complete",
+            "pages": 7
+          },
+          "issues": {
+            "api_records_observed": 864,
+            "coverage": "complete",
+            "pages": 9
+          },
+          "pulls": {
+            "api_records_observed": 400,
+            "coverage": "complete",
+            "pages": 4
+          },
+          "releases": {
+            "api_records_observed": 371,
+            "coverage": "complete",
+            "pages": 4
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 648,
+          "issues_closed_90d": 282,
+          "pr_merged_90d": 122,
+          "release_count_365d": 20
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "5af92f3a-b88f-4439-a109-ffab7ebc96ff"
+        },
+        "normalized_unique_records": {
+          "commit": 648,
+          "issue": 386,
+          "pull_request": 400,
+          "release": 371
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:02:48.871330Z",
+        "window_task_id": "12fc108f-a458-4175-ab6f-4e0acb0f624a"
+      },
+      "created_at": "2010-12-08T04:04:45Z",
+      "description": "Spring Framework",
+      "forks": 38820,
+      "full_name": "spring-projects/spring-framework",
+      "group": "A1. Java 后端框架",
+      "html_url": "https://github.com/spring-projects/spring-framework",
+      "is_fork": false,
+      "language": "Java",
+      "open_issues_count": 522,
+      "pushed_at": "2026-11-24T21:35:48Z",
+      "repository_id": 1148753,
+      "selection_reason": "Java 应用基础框架",
+      "stars": 60329,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "12fc108f-a458-4175-ab6f-4e0acb0f624a"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "5af92f3a-b88f-4439-a109-ffab7ebc96ff"
+        }
+      ],
+      "topics": [
+        "spring",
+        "spring-framework",
+        "spring-mvc"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 81,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 167,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 193,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 81,
+          "issues_closed_90d": 13,
+          "pr_merged_90d": 69,
+          "release_count_365d": 4
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "82233156-5652-445a-8699-6acd7c1c31bd"
+        },
+        "normalized_unique_records": {
+          "commit": 81,
+          "issue": 32,
+          "pull_request": 200,
+          "release": 193
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:03:22.052731Z",
+        "window_task_id": "4a4d692f-f1ab-4e1c-835b-6e6232d9c1ab"
+      },
+      "created_at": "2011-01-19T19:52:29Z",
+      "description": "A damn simple library for building production-ready RESTful web services.",
+      "forks": 3395,
+      "full_name": "dropwizard/dropwizard",
+      "group": "A1. Java 后端框架",
+      "html_url": "https://github.com/dropwizard/dropwizard",
+      "is_fork": false,
+      "language": "Java",
+      "open_issues_count": 69,
+      "pushed_at": "2026-11-23T18:45:25Z",
+      "repository_id": 1272129,
+      "selection_reason": "Java REST 服务框架",
+      "stars": 8579,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "4a4d692f-f1ab-4e1c-835b-6e6232d9c1ab"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "82233156-5652-445a-8699-6acd7c1c31bd"
+        }
+      ],
+      "topics": [
+        "dropwizard",
+        "hibernate",
+        "java",
+        "jax-rs",
+        "jdbi",
+        "jersey-framework",
+        "jersey2",
+        "jetty",
+        "rest",
+        "restful-webservices",
+        "web-framework"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 0,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 62,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 75,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 0,
+          "issues_closed_90d": 0,
+          "pr_merged_90d": 0,
+          "release_count_365d": 3
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "a5a73fbd-fe3d-4056-9bea-d2cb90920cfd"
+        },
+        "normalized_unique_records": {
+          "issue": 14,
+          "pull_request": 200,
+          "release": 75
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:03:50.052511Z",
+        "window_task_id": "adf37ebe-2a98-477e-aab9-3929d66d0734"
+      },
+      "created_at": "2016-05-26T04:38:22Z",
+      "description": " Accelerate your web app development  | Build fast. Run fast.",
+      "forks": 1619,
+      "full_name": "sanic-org/sanic",
+      "group": "A2. Python Web 框架",
+      "html_url": "https://github.com/sanic-org/sanic",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 167,
+      "pushed_at": "2026-11-20T17:16:24Z",
+      "repository_id": 59720190,
+      "selection_reason": "异步 Python Web 框架",
+      "stars": 18638,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "adf37ebe-2a98-477e-aab9-3929d66d0734"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "a5a73fbd-fe3d-4056-9bea-d2cb90920cfd"
+        }
+      ],
+      "topics": [
+        "api-server",
+        "asgi",
+        "asyncio",
+        "framework",
+        "python",
+        "sanic",
+        "web",
+        "web-framework",
+        "web-server"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 106,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "issues": {
+            "api_records_observed": 320,
+            "coverage": "complete",
+            "pages": 4
+          },
+          "pulls": {
+            "api_records_observed": 300,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "releases": {
+            "api_records_observed": 212,
+            "coverage": "complete",
+            "pages": 3
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 106,
+          "issues_closed_90d": 39,
+          "pr_merged_90d": 116,
+          "release_count_365d": 8
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "4995f3af-e166-4200-a1a8-d0ab01cc7202"
+        },
+        "normalized_unique_records": {
+          "commit": 106,
+          "issue": 84,
+          "pull_request": 300,
+          "release": 212
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:04:25.933904Z",
+        "window_task_id": "73d64612-2e25-4b38-845b-16721481eb5f"
+      },
+      "created_at": "2021-12-06T19:43:06Z",
+      "description": "Light, flexible and extensible ASGI framework | Built to scale",
+      "forks": 692,
+      "full_name": "litestar-org/litestar",
+      "group": "A2. Python Web 框架",
+      "html_url": "https://github.com/litestar-org/litestar",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 363,
+      "pushed_at": "2026-11-25T10:06:12Z",
+      "repository_id": 435625572,
+      "selection_reason": "Python API 与 Web 框架",
+      "stars": 8573,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "73d64612-2e25-4b38-845b-16721481eb5f"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "4995f3af-e166-4200-a1a8-d0ab01cc7202"
+        }
+      ],
+      "topics": [
+        "api",
+        "asgi",
+        "asyncio",
+        "litestar",
+        "litestar-api",
+        "litestar-framework",
+        "msgspec",
+        "openapi",
+        "pydantic",
+        "python",
+        "rapidoc",
+        "redoc",
+        "rest",
+        "starlite",
+        "swagger"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 20,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 127,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 51,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 20,
+          "issues_closed_90d": 3,
+          "pr_merged_90d": 20,
+          "release_count_365d": 7
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "c9e413ce-228e-4b4e-8f2a-ae3c9137f9af"
+        },
+        "normalized_unique_records": {
+          "commit": 20,
+          "issue": 19,
+          "pull_request": 200,
+          "release": 51
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:04:54.290761Z",
+        "window_task_id": "bbfc567d-7a6e-4ba0-982c-4934a7770495"
+      },
+      "created_at": "2015-10-15T20:46:29Z",
+      "description": "lightweight, idiomatic and composable router for building Go HTTP services",
+      "forks": 1670,
+      "full_name": "go-chi/chi",
+      "group": "A3. Go Web 框架",
+      "html_url": "https://github.com/go-chi/chi",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 161,
+      "pushed_at": "2026-11-07T15:51:20Z",
+      "repository_id": 44344606,
+      "selection_reason": "Go HTTP 路由与 Web 框架",
+      "stars": 23159,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "bbfc567d-7a6e-4ba0-982c-4934a7770495"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "c9e413ce-228e-4b4e-8f2a-ae3c9137f9af"
+        }
+      ],
+      "topics": [
+        "api",
+        "context",
+        "go",
+        "golang",
+        "http",
+        "microservices",
+        "middleware",
+        "rest-api",
+        "router"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 79,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 223,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "pulls": {
+            "api_records_observed": 300,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "releases": {
+            "api_records_observed": 156,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 79,
+          "issues_closed_90d": 27,
+          "pr_merged_90d": 77,
+          "release_count_365d": 10
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "2ca35dbd-e2b3-42af-a436-e5c12f9d68f8"
+        },
+        "normalized_unique_records": {
+          "commit": 79,
+          "issue": 54,
+          "pull_request": 300,
+          "release": 156
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:05:31.116698Z",
+        "window_task_id": "b284f6b8-2002-4cef-9eeb-bfdc25e29099"
+      },
+      "created_at": "2020-08-07T15:37:57Z",
+      "description": "A cloud-native Go microservices framework with cli tool for productivity.",
+      "forks": 4332,
+      "full_name": "zeromicro/go-zero",
+      "group": "A3. Go Web 框架",
+      "html_url": "https://github.com/zeromicro/go-zero",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 270,
+      "pushed_at": "2026-11-23T19:53:14Z",
+      "repository_id": 285864199,
+      "selection_reason": "Go 微服务与 Web 框架",
+      "stars": 33442,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "b284f6b8-2002-4cef-9eeb-bfdc25e29099"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "2ca35dbd-e2b3-42af-a436-e5c12f9d68f8"
+        }
+      ],
+      "topics": [
+        "ai-native",
+        "ai-native-development",
+        "cloud-native",
+        "code-generation",
+        "framework",
+        "gateway",
+        "go",
+        "golang",
+        "grpc-gateway",
+        "microservice",
+        "microservice-framework",
+        "microservices",
+        "microservices-architecture",
+        "rest-api",
+        "restful",
+        "restful-api",
+        "rpc",
+        "rpc-framework",
+        "spec-driven-development",
+        "web-framework"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 1217,
+            "coverage": "complete",
+            "pages": 13
+          },
+          "issues": {
+            "api_records_observed": 3410,
+            "coverage": "complete",
+            "pages": 35
+          },
+          "pulls": {
+            "api_records_observed": 2700,
+            "coverage": "complete",
+            "pages": 27
+          },
+          "releases": {
+            "api_records_observed": 730,
+            "coverage": "complete",
+            "pages": 8
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 1217,
+          "issues_closed_90d": 432,
+          "pr_merged_90d": 1133,
+          "release_count_365d": 165
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "56809483-0fbd-4d86-af88-c965e95a52c7"
+        },
+        "normalized_unique_records": {
+          "commit": 1217,
+          "issue": 776,
+          "pull_request": 2700,
+          "release": 730
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:37:18.937895Z",
+        "window_task_id": "430689e5-2c72-4a1c-8579-1a93bc5ae6b5"
+      },
+      "created_at": "2014-09-18T16:12:01Z",
+      "description": "Deliver web apps with confidence 🚀",
+      "forks": 28113,
+      "full_name": "angular/angular",
+      "group": "A4. 前端 UI 框架",
+      "html_url": "https://github.com/angular/angular",
+      "is_fork": false,
+      "language": "TypeScript",
+      "open_issues_count": 958,
+      "pushed_at": "2026-11-24T23:12:17Z",
+      "repository_id": 24195339,
+      "selection_reason": "前端应用框架",
+      "stars": 101577,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "b4656a4c-1e5c-43c4-933a-5799536ff752"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "56809483-0fbd-4d86-af88-c965e95a52c7"
+        }
+      ],
+      "topics": [
+        "angular",
+        "javascript",
+        "pwa",
+        "typescript",
+        "web",
+        "web-framework",
+        "web-performance"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 1669,
+            "coverage": "complete",
+            "pages": 17
+          },
+          "issues": {
+            "api_records_observed": 2106,
+            "coverage": "complete",
+            "pages": 22
+          },
+          "pulls": {
+            "api_records_observed": 1400,
+            "coverage": "complete",
+            "pages": 14
+          },
+          "releases": {
+            "api_records_observed": 278,
+            "coverage": "complete",
+            "pages": 3
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 1669,
+          "issues_closed_90d": 777,
+          "pr_merged_90d": 1120,
+          "release_count_365d": 243
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "4816c8a6-5c7f-41ab-b6ca-18338b8dc0e0"
+        },
+        "normalized_unique_records": {
+          "commit": 1669,
+          "issue": 798,
+          "pull_request": 1400,
+          "release": 278
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:37:37.046429Z",
+        "window_task_id": "03e699d3-0caf-4f15-934f-b7bac60a541d"
+      },
+      "created_at": "2018-04-24T16:36:27Z",
+      "description": "A declarative, efficient, and flexible JavaScript library for building user interfaces.",
+      "forks": 1206,
+      "full_name": "solidjs/solid",
+      "group": "A4. 前端 UI 框架",
+      "html_url": "https://github.com/solidjs/solid",
+      "is_fork": false,
+      "language": "TypeScript",
+      "open_issues_count": 37,
+      "pushed_at": "2026-11-25T00:52:04Z",
+      "repository_id": 130884470,
+      "selection_reason": "响应式前端 UI 框架",
+      "stars": 36959,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "4b029010-27f3-4799-a41b-780a67e53a76"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "4816c8a6-5c7f-41ab-b6ca-18338b8dc0e0"
+        }
+      ],
+      "topics": [
+        "declarative",
+        "fine-grained",
+        "javascript",
+        "jsx",
+        "performance",
+        "proxies",
+        "reactive",
+        "solid"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 617,
+            "coverage": "complete",
+            "pages": 7
+          },
+          "issues": {
+            "api_records_observed": 2262,
+            "coverage": "complete",
+            "pages": 23
+          },
+          "pulls": {
+            "api_records_observed": 1500,
+            "coverage": "complete",
+            "pages": 15
+          },
+          "releases": {
+            "api_records_observed": 1453,
+            "coverage": "complete",
+            "pages": 15
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 617,
+          "issues_closed_90d": 366,
+          "pr_merged_90d": 620,
+          "release_count_365d": 357
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "a050f2b4-1011-4641-b9cd-5ec9036adc44"
+        },
+        "normalized_unique_records": {
+          "commit": 617,
+          "issue": 772,
+          "pull_request": 1500,
+          "release": 1453
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:19:14.410321Z",
+        "window_task_id": "9b5a9755-e5d2-484b-8d99-7870190976a7"
+      },
+      "created_at": "2022-10-17T02:58:36Z",
+      "description": "The agent engineering platform.",
+      "forks": 25166,
+      "full_name": "langchain-ai/langchain",
+      "group": "B1. AI Agent / 多智能体项目",
+      "html_url": "https://github.com/langchain-ai/langchain",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 784,
+      "pushed_at": "2026-11-25T08:18:23Z",
+      "repository_id": 552661142,
+      "selection_reason": "大语言模型应用与 Agent 框架",
+      "stars": 149979,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "9b5a9755-e5d2-484b-8d99-7870190976a7"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "a050f2b4-1011-4641-b9cd-5ec9036adc44"
+        }
+      ],
+      "topics": [
+        "agents",
+        "ai",
+        "ai-agents",
+        "anthropic",
+        "chatgpt",
+        "deepagents",
+        "enterprise",
+        "framework",
+        "gemini",
+        "generative-ai",
+        "langchain",
+        "langgraph",
+        "llm",
+        "multiagent",
+        "open-source",
+        "openai",
+        "pydantic",
+        "python",
+        "rag",
+        "typescript"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 495,
+            "coverage": "complete",
+            "pages": 5
+          },
+          "issues": {
+            "api_records_observed": 3385,
+            "coverage": "complete",
+            "pages": 34
+          },
+          "pulls": {
+            "api_records_observed": 1700,
+            "coverage": "complete",
+            "pages": 17
+          },
+          "releases": {
+            "api_records_observed": 259,
+            "coverage": "complete",
+            "pages": 3
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 495,
+          "issues_closed_90d": 573,
+          "pr_merged_90d": 499,
+          "release_count_365d": 132
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "6a75cda2-5d59-4eb8-90bf-4c089193e6f1"
+        },
+        "normalized_unique_records": {
+          "commit": 495,
+          "issue": 1034,
+          "pull_request": 1700,
+          "release": 259
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:38:28.066715Z",
+        "window_task_id": "b0ee526c-d78c-446a-8785-c0cec8c0e072"
+      },
+      "created_at": "2023-10-27T03:26:59Z",
+      "description": "Framework for orchestrating role-playing, autonomous AI agents. By fostering collaborative intelligence, CrewAI empowers agents to work together seamlessly, tackling complex tasks.",
+      "forks": 9282,
+      "full_name": "crewAIInc/crewAI",
+      "group": "B1. AI Agent / 多智能体项目",
+      "html_url": "https://github.com/crewAIInc/crewAI",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 1272,
+      "pushed_at": "2026-11-25T11:55:11Z",
+      "repository_id": 710601088,
+      "selection_reason": "多智能体协作框架",
+      "stars": 61251,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "34d94667-0f49-4ee8-a98c-e01ee5d6b304"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "6a75cda2-5d59-4eb8-90bf-4c089193e6f1"
+        }
+      ],
+      "topics": [
+        "agents",
+        "ai",
+        "ai-agents",
+        "aiagentframework",
+        "llms"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 227,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "issues": {
+            "api_records_observed": 261,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "pulls": {
+            "api_records_observed": 300,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "releases": {
+            "api_records_observed": 191,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 227,
+          "issues_closed_90d": 48,
+          "pr_merged_90d": 132,
+          "release_count_365d": 35
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "6eed5040-7b25-46fe-95fa-a29dbf0d5314"
+        },
+        "normalized_unique_records": {
+          "commit": 227,
+          "issue": 85,
+          "pull_request": 300,
+          "release": 191
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:21:36.768370Z",
+        "window_task_id": "5e12578f-3394-4733-a6a8-48dd6847d3b7"
+      },
+      "created_at": "2013-09-05T13:30:47Z",
+      "description": "Low-code programming for event-driven applications",
+      "forks": 3976,
+      "full_name": "node-red/node-red",
+      "group": "B2. 工作流自动化平台",
+      "html_url": "https://github.com/node-red/node-red",
+      "is_fork": false,
+      "language": "JavaScript",
+      "open_issues_count": 356,
+      "pushed_at": "2026-11-24T17:20:02Z",
+      "repository_id": 12618379,
+      "selection_reason": "可视化事件流与自动化平台",
+      "stars": 23878,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "5e12578f-3394-4733-a6a8-48dd6847d3b7"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "6eed5040-7b25-46fe-95fa-a29dbf0d5314"
+        }
+      ],
+      "topics": [
+        "flow-based-programming",
+        "javascript",
+        "low-code",
+        "node-red",
+        "openjs-foundation",
+        "visual-programming"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 2726,
+            "coverage": "complete",
+            "pages": 28
+          },
+          "issues": {
+            "api_records_observed": 7450,
+            "coverage": "complete",
+            "pages": 75
+          },
+          "pulls": {
+            "api_records_observed": 5500,
+            "coverage": "complete",
+            "pages": 55
+          },
+          "releases": {
+            "api_records_observed": 131,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 2726,
+          "issues_closed_90d": 614,
+          "pr_merged_90d": 3579,
+          "release_count_365d": 23
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "341dd432-b712-4a59-ba56-e44039d1edc0"
+        },
+        "normalized_unique_records": {
+          "commit": 2726,
+          "issue": 1132,
+          "pull_request": 5500,
+          "release": 131
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:42:53.598808Z",
+        "window_task_id": "a3fce291-5dc5-4c73-b50b-68bfdf6cb531"
+      },
+      "created_at": "2015-04-13T18:04:58Z",
+      "description": "Apache Airflow - A platform to programmatically author, schedule, and monitor workflows",
+      "forks": 18402,
+      "full_name": "apache/airflow",
+      "group": "B2. 工作流自动化平台",
+      "html_url": "https://github.com/apache/airflow",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 1951,
+      "pushed_at": "2026-11-25T12:53:52Z",
+      "repository_id": 33884891,
+      "selection_reason": "工作流编排与调度平台",
+      "stars": 47660,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "0e2d3819-1de9-4561-9a40-df018d86e4a6"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "788f37e9-4d0b-49cb-8b76-e17bc58442cd"
+        }
+      ],
+      "topics": [
+        "airflow",
+        "apache",
+        "apache-airflow",
+        "automation",
+        "dag",
+        "data-engineering",
+        "data-integration",
+        "data-orchestrator",
+        "data-pipelines",
+        "data-science",
+        "elt",
+        "etl",
+        "machine-learning",
+        "mlops",
+        "orchestration",
+        "python",
+        "scheduler",
+        "workflow",
+        "workflow-engine",
+        "workflow-orchestration"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 838,
+            "coverage": "complete",
+            "pages": 9
+          },
+          "issues": {
+            "api_records_observed": 1451,
+            "coverage": "complete",
+            "pages": 15
+          },
+          "pulls": {
+            "api_records_observed": 800,
+            "coverage": "complete",
+            "pages": 8
+          },
+          "releases": {
+            "api_records_observed": 387,
+            "coverage": "complete",
+            "pages": 4
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 838,
+          "issues_closed_90d": 91,
+          "pr_merged_90d": 463,
+          "release_count_365d": 36
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "76d0b747-c30a-4715-b60e-d9475b63ea13"
+        },
+        "normalized_unique_records": {
+          "commit": 838,
+          "issue": 340,
+          "pull_request": 800,
+          "release": 387
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:25:25.872377Z",
+        "window_task_id": "45888942-236d-46a1-a622-4774a418d60f"
+      },
+      "created_at": "2012-11-24T11:14:12Z",
+      "description": "The Prometheus monitoring system and time series database.",
+      "forks": 11036,
+      "full_name": "prometheus/prometheus",
+      "group": "B3. 日志、搜索与可观测性",
+      "html_url": "https://github.com/prometheus/prometheus",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 1147,
+      "pushed_at": "2026-11-25T10:24:57Z",
+      "repository_id": 6838921,
+      "selection_reason": "监控与时序数据平台",
+      "stars": 67876,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "45888942-236d-46a1-a622-4774a418d60f"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "76d0b747-c30a-4715-b60e-d9475b63ea13"
+        }
+      ],
+      "topics": [
+        "alerting",
+        "graphing",
+        "hacktoberfest",
+        "metrics",
+        "monitoring",
+        "prometheus",
+        "time-series"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 3951,
+            "coverage": "complete",
+            "pages": 40
+          },
+          "issues": {
+            "api_records_observed": 9781,
+            "coverage": "complete",
+            "pages": 98
+          },
+          "pulls": {
+            "api_records_observed": 8980,
+            "coverage": "complete",
+            "pages": 98
+          },
+          "releases": {
+            "api_records_observed": 671,
+            "coverage": "complete",
+            "pages": 7
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 3951,
+          "issues_closed_90d": 1217,
+          "pr_merged_90d": 4508,
+          "release_count_365d": 103
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "4c009bc5-9b70-4d75-befd-42a14dfccc82"
+        },
+        "normalized_unique_records": {
+          "commit": 3951,
+          "issue": 2396,
+          "pull_request": 6680,
+          "release": 671
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-26T03:18:12.425233Z",
+        "window_task_id": "897ad7ce-3b49-4436-8c9b-14d0a371184d"
+      },
+      "created_at": "2013-12-11T15:59:56Z",
+      "description": "The open and composable observability and data visualization platform. Visualize metrics, logs, and traces from multiple sources like Prometheus, Loki, Elasticsearch, InfluxDB, Postgres and many more. ",
+      "forks": 15019,
+      "full_name": "grafana/grafana",
+      "group": "B3. 日志、搜索与可观测性",
+      "html_url": "https://github.com/grafana/grafana",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 3305,
+      "pushed_at": "2026-11-25T12:59:37Z",
+      "repository_id": 15111821,
+      "selection_reason": "可观测性与数据可视化平台",
+      "stars": 78174,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "221bdd61-3b48-4beb-9521-e900d7f84bed"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "b1c5ba2f-a55a-49a1-b5d5-3e157e1c6e4c"
+        }
+      ],
+      "topics": [
+        "alerting",
+        "analytics",
+        "business-intelligence",
+        "dashboard",
+        "data-visualization",
+        "elasticsearch",
+        "go",
+        "grafana",
+        "hacktoberfest",
+        "influxdb",
+        "metrics",
+        "monitoring",
+        "mysql",
+        "postgres",
+        "prometheus"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 104,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "issues": {
+            "api_records_observed": 823,
+            "coverage": "complete",
+            "pages": 9
+          },
+          "pulls": {
+            "api_records_observed": 600,
+            "coverage": "complete",
+            "pages": 6
+          },
+          "releases": {
+            "api_records_observed": 280,
+            "coverage": "complete",
+            "pages": 3
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 104,
+          "issues_closed_90d": 96,
+          "pr_merged_90d": 280,
+          "release_count_365d": 97
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "3e70dbd5-1015-4efd-9e78-6993aecbbed4"
+        },
+        "normalized_unique_records": {
+          "commit": 104,
+          "issue": 200,
+          "pull_request": 600,
+          "release": 280
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:29:07.164977Z",
+        "window_task_id": "195d5749-f220-459f-b749-7f5b9ea28242"
+      },
+      "created_at": "2012-03-06T14:58:02Z",
+      "description": "Ansible is a radically simple IT automation platform that makes your applications and systems easier to deploy and maintain. Automate everything from code deployment to network configuration to cloud management, in a language that approaches plain English, using SSH, with no agents to install on remote systems. https://docs.ansible.com.",
+      "forks": 24382,
+      "full_name": "ansible/ansible",
+      "group": "B4. 基础设施即代码（IaC）",
+      "html_url": "https://github.com/ansible/ansible",
+      "is_fork": false,
+      "language": "Python",
+      "open_issues_count": 888,
+      "pushed_at": "2026-11-23T22:23:32Z",
+      "repository_id": 3638964,
+      "selection_reason": "自动化配置管理与基础设施编排",
+      "stars": 71602,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "195d5749-f220-459f-b749-7f5b9ea28242"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "3e70dbd5-1015-4efd-9e78-6993aecbbed4"
+        }
+      ],
+      "topics": [
+        "ansible",
+        "python"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 256,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "issues": {
+            "api_records_observed": 467,
+            "coverage": "complete",
+            "pages": 5
+          },
+          "pulls": {
+            "api_records_observed": 400,
+            "coverage": "complete",
+            "pages": 4
+          },
+          "releases": {
+            "api_records_observed": 191,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 256,
+          "issues_closed_90d": 47,
+          "pr_merged_90d": 202,
+          "release_count_365d": 50
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "b53ff7e2-b422-4e07-8714-7c41c12e63d9"
+        },
+        "normalized_unique_records": {
+          "commit": 256,
+          "issue": 133,
+          "pull_request": 400,
+          "release": 191
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:29:47.635814Z",
+        "window_task_id": "fff1696c-1815-44c6-9b01-e33c6e844b96"
+      },
+      "created_at": "2018-09-08T00:10:35Z",
+      "description": "The Cloud Native Control Plane",
+      "forks": 1306,
+      "full_name": "crossplane/crossplane",
+      "group": "B4. 基础设施即代码（IaC）",
+      "html_url": "https://github.com/crossplane/crossplane",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 206,
+      "pushed_at": "2026-11-25T08:24:01Z",
+      "repository_id": 147886080,
+      "selection_reason": "云基础设施控制平面",
+      "stars": 12263,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "fff1696c-1815-44c6-9b01-e33c6e844b96"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "b53ff7e2-b422-4e07-8714-7c41c12e63d9"
+        }
+      ],
+      "topics": [
+        "cloud-computing",
+        "cloud-management",
+        "cloud-native",
+        "cncf",
+        "containers",
+        "control-plane",
+        "infrastructure",
+        "infrastructure-as-code",
+        "kubernetes",
+        "multicloud",
+        "serverless"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 1007,
+            "coverage": "complete",
+            "pages": 11
+          },
+          "issues": {
+            "api_records_observed": 1766,
+            "coverage": "complete",
+            "pages": 18
+          },
+          "pulls": {
+            "api_records_observed": 1200,
+            "coverage": "complete",
+            "pages": 12
+          },
+          "releases": {
+            "api_records_observed": 56,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 1007,
+          "issues_closed_90d": 285,
+          "pr_merged_90d": 769,
+          "release_count_365d": 11
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "59f0abdd-bf1a-4323-83c6-8d13d0b1fd02"
+        },
+        "normalized_unique_records": {
+          "commit": 1007,
+          "issue": 605,
+          "pull_request": 1200,
+          "release": 56
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T15:04:40.061463Z",
+        "window_task_id": "2c1347d3-b38f-415a-ba11-38ad91ae7758"
+      },
+      "created_at": "2014-01-31T13:39:22Z",
+      "description": "Vim-fork focused on extensibility and usability",
+      "forks": 7339,
+      "full_name": "neovim/neovim",
+      "group": "C1. 代码编辑器 / IDE",
+      "html_url": "https://github.com/neovim/neovim",
+      "is_fork": false,
+      "language": "Vim Script",
+      "open_issues_count": 1974,
+      "pushed_at": "2026-11-25T12:34:26Z",
+      "repository_id": 16408992,
+      "selection_reason": "可扩展代码编辑器",
+      "stars": 103915,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "6f383551-a4e0-492a-a640-2c2d96401cd4"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "59f0abdd-bf1a-4323-83c6-8d13d0b1fd02"
+        }
+      ],
+      "topics": [
+        "api",
+        "c",
+        "lua",
+        "neovim",
+        "nvim",
+        "text-editor",
+        "vim"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 87,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 858,
+            "coverage": "complete",
+            "pages": 9
+          },
+          "pulls": {
+            "api_records_observed": 300,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "releases": {
+            "api_records_observed": 30,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 87,
+          "issues_closed_90d": 24,
+          "pr_merged_90d": 9,
+          "release_count_365d": 0
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "5eef5c5e-a588-4f29-ae8a-7eb4fb7fd2c7"
+        },
+        "normalized_unique_records": {
+          "commit": 87,
+          "issue": 128,
+          "pull_request": 300,
+          "release": 30
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:32:08.276857Z",
+        "window_task_id": "7a25d578-5597-4b05-8354-7cbcfe595c5a"
+      },
+      "created_at": "2020-06-01T04:26:56Z",
+      "description": "A post-modern modal text editor.",
+      "forks": 3959,
+      "full_name": "helix-editor/helix",
+      "group": "C1. 代码编辑器 / IDE",
+      "html_url": "https://github.com/helix-editor/helix",
+      "is_fork": false,
+      "language": "Rust",
+      "open_issues_count": 1765,
+      "pushed_at": "2026-11-20T11:15:15Z",
+      "repository_id": 268424739,
+      "selection_reason": "终端代码编辑器",
+      "stars": 47014,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "7a25d578-5597-4b05-8354-7cbcfe595c5a"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "5eef5c5e-a588-4f29-ae8a-7eb4fb7fd2c7"
+        }
+      ],
+      "topics": [
+        "kakoune",
+        "rust",
+        "text-editor",
+        "vim"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 0,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 111,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 315,
+            "coverage": "complete",
+            "pages": 4
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 0,
+          "issues_closed_90d": 8,
+          "pr_merged_90d": 0,
+          "release_count_365d": 9
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "354ca727-cef6-4f85-9ae1-ee4b35824bf4"
+        },
+        "normalized_unique_records": {
+          "issue": 54,
+          "pull_request": 200,
+          "release": 315
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:32:40.380079Z",
+        "window_task_id": "3f04c294-017f-4b2c-9e62-c54ca76efb29"
+      },
+      "created_at": "2016-06-14T16:08:50Z",
+      "description": "An extremely fast bundler for the web",
+      "forks": 1498,
+      "full_name": "evanw/esbuild",
+      "group": "C2. 前端构建工具",
+      "html_url": "https://github.com/evanw/esbuild",
+      "is_fork": false,
+      "language": "Go",
+      "open_issues_count": 685,
+      "pushed_at": "2026-08-09T17:20:12Z",
+      "repository_id": 61137153,
+      "selection_reason": "JavaScript 与 CSS 构建工具",
+      "stars": 40176,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "3f04c294-017f-4b2c-9e62-c54ca76efb29"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "354ca727-cef6-4f85-9ae1-ee4b35824bf4"
+        }
+      ],
+      "topics": [
+        "bundler",
+        "commonjs",
+        "compiler",
+        "css",
+        "esm",
+        "javascript",
+        "jsx",
+        "minifier",
+        "react",
+        "tsx",
+        "typescript"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 186,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "issues": {
+            "api_records_observed": 251,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "pulls": {
+            "api_records_observed": 300,
+            "coverage": "complete",
+            "pages": 3
+          },
+          "releases": {
+            "api_records_observed": 625,
+            "coverage": "complete",
+            "pages": 7
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 186,
+          "issues_closed_90d": 32,
+          "pr_merged_90d": 154,
+          "release_count_365d": 60
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "f2b1f91d-3feb-431b-b9c6-dc72b8249d44"
+        },
+        "normalized_unique_records": {
+          "commit": 186,
+          "issue": 42,
+          "pull_request": 300,
+          "release": 625
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:33:19.826460Z",
+        "window_task_id": "c35389d6-7ca6-42a1-85f9-3667356d44b1"
+      },
+      "created_at": "2015-05-14T22:26:28Z",
+      "description": "Next-generation ES module bundler",
+      "forks": 1941,
+      "full_name": "rollup/rollup",
+      "group": "C2. 前端构建工具",
+      "html_url": "https://github.com/rollup/rollup",
+      "is_fork": false,
+      "language": "JavaScript",
+      "open_issues_count": 607,
+      "pushed_at": "2026-11-25T10:50:49Z",
+      "repository_id": 35640229,
+      "selection_reason": "JavaScript 模块打包工具",
+      "stars": 26314,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "c35389d6-7ca6-42a1-85f9-3667356d44b1"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "f2b1f91d-3feb-431b-b9c6-dc72b8249d44"
+        }
+      ],
+      "topics": []
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 64,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 510,
+            "coverage": "complete",
+            "pages": 6
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 64,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 64,
+          "issues_closed_90d": 31,
+          "pr_merged_90d": 48,
+          "release_count_365d": 0
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "18639d1b-af16-481e-a95d-6a6d86f7d8bd"
+        },
+        "normalized_unique_records": {
+          "commit": 64,
+          "issue": 222,
+          "pull_request": 200,
+          "release": 64
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:33:56.106091Z",
+        "window_task_id": "039459e2-565c-4f2a-998b-a9a8bdc993b0"
+      },
+      "created_at": "2018-02-07T05:35:46Z",
+      "description": "A GPU-accelerated cross-platform terminal emulator and multiplexer written by @wez and implemented in Rust",
+      "forks": 1906,
+      "full_name": "wezterm/wezterm",
+      "group": "C3. 终端与 SSH 客户端",
+      "html_url": "https://github.com/wezterm/wezterm",
+      "is_fork": false,
+      "language": "Rust",
+      "open_issues_count": 1986,
+      "pushed_at": "2026-11-25T12:44:09Z",
+      "repository_id": 120568143,
+      "selection_reason": "终端模拟器与 SSH 客户端",
+      "stars": 29689,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "039459e2-565c-4f2a-998b-a9a8bdc993b0"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "18639d1b-af16-481e-a95d-6a6d86f7d8bd"
+        }
+      ],
+      "topics": [
+        "rust",
+        "serial",
+        "serial-port",
+        "terminal",
+        "terminal-emulator",
+        "terminal-emulators"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 7,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 121,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 108,
+            "coverage": "complete",
+            "pages": 2
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 7,
+          "issues_closed_90d": 43,
+          "pr_merged_90d": 7,
+          "release_count_365d": 3
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "e988a0df-38ed-4035-8416-e0de7cb771e3"
+        },
+        "normalized_unique_records": {
+          "commit": 7,
+          "issue": 81,
+          "pull_request": 200,
+          "release": 108
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:34:29.369055Z",
+        "window_task_id": "dfc86cd6-22ff-4ec2-acc3-2bd583eb5407"
+      },
+      "created_at": "2016-02-18T05:02:30Z",
+      "description": "A cross-platform, OpenGL terminal emulator.",
+      "forks": 3709,
+      "full_name": "alacritty/alacritty",
+      "group": "C3. 终端与 SSH 客户端",
+      "html_url": "https://github.com/alacritty/alacritty",
+      "is_fork": false,
+      "language": "Rust",
+      "open_issues_count": 346,
+      "pushed_at": "2026-11-18T15:50:57Z",
+      "repository_id": 51980455,
+      "selection_reason": "GPU 加速终端模拟器",
+      "stars": 66295,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "dfc86cd6-22ff-4ec2-acc3-2bd583eb5407"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "e988a0df-38ed-4035-8416-e0de7cb771e3"
+        }
+      ],
+      "topics": [
+        "bsd",
+        "gpu",
+        "linux",
+        "macos",
+        "opengl",
+        "rust",
+        "terminal",
+        "terminal-emulators",
+        "vte",
+        "windows"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 65,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 189,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 67,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 65,
+          "issues_closed_90d": 17,
+          "pr_merged_90d": 27,
+          "release_count_365d": 8
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "f4afee68-ac0d-4095-8616-4c896b3a0997"
+        },
+        "normalized_unique_records": {
+          "commit": 65,
+          "issue": 61,
+          "pull_request": 200,
+          "release": 67
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:34:56.609085Z",
+        "window_task_id": "00d2a8b6-856b-4fff-88a8-aff016515903"
+      },
+      "created_at": "2019-06-24T15:00:13Z",
+      "description": "A syntax-highlighting interface for git, diff, blame, and grep/ripgrep",
+      "forks": 743,
+      "full_name": "dandavison/delta",
+      "group": "D1. 命令行文本与文件工具",
+      "html_url": "https://github.com/dandavison/delta",
+      "is_fork": false,
+      "language": "Rust",
+      "open_issues_count": 502,
+      "pushed_at": "2026-11-25T00:29:08Z",
+      "repository_id": 193526915,
+      "selection_reason": "Git 差异查看命令行工具",
+      "stars": 32830,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "00d2a8b6-856b-4fff-88a8-aff016515903"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "f4afee68-ac0d-4095-8616-4c896b3a0997"
+        }
+      ],
+      "topics": [
+        "color-themes",
+        "delta",
+        "diff",
+        "git",
+        "git-delta",
+        "pager",
+        "rust",
+        "syntax-highlighter",
+        "tui"
+      ]
+    },
+    {
+      "archived": false,
+      "collection_result": {
+        "activity_window": {
+          "days": 90,
+          "end_utc": "2026-11-25T13:01:03Z",
+          "start_utc": "2026-08-27T13:01:03Z"
+        },
+        "api_pages_and_records": {
+          "commits": {
+            "api_records_observed": 0,
+            "coverage": "complete",
+            "pages": 1
+          },
+          "issues": {
+            "api_records_observed": 131,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "pulls": {
+            "api_records_observed": 200,
+            "coverage": "complete",
+            "pages": 2
+          },
+          "releases": {
+            "api_records_observed": 96,
+            "coverage": "complete",
+            "pages": 1
+          }
+        },
+        "comparison_metrics": {
+          "commits_90d": 0,
+          "issues_closed_90d": 3,
+          "pr_merged_90d": 0,
+          "release_count_365d": 1
+        },
+        "coverage_by_module": {
+          "commits": "complete",
+          "issues": "complete",
+          "profile": "complete",
+          "pulls": "complete",
+          "releases": "complete"
+        },
+        "maintenance": {
+          "complete_weeks": 12,
+          "history_end_utc": "2026-11-23T00:00:00.000000Z",
+          "history_start_utc": "2026-08-31T00:00:00.000000Z",
+          "status": "complete",
+          "task_id": "aa275955-7de1-41b7-8ac1-629c6e67956a"
+        },
+        "normalized_unique_records": {
+          "issue": 49,
+          "pull_request": 200,
+          "release": 96
+        },
+        "status": "complete",
+        "window_task_finished_at_utc": "2026-11-25T13:35:24.218639Z",
+        "window_task_id": "e28f0490-f35f-4277-9cdc-65b4b33026c7"
+      },
+      "created_at": "2023-07-28T08:35:55Z",
+      "description": "A modern alternative to ls",
+      "forks": 566,
+      "full_name": "eza-community/eza",
+      "group": "D1. 命令行文本与文件工具",
+      "html_url": "https://github.com/eza-community/eza",
+      "is_fork": false,
+      "language": "Rust",
+      "open_issues_count": 494,
+      "pushed_at": "2026-08-06T19:53:22Z",
+      "repository_id": 671832156,
+      "selection_reason": "现代文件列表命令行工具",
+      "stars": 24034,
+      "tasks": [
+        {
+          "purpose": "90d-events",
+          "task_id": "e28f0490-f35f-4277-9cdc-65b4b33026c7"
+        },
+        {
+          "purpose": "12w-maintenance",
+          "task_id": "aa275955-7de1-41b7-8ac1-629c6e67956a"
+        }
+      ],
+      "topics": [
+        "color",
+        "command-line",
+        "files",
+        "hacktoberfest",
+        "icons",
+        "ls",
+        "nerd-fonts",
+        "rust",
+        "terminal",
+        "tools"
+      ]
+    }
+  ],
+  "new_repository_count": 24,
+  "queued_task_count": 48,
+  "queued_tasks": [
+    {
+      "purpose": "90d-events",
+      "repository": "spring-projects/spring-framework",
+      "task_id": "12fc108f-a458-4175-ab6f-4e0acb0f624a"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "spring-projects/spring-framework",
+      "task_id": "5af92f3a-b88f-4439-a109-ffab7ebc96ff"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "dropwizard/dropwizard",
+      "task_id": "4a4d692f-f1ab-4e1c-835b-6e6232d9c1ab"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "dropwizard/dropwizard",
+      "task_id": "82233156-5652-445a-8699-6acd7c1c31bd"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "sanic-org/sanic",
+      "task_id": "adf37ebe-2a98-477e-aab9-3929d66d0734"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "sanic-org/sanic",
+      "task_id": "a5a73fbd-fe3d-4056-9bea-d2cb90920cfd"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "litestar-org/litestar",
+      "task_id": "73d64612-2e25-4b38-845b-16721481eb5f"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "litestar-org/litestar",
+      "task_id": "4995f3af-e166-4200-a1a8-d0ab01cc7202"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "go-chi/chi",
+      "task_id": "bbfc567d-7a6e-4ba0-982c-4934a7770495"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "go-chi/chi",
+      "task_id": "c9e413ce-228e-4b4e-8f2a-ae3c9137f9af"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "zeromicro/go-zero",
+      "task_id": "b284f6b8-2002-4cef-9eeb-bfdc25e29099"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "zeromicro/go-zero",
+      "task_id": "2ca35dbd-e2b3-42af-a436-e5c12f9d68f8"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "angular/angular",
+      "task_id": "b4656a4c-1e5c-43c4-933a-5799536ff752"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "angular/angular",
+      "task_id": "56809483-0fbd-4d86-af88-c965e95a52c7"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "solidjs/solid",
+      "task_id": "4b029010-27f3-4799-a41b-780a67e53a76"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "solidjs/solid",
+      "task_id": "4816c8a6-5c7f-41ab-b6ca-18338b8dc0e0"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "langchain-ai/langchain",
+      "task_id": "9b5a9755-e5d2-484b-8d99-7870190976a7"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "langchain-ai/langchain",
+      "task_id": "a050f2b4-1011-4641-b9cd-5ec9036adc44"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "crewAIInc/crewAI",
+      "task_id": "34d94667-0f49-4ee8-a98c-e01ee5d6b304"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "crewAIInc/crewAI",
+      "task_id": "6a75cda2-5d59-4eb8-90bf-4c089193e6f1"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "node-red/node-red",
+      "task_id": "5e12578f-3394-4733-a6a8-48dd6847d3b7"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "node-red/node-red",
+      "task_id": "6eed5040-7b25-46fe-95fa-a29dbf0d5314"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "apache/airflow",
+      "task_id": "0e2d3819-1de9-4561-9a40-df018d86e4a6"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "apache/airflow",
+      "task_id": "788f37e9-4d0b-49cb-8b76-e17bc58442cd"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "prometheus/prometheus",
+      "task_id": "45888942-236d-46a1-a622-4774a418d60f"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "prometheus/prometheus",
+      "task_id": "76d0b747-c30a-4715-b60e-d9475b63ea13"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "grafana/grafana",
+      "task_id": "221bdd61-3b48-4beb-9521-e900d7f84bed"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "grafana/grafana",
+      "task_id": "b1c5ba2f-a55a-49a1-b5d5-3e157e1c6e4c"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "ansible/ansible",
+      "task_id": "195d5749-f220-459f-b749-7f5b9ea28242"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "ansible/ansible",
+      "task_id": "3e70dbd5-1015-4efd-9e78-6993aecbbed4"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "crossplane/crossplane",
+      "task_id": "fff1696c-1815-44c6-9b01-e33c6e844b96"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "crossplane/crossplane",
+      "task_id": "b53ff7e2-b422-4e07-8714-7c41c12e63d9"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "neovim/neovim",
+      "task_id": "6f383551-a4e0-492a-a640-2c2d96401cd4"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "neovim/neovim",
+      "task_id": "59f0abdd-bf1a-4323-83c6-8d13d0b1fd02"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "helix-editor/helix",
+      "task_id": "7a25d578-5597-4b05-8354-7cbcfe595c5a"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "helix-editor/helix",
+      "task_id": "5eef5c5e-a588-4f29-ae8a-7eb4fb7fd2c7"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "evanw/esbuild",
+      "task_id": "3f04c294-017f-4b2c-9e62-c54ca76efb29"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "evanw/esbuild",
+      "task_id": "354ca727-cef6-4f85-9ae1-ee4b35824bf4"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "rollup/rollup",
+      "task_id": "c35389d6-7ca6-42a1-85f9-3667356d44b1"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "rollup/rollup",
+      "task_id": "f2b1f91d-3feb-431b-b9c6-dc72b8249d44"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "wezterm/wezterm",
+      "task_id": "039459e2-565c-4f2a-998b-a9a8bdc993b0"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "wezterm/wezterm",
+      "task_id": "18639d1b-af16-481e-a95d-6a6d86f7d8bd"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "alacritty/alacritty",
+      "task_id": "dfc86cd6-22ff-4ec2-acc3-2bd583eb5407"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "alacritty/alacritty",
+      "task_id": "e988a0df-38ed-4035-8416-e0de7cb771e3"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "dandavison/delta",
+      "task_id": "00d2a8b6-856b-4fff-88a8-aff016515903"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "dandavison/delta",
+      "task_id": "f4afee68-ac0d-4095-8616-4c896b3a0997"
+    },
+    {
+      "purpose": "90d-events",
+      "repository": "eza-community/eza",
+      "task_id": "e28f0490-f35f-4277-9cdc-65b4b33026c7"
+    },
+    {
+      "purpose": "12w-maintenance",
+      "repository": "eza-community/eza",
+      "task_id": "aa275955-7de1-41b7-8ac1-629c6e67956a"
+    }
+  ],
+  "schema_version": 1,
+  "selection_policy": {
+    "activity_window_days": 90,
+    "event_page_cap_per_module": 15,
+    "exclude_archived": true,
+    "exclude_forks": true,
+    "fixed_ml_research_datasets_modified": false,
+    "maintenance_window_weeks": 12,
+    "matching": "按同类用途分组；每组补充两个项目，支持 2–5 个仓库横向比较。",
+    "public_only": true
+  }
+}

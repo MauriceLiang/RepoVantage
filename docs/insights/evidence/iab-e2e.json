@@ -1,0 +1,50 @@
+[
+  {
+    "name": "fixed event totals 59/30",
+    "passed": true
+  },
+  {
+    "name": "issue duration histogram with valid sample",
+    "passed": true
+  },
+  {
+    "name": "PR merge is not first response",
+    "passed": true
+  },
+  {
+    "name": "keyboard navigation to provenance",
+    "passed": true
+  },
+  {
+    "name": "partial Commit has no absolute trend",
+    "passed": true
+  },
+  {
+    "name": "partial Commit keeps ready Issue",
+    "passed": true
+  },
+  {
+    "name": "missing input creates no chart",
+    "passed": true
+  },
+  {
+    "name": "n4 suppresses p75 and p90",
+    "passed": true
+  },
+  {
+    "name": "rate limit displays failed metric without fake trend",
+    "passed": true
+  },
+  {
+    "name": "stale result retains original date",
+    "passed": true
+  },
+  {
+    "name": "complete zero weeks remain readable",
+    "passed": true
+  },
+  {
+    "name": "dark zero chart has no horizontal overflow",
+    "passed": true
+  }
+]

@@ -1,0 +1,286 @@
+[
+  {
+    "view": "开发活跃度",
+    "charts": [
+      {
+        "height": 230,
+        "width": 0
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "view": "Issue 效率",
+    "charts": [
+      {
+        "height": 230,
+        "width": 354
+      },
+      {
+        "height": 230,
+        "width": 354
+      },
+      {
+        "height": 230,
+        "width": 354
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "view": "PR 协作",
+    "charts": [
+      {
+        "height": 230,
+        "width": 354
+      },
+      {
+        "height": 230,
+        "width": 354
+      },
+      {
+        "height": 230,
+        "width": 354
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "view": "发布节奏",
+    "charts": [
+      {
+        "height": 230,
+        "width": 354
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "view": "数据来源",
+    "charts": [
+      {
+        "height": 230,
+        "width": 354
+      }
+    ],
+    "scroll": 390,
+    "width": 390
+  },
+  {
+    "view": "开发活跃度",
+    "charts": [
+      {
+        "height": 270,
+        "width": 0
+      }
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "view": "Issue 效率",
+    "charts": [
+      {
+        "height": 270,
+        "width": 502
+      },
+      {
+        "height": 270,
+        "width": 502
+      },
+      {
+        "height": 270,
+        "width": 502
+      }
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "view": "PR 协作",
+    "charts": [
+      {
+        "height": 270,
+        "width": 502
+      },
+      {
+        "height": 270,
+        "width": 502
+      },
+      {
+        "height": 270,
+        "width": 502
+      }
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "view": "发布节奏",
+    "charts": [
+      {
+        "height": 270,
+        "width": 502
+      }
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "view": "数据来源",
+    "charts": [
+      {
+        "height": 270,
+        "width": 502
+      }
+    ],
+    "scroll": 768,
+    "width": 768
+  },
+  {
+    "view": "开发活跃度",
+    "charts": [
+      {
+        "height": 270,
+        "width": 0
+      }
+    ],
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "view": "Issue 效率",
+    "charts": [
+      {
+        "height": 270,
+        "width": 918
+      },
+      {
+        "height": 270,
+        "width": 918
+      },
+      {
+        "height": 270,
+        "width": 918
+      }
+    ],
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "view": "PR 协作",
+    "charts": [
+      {
+        "height": 270,
+        "width": 918
+      },
+      {
+        "height": 270,
+        "width": 918
+      },
+      {
+        "height": 270,
+        "width": 918
+      }
+    ],
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "view": "发布节奏",
+    "charts": [
+      {
+        "height": 270,
+        "width": 918
+      }
+    ],
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "view": "数据来源",
+    "charts": [
+      {
+        "height": 270,
+        "width": 918
+      }
+    ],
+    "scroll": 1280,
+    "width": 1280
+  },
+  {
+    "view": "开发活跃度",
+    "charts": [
+      {
+        "height": 270,
+        "width": 0
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "view": "Issue 效率",
+    "charts": [
+      {
+        "height": 270,
+        "width": 1062
+      },
+      {
+        "height": 270,
+        "width": 1062
+      },
+      {
+        "height": 270,
+        "width": 1062
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "view": "PR 协作",
+    "charts": [
+      {
+        "height": 270,
+        "width": 1062
+      },
+      {
+        "height": 270,
+        "width": 1062
+      },
+      {
+        "height": 270,
+        "width": 1062
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "view": "发布节奏",
+    "charts": [
+      {
+        "height": 270,
+        "width": 1062
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  },
+  {
+    "view": "数据来源",
+    "charts": [
+      {
+        "height": 270,
+        "width": 1062
+      }
+    ],
+    "scroll": 1440,
+    "width": 1440
+  }
+]

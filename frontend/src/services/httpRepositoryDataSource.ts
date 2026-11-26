@@ -1,7 +1,7 @@
 import type {
   ActivityTrend, ActivityTrendPrediction, GitHubTokenSettings, CommitActivityPage, CommitEvent, ComparisonBasis, ComparisonBundle, ComparisonEntry, ComparisonMode, Coverage, HistogramResult, MaintenanceCollectionResult, ReleaseDetails, ReleaseRecord,
   IssueChartData, IssueOnlineDetail, IssueRecordDetail, IssueRecordPage, MaintenancePattern, Metric, Observation, PullRequestActivityDetail, PullRequestActivityPage, PullRequestChartData, PullRequestOnlineDetail, RepositoryAnalysis, RepositoryEvaluation, RepositoryChartData, RepositoryGroup, RepositoryStatus, RepositorySummary,
-  FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
+  CuratedRepositoryImportResult, CuratedRepositoryImportStatus, FeaturedDatasetImportResult, FeaturedDatasetStatus, FeaturedDatasetTaskSummary, RecentActivityChange, ResearchAnalysisMode, ResearchDataset, ResearchGroup, ResearchScatterPoint, SelectionFeedback, SelectionMetric, SelectionRequest, SelectionResult, TaskItem, TaskStatus, TimePoint, TimeWindow,
 } from './types'
 import type { RepositoryDataSource } from './repositoryDataSource'
 
@@ -110,7 +110,12 @@ function recentActivityChange(raw: unknown): RecentActivityChange {
   const status = value.status === 'available' || value.status === 'partial_data' ? value.status : 'insufficient_data'
   return { status, method: 'factual', reasonCode: textOrNull(value.reason_code),
     previous4wCommits: numberOrNull(value.previous_4w_commits), recent4wCommits: numberOrNull(value.recent_4w_commits),
-    changeCount: numberOrNull(value.change_count), threshold: numberOrNull(value.threshold), trend: textOrNull(value.trend),
+    changeCount: numberOrNull(value.change_count), previousWeeklyMean: numberOrNull(value.previous_weekly_mean),
+    recentWeeklyMean: numberOrNull(value.recent_weekly_mean), weeklyMeanChange: numberOrNull(value.weekly_mean_change),
+    previousCompleteWeeks: Number.isInteger(value.previous_complete_weeks) ? Number(value.previous_complete_weeks) : 0,
+    recentCompleteWeeks: Number.isInteger(value.recent_complete_weeks) ? Number(value.recent_complete_weeks) : 0,
+    incompleteWeekStarts: Array.isArray(value.incomplete_week_starts) ? value.incomplete_week_starts.map(String) : [],
+    threshold: numberOrNull(value.threshold), trend: textOrNull(value.trend),
     previousWindowStart: textOrNull(value.previous_window_start_utc), previousWindowEndExclusive: textOrNull(value.previous_window_end_exclusive_utc),
     recentWindowStart: textOrNull(value.recent_window_start_utc), recentWindowEndExclusive: textOrNull(value.recent_window_end_exclusive_utc),
     notes: Array.isArray(value.notes) ? value.notes.map(String) : [] }
@@ -526,6 +531,47 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
 
   async listRepositoryGroups(): Promise<RepositoryGroup[]> {
     return (await data<ApiRepositoryGroup[]>('/library/groups')).map(mapRepositoryGroup)
+  }
+
+  async getCuratedRepositoryImportStatus(): Promise<CuratedRepositoryImportStatus> {
+    const result = await data<Record<string, any>>('/library/curated-import/status')
+    const counts = object(result.task_counts)
+    return {
+      available: result.available === true,
+      manifestId: String(result.manifest_id ?? ''),
+      title: String(result.title ?? ''),
+      repositoryCount: Number.isInteger(result.repository_count) ? Number(result.repository_count) : 0,
+      groupCount: Number.isInteger(result.group_count) ? Number(result.group_count) : 0,
+      imported: result.imported === true,
+      collecting: result.collecting === true,
+      taskCounts: {
+        total: Number.isInteger(counts.total) ? Number(counts.total) : 0,
+        queued: Number.isInteger(counts.queued) ? Number(counts.queued) : 0,
+        running: Number.isInteger(counts.running) ? Number(counts.running) : 0,
+        completed: Number.isInteger(counts.completed) ? Number(counts.completed) : 0,
+        failed: Number.isInteger(counts.failed) ? Number(counts.failed) : 0,
+      },
+    }
+  }
+
+  async importCuratedRepositories(): Promise<CuratedRepositoryImportResult> {
+    const result = await data<Record<string, any>>('/library/curated-import', { method: 'POST' })
+    const counts = object(result.task_counts)
+    return {
+      alreadyImported: result.already_imported === true,
+      repositoryCount: Number.isInteger(result.repository_count) ? Number(result.repository_count) : 0,
+      newRepositoryCount: Number.isInteger(result.new_repository_count) ? Number(result.new_repository_count) : undefined,
+      existingRepositoryCount: Number.isInteger(result.existing_repository_count) ? Number(result.existing_repository_count) : undefined,
+      groupCount: Number.isInteger(result.group_count) ? Number(result.group_count) : 0,
+      queuedTaskCount: Number.isInteger(result.queued_task_count) ? Number(result.queued_task_count) : 0,
+      taskCounts: {
+        total: Number.isInteger(counts.total) ? Number(counts.total) : 0,
+        queued: Number.isInteger(counts.queued) ? Number(counts.queued) : 0,
+        running: Number.isInteger(counts.running) ? Number(counts.running) : 0,
+        completed: Number.isInteger(counts.completed) ? Number(counts.completed) : 0,
+        failed: Number.isInteger(counts.failed) ? Number(counts.failed) : 0,
+      },
+    }
   }
 
   async createRepositoryGroup(name: string, repositoryIds: string[] = []): Promise<RepositoryGroup> {
@@ -1109,6 +1155,9 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
     const entries: ComparisonEntry[] = array(result.repositories).map((row, index) => {
       const metrics = object(row.metrics)
       const commitMetric = object(metrics.commits_weekly_mean)
+      const issueCountMetric = object(metrics.issue_closed_count)
+      const prCountMetric = object(metrics.pr_merged_count)
+      const releaseCountMetric = object(metrics.release_count)
       const issueMetric = object(metrics.issue_median_hours)
       const prMetric = object(metrics.pr_median_hours)
       const releaseMetric = object(metrics.release_interval_days)
@@ -1125,6 +1174,12 @@ export class HttpRepositoryDataSource implements RepositoryDataSource {
         windowEnd: shortDate(row.window_end),
         windowAvailable: row.window_available === true,
         windowReason: textOrNull(row.window_reason),
+        issueClosedCount: numberOrNull(issueCountMetric.value),
+        issueCountQuality: String(issueCountMetric.quality ?? 'missing'),
+        prMergedCount: numberOrNull(prCountMetric.value),
+        prCountQuality: String(prCountMetric.quality ?? 'missing'),
+        releaseCount: numberOrNull(releaseCountMetric.value),
+        releaseCountQuality: String(releaseCountMetric.quality ?? 'missing'),
         issueP50: numberOrNull(issueMetric.value) === null ? null : Number((issueMetric.value / 24).toFixed(1)),
         issueSample: Number(issueMetric.valid_samples ?? 0),
         issueQuality: String(issueMetric.quality ?? 'missing'),

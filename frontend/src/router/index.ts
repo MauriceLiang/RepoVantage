@@ -29,7 +29,7 @@ const router = createRouter({
 
 router.afterEach((to) => {
   const title = to.meta.title ?? ''
-  document.title = title ? `${title} · RepoVantage` : 'RepoVantage · 开源项目数据分析'
+  document.title = title ? `${title} · 开源项目数据分析` : '开源项目数据分析'
 })
 
 export default router

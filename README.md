@@ -26,6 +26,7 @@ GitHub Token 是可选配置；未设置时受匿名请求额度限制。可通�
 ## 功能
 
 - **仓库管理：** 搜索、添加、分组、更新和移除 GitHub 仓库。
+- **比较仓库清单：** 仓库页可一键导入 60 个公开项目，按相近用途建立 12 个分组，并按清单顺序排队采集。新安装默认保持“我的仓库”为空；只有用户主动导入后才加入清单项目。
 - **仓库分析：** 观察 Commit、Issue、PR、Release 和维护活动，按 30 / 90 / 180 天窗口查看数据。
 - **项目比较：** 比较 2–5 个仓库，支持同期 / 独立窗口、权重调整、排名与导出。
 - **任务管理：** 查看采集进度、重试和数据覆盖状态。
@@ -73,7 +74,7 @@ npm run test:overview-charts
 
 ## 数据与机器学习边界
 
-- `data/datasets/featured-v1/` 是仓库页精选演示数据；`data/datasets/course-research-300-v1/` 包含 300 仓库、12 个完整 UTC 周的历史研究快照。
+- `data/manifests/comparison-repositories-v1.json` 是仓库页一键导入清单，分组说明见 [docs/仓库采集清单.md](docs/仓库采集清单.md)。`data/datasets/featured-v1/` 是独立的首页精选数据集，不会自动加入“我的仓库”；`data/datasets/course-research-300-v1/` 包含 300 仓库、12 个完整 UTC 周的历史研究快照。
 - 300 个样本按固定 **150 训练 / 150 留出** 角色划分。模型、切分与评估结果保存在 `ml/course/`，数据来源与限制见各数据包的 README / DATA_NOTICE。
 - M1 使用 K-Means 描述维护活动模式；M2 使用逻辑回归评估活动趋势。评估属于既定历史样本上的课程研究，不能外推到所有 GitHub 仓库。
 - `ml-production/approved/` 当前没有批准的生产模型。模型注册和研究材料不构成生产准入。

@@ -75,6 +75,10 @@ function formatCount(value: number | null | undefined): string {
   return value == null ? '—' : value.toLocaleString('zh-CN')
 }
 
+function formatWeeklyMean(value: number | null): string {
+  return value == null ? '—' : value.toLocaleString('zh-CN', { maximumFractionDigits: 1 })
+}
+
 function formatTrend(value: string | null | undefined): string {
   if (value === 'up') return '上升'
   if (value === 'stable') return '基本稳定'
@@ -176,9 +180,9 @@ onBeforeUnmount(() => {
 
       <article class="min-w-0 rounded-md border border-line bg-panel px-3 py-2.5" data-testid="recent-actual-change">
         <h4 class="m-0 text-[11px] font-medium text-muted">最近 4 周实际变化</h4>
-        <template v-if="evaluation?.recentActivityChange.status === 'available'">
-          <p class="mb-0 mt-1 text-[15px] font-semibold leading-snug">{{ evaluation.recentActivityChange.trend }} · {{ formatCount(evaluation.recentActivityChange.recent4wCommits) }} vs {{ formatCount(evaluation.recentActivityChange.previous4wCommits) }}</p>
-          <p class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">Commit · 近期 vs 此前</p>
+        <template v-if="evaluation && evaluation.recentActivityChange.status !== 'insufficient_data'">
+          <p class="mb-0 mt-1 text-[15px] font-semibold leading-snug">{{ evaluation.recentActivityChange.trend }} · {{ formatWeeklyMean(evaluation.recentActivityChange.recentWeeklyMean) }} vs {{ formatWeeklyMean(evaluation.recentActivityChange.previousWeeklyMean) }} Commit/周</p>
+          <p class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">完整周均 · 最近 {{ evaluation.recentActivityChange.recentCompleteWeeks }}/4 周 vs 此前 {{ evaluation.recentActivityChange.previousCompleteWeeks }}/4 周<template v-if="evaluation.recentActivityChange.incompleteWeekStarts.length"> · 已排除 {{ evaluation.recentActivityChange.incompleteWeekStarts.length }} 个不完整周</template></p>
         </template>
         <p v-else class="mb-0 mt-1 text-[10.5px] leading-relaxed text-muted">{{ evaluation ? maintenanceReason(evaluation.recentActivityChange.reasonCode ?? evaluation.recentActivityChange.status) : '尚未采集事实窗口' }}</p>
       </article>

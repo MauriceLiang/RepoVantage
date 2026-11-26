@@ -3,7 +3,7 @@ import { ArrowRight, Check, Compass, Folder, FolderMinus, FolderPlus, Library, P
 import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useDataSource } from '@/composables/useDataSource'
-import type { RepositoryGroup, RepositoryStatus, RepositorySummary } from '@/services/types'
+import type { CuratedRepositoryImportStatus, RepositoryGroup, RepositoryStatus, RepositorySummary } from '@/services/types'
 import { useAnalysisStore } from '@/stores/analysis'
 import { useUiStore } from '@/stores/ui'
 import RepositoryGroupDialog, { type GroupAction } from './RepositoryGroupDialog.vue'
@@ -18,6 +18,9 @@ const searchResults = ref<(RepositorySummary & { alreadyInLibrary: boolean })[]>
 const isLibraryView = computed(() => route.query.scope !== 'discover')
 const discoveryRoute = { name: 'repositories', query: { scope: 'discover' } }
 const groups = ref<RepositoryGroup[]>([])
+const curatedImportStatus = ref<CuratedRepositoryImportStatus | null>(null)
+const curatedImportError = ref('')
+const importingCuratedRepositories = ref(false)
 const groupFilter = ref('all')
 const groupAction = ref<GroupAction | null>(null)
 const groupsLoading = ref(true)
@@ -148,7 +151,36 @@ async function loadGroups() {
 }
 
 async function reloadLibrary() {
-  await Promise.all([loadRepositories(), loadGroups()])
+  await Promise.all([loadRepositories(), loadGroups(), loadCuratedImportStatus()])
+}
+
+async function loadCuratedImportStatus() {
+  curatedImportError.value = ''
+  try {
+    curatedImportStatus.value = await source.getCuratedRepositoryImportStatus()
+  } catch (cause) {
+    curatedImportError.value = cause instanceof Error ? cause.message : '仓库清单状态读取失败'
+  }
+}
+
+async function importCuratedRepositories() {
+  if (importingCuratedRepositories.value || curatedImportStatus.value?.collecting) return
+  importingCuratedRepositories.value = true
+  try {
+    const result = await source.importCuratedRepositories()
+    await reloadLibrary()
+    if (result.alreadyImported) {
+      ui.toast(`清单中的 ${result.repositoryCount} 个仓库和 ${result.groupCount} 个分组已全部导入；数据采集状态不影响导入，可按需手动采集`)
+    } else {
+      const existingCount = result.existingRepositoryCount ?? 0
+      const skipped = existingCount > 0 ? `，${existingCount} 个已存在仓库未重复采集` : ''
+      ui.toast(`已导入 ${result.repositoryCount} 个仓库并建立 ${result.groupCount} 个分组；已按清单顺序排入 ${result.queuedTaskCount} 个采集任务${skipped}`, 'warning')
+    }
+  } catch (cause) {
+    ui.toast(cause instanceof Error ? cause.message : '导入仓库清单失败', 'error')
+  } finally {
+    importingCuratedRepositories.value = false
+  }
 }
 
 function updateGroup(group: RepositoryGroup) {
@@ -315,9 +347,28 @@ void reloadLibrary()
             <a :href="href" :aria-current="!isLibraryView ? 'page' : undefined" @click="navigate"><Compass :size="15" aria-hidden="true" />发现</a>
           </RouterLink>
         </nav>
-        <UiButton v-if="isLibraryView" variant="quiet" class="repository-inline-action" aria-label="刷新列表" title="刷新列表" :disabled="loading || groupsLoading || clearingSelected || busyId !== null || removingGroupMember !== null" @click="reloadLibrary">
-          <RefreshCw :size="14" aria-hidden="true" /><span class="repository-refresh-label">刷新列表</span>
-        </UiButton>
+        <div v-if="isLibraryView" class="repository-header-actions">
+          <span v-if="curatedImportStatus?.collecting" class="curated-import-progress" role="status">
+            清单采集进行中 · {{ curatedImportStatus.taskCounts.completed }}/{{ curatedImportStatus.taskCounts.total }} 项任务完成
+          </span>
+          <span v-else-if="curatedImportError" class="small repository-error" role="alert">{{ curatedImportError }}</span>
+          <UiButton
+            v-if="curatedImportStatus?.available && !curatedImportStatus.imported"
+            variant="primary"
+            class="curated-import-button"
+            :loading="importingCuratedRepositories"
+            :disabled="curatedImportStatus.collecting"
+            @click="importCuratedRepositories"
+          >
+            {{ curatedImportStatus.collecting ? `清单采集排队中（${curatedImportStatus.repositoryCount}）` : `导入比较仓库（${curatedImportStatus.repositoryCount}）` }}
+          </UiButton>
+          <UiButton v-if="curatedImportStatus?.imported" variant="quiet" class="curated-import-ready" disabled>
+            <Check :size="14" aria-hidden="true" />清单已导入
+          </UiButton>
+          <UiButton variant="quiet" class="repository-inline-action" aria-label="刷新列表" title="刷新列表" :disabled="loading || groupsLoading || clearingSelected || busyId !== null || removingGroupMember !== null" @click="reloadLibrary">
+            <RefreshCw :size="14" aria-hidden="true" /><span class="repository-refresh-label">刷新列表</span>
+          </UiButton>
+        </div>
       </div>
 
       <div class="repository-body" :class="{ 'repository-library': isLibraryView }">
@@ -558,6 +609,16 @@ void reloadLibrary()
   padding: 8px 16px;
   border-bottom: 1px solid var(--line);
 }
+.repository-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.curated-import-progress { color: var(--muted); font-size: 12px; }
+.curated-import-button, .curated-import-ready { min-height: 34px; }
 .repository-views {
   display: flex;
   gap: 4px;
@@ -775,6 +836,9 @@ void reloadLibrary()
 }
 @container repository-workspace (max-width: 700px) {
   .repository-workspace-header { padding-inline: 10px; }
+  .repository-header-actions { gap: 5px; }
+  .curated-import-progress { max-width: 210px; font-size: 11px; text-align: end; }
+  .curated-import-button { padding-inline: 8px; font-size: 11px; }
   .repository-results { padding: 12px 12px 16px; }
   .repository-empty { gap: 10px; padding: 14px; }
   .repository-empty-icon { width: 34px; height: 34px; }

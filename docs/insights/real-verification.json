@@ -1,0 +1,2674 @@
+[
+  {
+    "repository_id": 1945034,
+    "full_name": "pallets/itsdangerous",
+    "run_id": "4b996a32-7343-4d0f-9cbb-2fb20134258d",
+    "task_ids": [
+      "8d36106e-ec80-4f2e-9774-d35d77880244"
+    ],
+    "source_archive_paths": [
+      "1945034/2026-10-17/8d36106e-ec80-4f2e-9774-d35d77880244/activity.json.gz"
+    ],
+    "window": [
+      "2026-07-19T09:49:28Z",
+      "2026-10-17T09:49:28Z"
+    ],
+    "sources": {
+      "commits": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:49:28Z",
+        "requested_interval": [
+          "2026-07-19T09:49:28Z",
+          "2026-10-17T09:49:28Z"
+        ],
+        "observed_interval": null,
+        "page_count": 1,
+        "has_next": false,
+        "observed_records": 0,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/pallets/itsdangerous/commits",
+        "query": {
+          "since": "2026-07-19T09:49:28Z",
+          "until": "2026-10-17T09:49:28Z"
+        },
+        "accepted_events": 0,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "issues": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:49:29Z",
+        "requested_interval": [
+          "2026-07-19T09:49:28Z",
+          "2026-10-17T09:49:28Z"
+        ],
+        "observed_interval": [
+          "2026-07-29T16:31:17Z",
+          "2026-10-16T12:14:45Z"
+        ],
+        "page_count": 1,
+        "has_next": false,
+        "observed_records": 12,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/pallets/itsdangerous/issues",
+        "query": {
+          "state": "all",
+          "since": "2026-07-19T09:49:28Z",
+          "since_semantics": "updated_at"
+        },
+        "accepted_events": 1,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 11,
+        "duplicate_records": 0
+      },
+      "pulls": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:49:36Z",
+        "requested_interval": [
+          "2026-07-19T09:49:28Z",
+          "2026-10-17T09:49:28Z"
+        ],
+        "observed_interval": [
+          "2021-02-09T02:36:27Z",
+          "2026-10-16T12:14:45Z"
+        ],
+        "page_count": 4,
+        "has_next": false,
+        "observed_records": 311,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/pallets/itsdangerous/pulls",
+        "query": {
+          "state": "closed",
+          "sort": "updated"
+        },
+        "accepted_events": 311,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "releases": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:49:37Z",
+        "requested_interval": [
+          "2025-10-17T09:49:28Z",
+          "2026-10-17T09:49:28Z"
+        ],
+        "observed_interval": [
+          "2021-04-16T15:14:45Z",
+          "2024-04-16T21:46:38Z"
+        ],
+        "page_count": 1,
+        "has_next": false,
+        "observed_records": 7,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/pallets/itsdangerous/releases",
+        "query": {},
+        "accepted_events": 7,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      }
+    },
+    "metrics": {
+      "commit_activity": {
+        "metric_key": "commits_weekly",
+        "unit": "commits",
+        "window_start": "2026-07-19T09:49:28Z",
+        "window_end": "2026-10-17T09:49:28Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 0,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ],
+        "recent_4w": 0,
+        "previous_4w": 0,
+        "delta": 0,
+        "change_rate_pct": null,
+        "comparison_reason": "基期为零，不计算百分比"
+      },
+      "issue_resolution": {
+        "metric_key": "issue_closed_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:49:28Z",
+        "window_end": "2026-10-17T09:49:28Z",
+        "quality": {
+          "status": "insufficient_samples",
+          "coverage": "complete",
+          "valid_samples": 0,
+          "reason": "样本不足",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 0,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": null,
+        "observed_without_terminal": 1,
+        "median_hours": null,
+        "p75_hours": null,
+        "p90_hours": null,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 0
+          },
+          {
+            "label": "1–3 天",
+            "count": 0
+          },
+          {
+            "label": "3–7 天",
+            "count": 0
+          },
+          {
+            "label": "7–30 天",
+            "count": 0
+          },
+          {
+            "label": "≥30 天",
+            "count": 0
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "pr_merges": {
+        "metric_key": "pr_merge_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:49:28Z",
+        "window_end": "2026-10-17T09:49:28Z",
+        "quality": {
+          "status": "insufficient_samples",
+          "coverage": "complete",
+          "valid_samples": 0,
+          "reason": "样本不足",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 0,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": null,
+        "observed_without_terminal": 81,
+        "median_hours": null,
+        "p75_hours": null,
+        "p90_hours": null,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 0
+          },
+          {
+            "label": "1–3 天",
+            "count": 0
+          },
+          {
+            "label": "3–7 天",
+            "count": 0
+          },
+          {
+            "label": "7–30 天",
+            "count": 0
+          },
+          {
+            "label": "≥30 天",
+            "count": 0
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "release_cadence": {
+        "metric_key": "release_intervals_days",
+        "unit": "days",
+        "window_start": "2025-10-17T09:49:28Z",
+        "window_end": "2026-10-17T09:49:28Z",
+        "quality": {
+          "status": "insufficient_samples",
+          "coverage": "complete",
+          "valid_samples": 0,
+          "reason": "样本不足",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "release_count": 0,
+        "prerelease_count": 0,
+        "timeline": [],
+        "intervals_days": [],
+        "median_interval_days": null
+      }
+    },
+    "independent_checks": {
+      "issue_resolution": {
+        "n": 0,
+        "median_hours": null,
+        "samples": [],
+        "verified": true
+      },
+      "pr_merges": {
+        "n": 0,
+        "median_hours": null,
+        "samples": [],
+        "verified": true
+      },
+      "commits_weekly": {
+        "verified_ready_buckets": 12,
+        "all_equal_to_raw_event_counts": true
+      }
+    }
+  },
+  {
+    "repository_id": 137078487,
+    "full_name": "vuejs/core",
+    "run_id": "6531c1d6-7afc-4521-ac22-775943444228",
+    "task_ids": [
+      "c5eff414-6218-463c-9635-c6f7dbf86a87"
+    ],
+    "source_archive_paths": [
+      "137078487/2026-10-17/c5eff414-6218-463c-9635-c6f7dbf86a87/activity.json.gz"
+    ],
+    "window": [
+      "2026-07-19T09:51:47Z",
+      "2026-10-17T09:51:47Z"
+    ],
+    "sources": {
+      "commits": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:51:49Z",
+        "requested_interval": [
+          "2026-07-19T09:51:47Z",
+          "2026-10-17T09:51:47Z"
+        ],
+        "observed_interval": [
+          "2026-07-21T07:26:55Z",
+          "2026-10-13T07:39:42Z"
+        ],
+        "page_count": 2,
+        "has_next": false,
+        "observed_records": 105,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/vuejs/core/commits",
+        "query": {
+          "since": "2026-07-19T09:51:47Z",
+          "until": "2026-10-17T09:51:47Z"
+        },
+        "accepted_events": 105,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "issues": {
+        "coverage": "partial",
+        "collected_at": "2026-10-17T09:51:58Z",
+        "requested_interval": [
+          "2026-07-19T09:51:47Z",
+          "2026-10-17T09:51:47Z"
+        ],
+        "observed_interval": [
+          "2026-07-20T01:30:12Z",
+          "2026-10-17T09:50:53Z"
+        ],
+        "page_count": 10,
+        "has_next": true,
+        "observed_records": 1000,
+        "rate_limit_status": "not_observed",
+        "error_code": "GITHUB_MAX_PAGES",
+        "endpoint": "/repos/vuejs/core/issues",
+        "query": {
+          "state": "all",
+          "since": "2026-07-19T09:51:47Z",
+          "since_semantics": "updated_at"
+        },
+        "accepted_events": 357,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 643,
+        "duplicate_records": 0
+      },
+      "pulls": {
+        "coverage": "partial",
+        "collected_at": "2026-10-17T09:52:08Z",
+        "requested_interval": [
+          "2026-07-19T09:51:47Z",
+          "2026-10-17T09:51:47Z"
+        ],
+        "observed_interval": [
+          "2026-03-23T02:55:00Z",
+          "2026-10-17T06:52:55Z"
+        ],
+        "page_count": 10,
+        "has_next": true,
+        "observed_records": 1000,
+        "rate_limit_status": "not_observed",
+        "error_code": "GITHUB_MAX_PAGES",
+        "endpoint": "/repos/vuejs/core/pulls",
+        "query": {
+          "state": "closed",
+          "sort": "updated"
+        },
+        "accepted_events": 1000,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "releases": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:52:10Z",
+        "requested_interval": [
+          "2025-10-17T09:51:47Z",
+          "2026-10-17T09:51:47Z"
+        ],
+        "observed_interval": [
+          "2020-01-03T18:50:45Z",
+          "2026-10-16T07:57:42Z"
+        ],
+        "page_count": 4,
+        "has_next": false,
+        "observed_records": 303,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/vuejs/core/releases",
+        "query": {},
+        "accepted_events": 303,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      }
+    },
+    "metrics": {
+      "commit_activity": {
+        "metric_key": "commits_weekly",
+        "unit": "commits",
+        "window_start": "2026-07-19T09:51:47Z",
+        "window_end": "2026-10-17T09:51:47Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 105,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 2,
+            "observed_events": 2,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 25,
+            "observed_events": 25,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 4,
+            "observed_events": 4,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 1,
+            "observed_events": 1,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 12,
+            "observed_events": 12,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 1,
+            "observed_events": 1,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 6,
+            "observed_events": 6,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 22,
+            "observed_events": 22,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 0,
+            "observed_events": 0,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 32,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ],
+        "recent_4w": 22,
+        "previous_4w": 20,
+        "delta": 2,
+        "change_rate_pct": 10.0,
+        "comparison_reason": null
+      },
+      "issue_resolution": {
+        "metric_key": "issue_closed_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:51:47Z",
+        "window_end": "2026-10-17T09:51:47Z",
+        "quality": {
+          "status": "partial",
+          "coverage": "partial",
+          "valid_samples": 105,
+          "reason": "GITHUB_MAX_PAGES",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 105,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": 0.0,
+        "observed_without_terminal": 236,
+        "median_hours": 55.343333333333334,
+        "p75_hours": 313.51222222222225,
+        "p90_hours": 14275.355944444445,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 46
+          },
+          {
+            "label": "1–3 天",
+            "count": 11
+          },
+          {
+            "label": "3–7 天",
+            "count": 14
+          },
+          {
+            "label": "7–30 天",
+            "count": 19
+          },
+          {
+            "label": "≥30 天",
+            "count": 15
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": null,
+            "observed_events": 6,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": null,
+            "observed_events": 4,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": null,
+            "observed_events": 17,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": null,
+            "observed_events": 16,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": null,
+            "observed_events": 2,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": null,
+            "observed_events": 10,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": null,
+            "observed_events": 3,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": null,
+            "observed_events": 3,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": null,
+            "observed_events": 10,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": null,
+            "observed_events": 2,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": null,
+            "observed_events": 8,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": null,
+            "observed_events": 3,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 21,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "pr_merges": {
+        "metric_key": "pr_merge_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:51:47Z",
+        "window_end": "2026-10-17T09:51:47Z",
+        "quality": {
+          "status": "partial",
+          "coverage": "partial",
+          "valid_samples": 436,
+          "reason": "GITHUB_MAX_PAGES",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 436,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": 0.0,
+        "observed_without_terminal": 280,
+        "median_hours": 10.96625,
+        "p75_hours": 62.62791666666667,
+        "p90_hours": 264.28208333333333,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 290
+          },
+          {
+            "label": "1–3 天",
+            "count": 53
+          },
+          {
+            "label": "3–7 天",
+            "count": 35
+          },
+          {
+            "label": "7–30 天",
+            "count": 47
+          },
+          {
+            "label": "≥30 天",
+            "count": 11
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": null,
+            "observed_events": 20,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": null,
+            "observed_events": 13,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": null,
+            "observed_events": 33,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": null,
+            "observed_events": 24,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": null,
+            "observed_events": 7,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": null,
+            "observed_events": 27,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": null,
+            "observed_events": 33,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": null,
+            "observed_events": 27,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": null,
+            "observed_events": 76,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": null,
+            "observed_events": 27,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": null,
+            "observed_events": 41,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": null,
+            "observed_events": 48,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 60,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "release_cadence": {
+        "metric_key": "release_intervals_days",
+        "unit": "days",
+        "window_start": "2025-10-17T09:51:47Z",
+        "window_end": "2026-10-17T09:51:47Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 21,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "release_count": 21,
+        "prerelease_count": 34,
+        "timeline": [
+          {
+            "id": "260095590",
+            "published_at": "2025-11-06T00:30:34Z"
+          },
+          {
+            "id": "260526747",
+            "published_at": "2025-11-07T08:06:18Z"
+          },
+          {
+            "id": "264701998",
+            "published_at": "2025-11-24T07:41:41Z"
+          },
+          {
+            "id": "271421402",
+            "published_at": "2025-12-18T12:12:36Z"
+          },
+          {
+            "id": "277814952",
+            "published_at": "2026-01-19T06:33:49Z"
+          },
+          {
+            "id": "284312916",
+            "published_at": "2026-02-09T08:30:37Z"
+          },
+          {
+            "id": "289711793",
+            "published_at": "2026-02-24T05:54:37Z"
+          },
+          {
+            "id": "294622642",
+            "published_at": "2026-03-09T10:07:54Z"
+          },
+          {
+            "id": "301093369",
+            "published_at": "2026-03-25T09:23:26Z"
+          },
+          {
+            "id": "304951648",
+            "published_at": "2026-04-03T05:41:45Z"
+          },
+          {
+            "id": "312080173",
+            "published_at": "2026-04-22T07:21:18Z"
+          },
+          {
+            "id": "318243936",
+            "published_at": "2026-05-06T07:20:28Z"
+          },
+          {
+            "id": "330047827",
+            "published_at": "2026-05-27T09:04:59Z"
+          },
+          {
+            "id": "337722271",
+            "published_at": "2026-06-11T06:51:15Z"
+          },
+          {
+            "id": "337767702",
+            "published_at": "2026-06-11T08:00:58Z"
+          },
+          {
+            "id": "344609017",
+            "published_at": "2026-06-25T09:44:02Z"
+          },
+          {
+            "id": "354844326",
+            "published_at": "2026-07-16T03:08:38Z"
+          },
+          {
+            "id": "365337364",
+            "published_at": "2026-08-05T06:59:01Z"
+          },
+          {
+            "id": "377588985",
+            "published_at": "2026-08-27T05:47:42Z"
+          },
+          {
+            "id": "390549462",
+            "published_at": "2026-09-17T08:36:57Z"
+          },
+          {
+            "id": "411418505",
+            "published_at": "2026-10-13T07:43:25Z"
+          }
+        ],
+        "intervals_days": [
+          1.3164814814814816,
+          16.982905092592592,
+          24.188136574074075,
+          31.764733796296298,
+          21.08111111111111,
+          14.891666666666667,
+          13.175891203703705,
+          15.969120370370371,
+          8.84605324074074,
+          19.069131944444443,
+          13.999421296296296,
+          21.07258101851852,
+          14.90712962962963,
+          0.048414351851851854,
+          14.071574074074075,
+          20.725416666666668,
+          20.159988425925928,
+          21.95047453703704,
+          21.11753472222222,
+          25.962824074074074
+        ],
+        "median_interval_days": 18.02601851851852
+      }
+    },
+    "independent_checks": {
+      "issue_resolution": {
+        "n": 105,
+        "median_hours": 55.343333333333334,
+        "samples": [
+          {
+            "id": 5832196130,
+            "created_at": "2026-10-13T14:32:27Z",
+            "closed_at": "2026-10-14T02:36:16Z",
+            "hours": 12.063611111111111
+          },
+          {
+            "id": 5831671584,
+            "created_at": "2026-10-13T13:58:49Z",
+            "closed_at": "2026-10-14T01:24:05Z",
+            "hours": 11.421111111111111
+          },
+          {
+            "id": 5807724958,
+            "created_at": "2026-10-12T03:00:03Z",
+            "closed_at": "2026-10-13T00:43:49Z",
+            "hours": 21.729444444444443
+          }
+        ],
+        "verified": true
+      },
+      "pr_merges": {
+        "n": 436,
+        "median_hours": 10.96625,
+        "samples": [
+          {
+            "id": 4897991373,
+            "created_at": "2026-10-17T06:40:38Z",
+            "merged_at": "2026-10-17T06:52:52Z",
+            "hours": 0.2038888888888889
+          },
+          {
+            "id": 4895755258,
+            "created_at": "2026-10-17T00:14:42Z",
+            "merged_at": "2026-10-17T00:33:46Z",
+            "hours": 0.31777777777777777
+          },
+          {
+            "id": 4888976409,
+            "created_at": "2026-10-16T13:20:34Z",
+            "merged_at": "2026-10-16T13:24:43Z",
+            "hours": 0.06916666666666667
+          }
+        ],
+        "verified": true
+      },
+      "commits_weekly": {
+        "verified_ready_buckets": 12,
+        "all_equal_to_raw_event_counts": true
+      }
+    }
+  },
+  {
+    "repository_id": 1105953775,
+    "full_name": "chthollyphile/folia-major",
+    "run_id": "b971b930-7bb6-4c78-9bb8-f9c49ab261c6",
+    "task_ids": [
+      "83e8cca8-319d-44e8-978b-8b6af2e63136"
+    ],
+    "source_archive_paths": [
+      "1105953775/2026-10-17/83e8cca8-319d-44e8-978b-8b6af2e63136/activity.json.gz"
+    ],
+    "window": [
+      "2026-07-19T09:53:15Z",
+      "2026-10-17T09:53:15Z"
+    ],
+    "sources": {
+      "commits": {
+        "coverage": "partial",
+        "collected_at": "2026-10-17T09:53:22Z",
+        "requested_interval": [
+          "2026-07-19T09:53:15Z",
+          "2026-10-17T09:53:15Z"
+        ],
+        "observed_interval": [
+          "2026-09-01T09:15:24Z",
+          "2026-10-17T08:01:08Z"
+        ],
+        "page_count": 10,
+        "has_next": true,
+        "observed_records": 1000,
+        "rate_limit_status": "not_observed",
+        "error_code": "GITHUB_MAX_PAGES",
+        "endpoint": "/repos/chthollyphile/folia-major/commits",
+        "query": {
+          "since": "2026-07-19T09:53:15Z",
+          "until": "2026-10-17T09:53:15Z"
+        },
+        "accepted_events": 1000,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "issues": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:53:28Z",
+        "requested_interval": [
+          "2026-07-19T09:53:15Z",
+          "2026-10-17T09:53:15Z"
+        ],
+        "observed_interval": [
+          "2026-07-19T13:55:53Z",
+          "2026-10-17T09:32:05Z"
+        ],
+        "page_count": 6,
+        "has_next": false,
+        "observed_records": 509,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/chthollyphile/folia-major/issues",
+        "query": {
+          "state": "all",
+          "since": "2026-07-19T09:53:15Z",
+          "since_semantics": "updated_at"
+        },
+        "accepted_events": 298,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 211,
+        "duplicate_records": 0
+      },
+      "pulls": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:53:31Z",
+        "requested_interval": [
+          "2026-07-19T09:53:15Z",
+          "2026-10-17T09:53:15Z"
+        ],
+        "observed_interval": [
+          "2025-12-04T17:46:07Z",
+          "2026-10-17T08:01:08Z"
+        ],
+        "page_count": 3,
+        "has_next": false,
+        "observed_records": 266,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/chthollyphile/folia-major/pulls",
+        "query": {
+          "state": "closed",
+          "sort": "updated"
+        },
+        "accepted_events": 266,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      },
+      "releases": {
+        "coverage": "complete",
+        "collected_at": "2026-10-17T09:53:33Z",
+        "requested_interval": [
+          "2025-10-17T09:53:15Z",
+          "2026-10-17T09:53:15Z"
+        ],
+        "observed_interval": [
+          "2026-03-23T14:23:52Z",
+          "2026-10-17T08:11:07Z"
+        ],
+        "page_count": 2,
+        "has_next": false,
+        "observed_records": 158,
+        "rate_limit_status": "not_observed",
+        "error_code": null,
+        "endpoint": "/repos/chthollyphile/folia-major/releases",
+        "query": {},
+        "accepted_events": 158,
+        "rejected_records": 0,
+        "invalid_event_times": 0,
+        "filtered_pr_records": 0,
+        "duplicate_records": 0
+      }
+    },
+    "metrics": {
+      "commit_activity": {
+        "metric_key": "commits_weekly",
+        "unit": "commits",
+        "window_start": "2026-07-19T09:53:15Z",
+        "window_end": "2026-10-17T09:53:15Z",
+        "quality": {
+          "status": "partial",
+          "coverage": "partial",
+          "valid_samples": 1000,
+          "reason": "GITHUB_MAX_PAGES",
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": null,
+            "observed_events": 0,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": null,
+            "observed_events": 127,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": null,
+            "observed_events": 70,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": null,
+            "observed_events": 25,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": null,
+            "observed_events": 132,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": null,
+            "observed_events": 90,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": null,
+            "observed_events": 419,
+            "quality": "partial",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 137,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ],
+        "recent_4w": null,
+        "previous_4w": null,
+        "delta": null,
+        "change_rate_pct": null,
+        "comparison_reason": "不足八个完整覆盖的已结束自然周，无法判断前后四周变化"
+      },
+      "issue_resolution": {
+        "metric_key": "issue_closed_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:53:15Z",
+        "window_end": "2026-10-17T09:53:15Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 238,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 238,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": 0.0,
+        "observed_without_terminal": 57,
+        "median_hours": 5.384722222222223,
+        "p75_hours": 53.60486111111111,
+        "p90_hours": 271.86444444444453,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 160
+          },
+          {
+            "label": "1–3 天",
+            "count": 27
+          },
+          {
+            "label": "3–7 天",
+            "count": 21
+          },
+          {
+            "label": "7–30 天",
+            "count": 22
+          },
+          {
+            "label": "≥30 天",
+            "count": 8
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 3,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 15,
+            "observed_events": 15,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 14,
+            "observed_events": 14,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 11,
+            "observed_events": 11,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 4,
+            "observed_events": 4,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 11,
+            "observed_events": 11,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 24,
+            "observed_events": 24,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 6,
+            "observed_events": 6,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 12,
+            "observed_events": 12,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 9,
+            "observed_events": 9,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 18,
+            "observed_events": 18,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 24,
+            "observed_events": 24,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 47,
+            "observed_events": 47,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 40,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "pr_merges": {
+        "metric_key": "pr_merge_duration_hours",
+        "unit": "hours",
+        "window_start": "2026-07-19T09:53:15Z",
+        "window_end": "2026-10-17T09:53:15Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 153,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "observed_terminal_count": 153,
+        "excluded_invalid_duration": 0,
+        "missing_duration_rate": 0.0,
+        "observed_without_terminal": 40,
+        "median_hours": 0.27,
+        "p75_hours": 6.271111111111111,
+        "p90_hours": 27.898777777777788,
+        "histogram": [
+          {
+            "label": "<1 天",
+            "count": 136
+          },
+          {
+            "label": "1–3 天",
+            "count": 8
+          },
+          {
+            "label": "3–7 天",
+            "count": 5
+          },
+          {
+            "label": "7–30 天",
+            "count": 4
+          },
+          {
+            "label": "≥30 天",
+            "count": 0
+          }
+        ],
+        "weekly": [
+          {
+            "start": "2026-07-13T00:00:00Z",
+            "end": "2026-07-20T00:00:00Z",
+            "value": null,
+            "observed_events": 1,
+            "quality": "partial",
+            "complete_week": false
+          },
+          {
+            "start": "2026-07-20T00:00:00Z",
+            "end": "2026-07-27T00:00:00Z",
+            "value": 7,
+            "observed_events": 7,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-07-27T00:00:00Z",
+            "end": "2026-08-03T00:00:00Z",
+            "value": 4,
+            "observed_events": 4,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-03T00:00:00Z",
+            "end": "2026-08-10T00:00:00Z",
+            "value": 4,
+            "observed_events": 4,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-10T00:00:00Z",
+            "end": "2026-08-17T00:00:00Z",
+            "value": 3,
+            "observed_events": 3,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-17T00:00:00Z",
+            "end": "2026-08-24T00:00:00Z",
+            "value": 5,
+            "observed_events": 5,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-24T00:00:00Z",
+            "end": "2026-08-31T00:00:00Z",
+            "value": 19,
+            "observed_events": 19,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-08-31T00:00:00Z",
+            "end": "2026-09-07T00:00:00Z",
+            "value": 18,
+            "observed_events": 18,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-07T00:00:00Z",
+            "end": "2026-09-14T00:00:00Z",
+            "value": 8,
+            "observed_events": 8,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-14T00:00:00Z",
+            "end": "2026-09-21T00:00:00Z",
+            "value": 9,
+            "observed_events": 9,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-21T00:00:00Z",
+            "end": "2026-09-28T00:00:00Z",
+            "value": 14,
+            "observed_events": 14,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-09-28T00:00:00Z",
+            "end": "2026-10-05T00:00:00Z",
+            "value": 10,
+            "observed_events": 10,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-05T00:00:00Z",
+            "end": "2026-10-12T00:00:00Z",
+            "value": 19,
+            "observed_events": 19,
+            "quality": "ready",
+            "complete_week": true
+          },
+          {
+            "start": "2026-10-12T00:00:00Z",
+            "end": "2026-10-19T00:00:00Z",
+            "value": null,
+            "observed_events": 32,
+            "quality": "partial",
+            "complete_week": false
+          }
+        ]
+      },
+      "release_cadence": {
+        "metric_key": "release_intervals_days",
+        "unit": "days",
+        "window_start": "2025-10-17T09:53:15Z",
+        "window_end": "2026-10-17T09:53:15Z",
+        "quality": {
+          "status": "ready",
+          "coverage": "complete",
+          "valid_samples": 133,
+          "reason": null,
+          "rejected_records": 0,
+          "invalid_event_times": 0
+        },
+        "release_count": 133,
+        "prerelease_count": 25,
+        "timeline": [
+          {
+            "id": "300215910",
+            "published_at": "2026-03-23T14:23:52Z"
+          },
+          {
+            "id": "300378250",
+            "published_at": "2026-03-23T19:53:39Z"
+          },
+          {
+            "id": "300438009",
+            "published_at": "2026-03-23T23:08:10Z"
+          },
+          {
+            "id": "300759444",
+            "published_at": "2026-03-24T16:10:38Z"
+          },
+          {
+            "id": "300859113",
+            "published_at": "2026-03-24T20:17:02Z"
+          },
+          {
+            "id": "301438231",
+            "published_at": "2026-03-25T21:23:53Z"
+          },
+          {
+            "id": "303698963",
+            "published_at": "2026-03-31T15:22:16Z"
+          },
+          {
+            "id": "304310934",
+            "published_at": "2026-04-01T17:34:26Z"
+          },
+          {
+            "id": "304353371",
+            "published_at": "2026-04-01T18:48:00Z"
+          },
+          {
+            "id": "304380662",
+            "published_at": "2026-04-01T19:55:56Z"
+          },
+          {
+            "id": "304827475",
+            "published_at": "2026-04-02T19:53:06Z"
+          },
+          {
+            "id": "305289613",
+            "published_at": "2026-04-04T14:48:59Z"
+          },
+          {
+            "id": "305416873",
+            "published_at": "2026-04-05T12:19:17Z"
+          },
+          {
+            "id": "305840716",
+            "published_at": "2026-04-06T23:51:40Z"
+          },
+          {
+            "id": "306053799",
+            "published_at": "2026-04-07T11:51:33Z"
+          },
+          {
+            "id": "306273551",
+            "published_at": "2026-04-07T20:09:51Z"
+          },
+          {
+            "id": "306726039",
+            "published_at": "2026-04-08T18:27:40Z"
+          },
+          {
+            "id": "307919932",
+            "published_at": "2026-04-11T22:00:48Z"
+          },
+          {
+            "id": "307980709",
+            "published_at": "2026-04-12T09:03:49Z"
+          },
+          {
+            "id": "308077825",
+            "published_at": "2026-04-12T20:22:49Z"
+          },
+          {
+            "id": "308830384",
+            "published_at": "2026-04-14T13:07:20Z"
+          },
+          {
+            "id": "308988797",
+            "published_at": "2026-04-14T18:37:23Z"
+          },
+          {
+            "id": "309382433",
+            "published_at": "2026-04-15T14:50:14Z"
+          },
+          {
+            "id": "309566977",
+            "published_at": "2026-04-15T21:18:53Z"
+          },
+          {
+            "id": "310246869",
+            "published_at": "2026-04-17T09:52:43Z"
+          },
+          {
+            "id": "310756769",
+            "published_at": "2026-04-18T20:24:33Z"
+          },
+          {
+            "id": "312393950",
+            "published_at": "2026-04-22T21:31:34Z"
+          },
+          {
+            "id": "312872331",
+            "published_at": "2026-04-23T18:13:44Z"
+          },
+          {
+            "id": "313388581",
+            "published_at": "2026-04-24T20:38:40Z"
+          },
+          {
+            "id": "313573890",
+            "published_at": "2026-04-25T12:12:34Z"
+          },
+          {
+            "id": "313587739",
+            "published_at": "2026-04-25T13:56:07Z"
+          },
+          {
+            "id": "313745086",
+            "published_at": "2026-04-26T12:41:59Z"
+          },
+          {
+            "id": "314725639",
+            "published_at": "2026-04-28T18:53:15Z"
+          },
+          {
+            "id": "314830868",
+            "published_at": "2026-04-28T21:07:32Z"
+          },
+          {
+            "id": "315340161",
+            "published_at": "2026-04-29T17:36:51Z"
+          },
+          {
+            "id": "315363435",
+            "published_at": "2026-04-29T18:39:18Z"
+          },
+          {
+            "id": "315449426",
+            "published_at": "2026-04-29T21:02:53Z"
+          },
+          {
+            "id": "315786309",
+            "published_at": "2026-04-30T13:07:40Z"
+          },
+          {
+            "id": "316736272",
+            "published_at": "2026-05-02T18:39:23Z"
+          },
+          {
+            "id": "318396904",
+            "published_at": "2026-05-06T13:14:56Z"
+          },
+          {
+            "id": "320115445",
+            "published_at": "2026-05-10T12:28:20Z"
+          },
+          {
+            "id": "320159198",
+            "published_at": "2026-05-10T17:22:00Z"
+          },
+          {
+            "id": "320173831",
+            "published_at": "2026-05-10T19:12:32Z"
+          },
+          {
+            "id": "321205196",
+            "published_at": "2026-05-12T14:53:31Z"
+          },
+          {
+            "id": "321789732",
+            "published_at": "2026-05-13T10:42:16Z"
+          },
+          {
+            "id": "323240812",
+            "published_at": "2026-05-15T12:49:08Z"
+          },
+          {
+            "id": "323760521",
+            "published_at": "2026-05-16T20:03:54Z"
+          },
+          {
+            "id": "323842172",
+            "published_at": "2026-05-17T07:50:33Z"
+          },
+          {
+            "id": "324455034",
+            "published_at": "2026-05-18T17:44:41Z"
+          },
+          {
+            "id": "324840425",
+            "published_at": "2026-05-19T11:23:42Z"
+          },
+          {
+            "id": "324998021",
+            "published_at": "2026-05-19T12:55:33Z"
+          },
+          {
+            "id": "325038959",
+            "published_at": "2026-05-19T13:41:15Z"
+          },
+          {
+            "id": "327337944",
+            "published_at": "2026-05-21T22:51:18Z"
+          },
+          {
+            "id": "327836562",
+            "published_at": "2026-05-22T12:29:16Z"
+          },
+          {
+            "id": "328153646",
+            "published_at": "2026-05-22T21:36:32Z"
+          },
+          {
+            "id": "328295763",
+            "published_at": "2026-05-23T12:02:55Z"
+          },
+          {
+            "id": "328312864",
+            "published_at": "2026-05-23T13:47:44Z"
+          },
+          {
+            "id": "329238069",
+            "published_at": "2026-05-26T07:09:47Z"
+          },
+          {
+            "id": "330152935",
+            "published_at": "2026-05-27T12:47:21Z"
+          },
+          {
+            "id": "331014670",
+            "published_at": "2026-05-28T17:47:38Z"
+          },
+          {
+            "id": "333909416",
+            "published_at": "2026-06-03T18:41:49Z"
+          },
+          {
+            "id": "334923716",
+            "published_at": "2026-06-05T12:55:08Z"
+          },
+          {
+            "id": "335658761",
+            "published_at": "2026-06-07T19:43:23Z"
+          },
+          {
+            "id": "335729270",
+            "published_at": "2026-06-08T02:51:32Z"
+          },
+          {
+            "id": "335750183",
+            "published_at": "2026-06-08T04:36:53Z"
+          },
+          {
+            "id": "338180385",
+            "published_at": "2026-06-11T19:17:20Z"
+          },
+          {
+            "id": "338483113",
+            "published_at": "2026-06-12T09:36:56Z"
+          },
+          {
+            "id": "338663117",
+            "published_at": "2026-06-12T15:42:31Z"
+          },
+          {
+            "id": "338931923",
+            "published_at": "2026-06-13T08:33:27Z"
+          },
+          {
+            "id": "339915375",
+            "published_at": "2026-06-16T06:46:25Z"
+          },
+          {
+            "id": "340013649",
+            "published_at": "2026-06-16T09:06:03Z"
+          },
+          {
+            "id": "340191897",
+            "published_at": "2026-06-16T14:18:27Z"
+          },
+          {
+            "id": "340258962",
+            "published_at": "2026-06-16T16:00:36Z"
+          },
+          {
+            "id": "340855876",
+            "published_at": "2026-06-17T15:34:31Z"
+          },
+          {
+            "id": "340948694",
+            "published_at": "2026-06-17T17:41:21Z"
+          },
+          {
+            "id": "341358144",
+            "published_at": "2026-06-18T11:42:19Z"
+          },
+          {
+            "id": "341375580",
+            "published_at": "2026-06-18T12:14:06Z"
+          },
+          {
+            "id": "342531911",
+            "published_at": "2026-06-21T13:47:10Z"
+          },
+          {
+            "id": "342907262",
+            "published_at": "2026-06-22T13:41:41Z"
+          },
+          {
+            "id": "343162302",
+            "published_at": "2026-06-22T22:47:13Z"
+          },
+          {
+            "id": "346218274",
+            "published_at": "2026-06-29T11:17:05Z"
+          },
+          {
+            "id": "347380644",
+            "published_at": "2026-07-01T11:37:36Z"
+          },
+          {
+            "id": "347950534",
+            "published_at": "2026-07-02T09:59:45Z"
+          },
+          {
+            "id": "348167580",
+            "published_at": "2026-07-02T16:48:05Z"
+          },
+          {
+            "id": "348556723",
+            "published_at": "2026-07-03T10:47:38Z"
+          },
+          {
+            "id": "348723414",
+            "published_at": "2026-07-03T17:27:38Z"
+          },
+          {
+            "id": "349150703",
+            "published_at": "2026-07-05T11:46:07Z"
+          },
+          {
+            "id": "350194826",
+            "published_at": "2026-07-07T11:54:06Z"
+          },
+          {
+            "id": "350882581",
+            "published_at": "2026-07-08T11:32:07Z"
+          },
+          {
+            "id": "352471421",
+            "published_at": "2026-07-11T09:17:43Z"
+          },
+          {
+            "id": "352500466",
+            "published_at": "2026-07-11T11:38:49Z"
+          },
+          {
+            "id": "352723650",
+            "published_at": "2026-07-12T10:31:41Z"
+          },
+          {
+            "id": "355814676",
+            "published_at": "2026-07-17T18:11:43Z"
+          },
+          {
+            "id": "357299183",
+            "published_at": "2026-07-21T11:56:44Z"
+          },
+          {
+            "id": "359270755",
+            "published_at": "2026-07-24T11:58:06Z"
+          },
+          {
+            "id": "359757141",
+            "published_at": "2026-07-25T13:09:54Z"
+          },
+          {
+            "id": "359983668",
+            "published_at": "2026-07-26T10:34:22Z"
+          },
+          {
+            "id": "360481670",
+            "published_at": "2026-07-27T14:36:43Z"
+          },
+          {
+            "id": "361016794",
+            "published_at": "2026-07-28T10:58:53Z"
+          },
+          {
+            "id": "361649915",
+            "published_at": "2026-07-29T10:37:19Z"
+          },
+          {
+            "id": "362463119",
+            "published_at": "2026-07-30T13:48:28Z"
+          },
+          {
+            "id": "363784734",
+            "published_at": "2026-08-02T12:45:21Z"
+          },
+          {
+            "id": "363799490",
+            "published_at": "2026-08-02T13:51:27Z"
+          },
+          {
+            "id": "364059581",
+            "published_at": "2026-08-03T08:10:38Z"
+          },
+          {
+            "id": "364867679",
+            "published_at": "2026-08-04T13:50:14Z"
+          },
+          {
+            "id": "365364547",
+            "published_at": "2026-08-05T08:29:15Z"
+          },
+          {
+            "id": "366187612",
+            "published_at": "2026-08-06T13:23:24Z"
+          },
+          {
+            "id": "367215072",
+            "published_at": "2026-08-08T14:21:21Z"
+          },
+          {
+            "id": "367549855",
+            "published_at": "2026-08-09T18:41:23Z"
+          },
+          {
+            "id": "369443232",
+            "published_at": "2026-08-12T20:09:44Z"
+          },
+          {
+            "id": "371771843",
+            "published_at": "2026-08-17T15:45:32Z"
+          },
+          {
+            "id": "373903812",
+            "published_at": "2026-08-20T17:32:38Z"
+          },
+          {
+            "id": "374143734",
+            "published_at": "2026-08-21T03:06:22Z"
+          },
+          {
+            "id": "374999830",
+            "published_at": "2026-08-22T18:10:13Z"
+          },
+          {
+            "id": "376654834",
+            "published_at": "2026-08-25T20:00:41Z"
+          },
+          {
+            "id": "379225342",
+            "published_at": "2026-08-30T09:12:25Z"
+          },
+          {
+            "id": "380034491",
+            "published_at": "2026-08-31T20:56:07Z"
+          },
+          {
+            "id": "382659319",
+            "published_at": "2026-09-04T11:17:10Z"
+          },
+          {
+            "id": "383728726",
+            "published_at": "2026-09-06T22:33:48Z"
+          },
+          {
+            "id": "384991599",
+            "published_at": "2026-09-08T20:07:52Z"
+          },
+          {
+            "id": "385766860",
+            "published_at": "2026-09-09T19:22:55Z"
+          },
+          {
+            "id": "394275928",
+            "published_at": "2026-09-23T03:37:45Z"
+          },
+          {
+            "id": "397318547",
+            "published_at": "2026-09-26T17:29:50Z"
+          },
+          {
+            "id": "399260468",
+            "published_at": "2026-09-29T15:11:20Z"
+          },
+          {
+            "id": "399385944",
+            "published_at": "2026-09-29T17:49:37Z"
+          },
+          {
+            "id": "401304163",
+            "published_at": "2026-10-01T20:08:14Z"
+          },
+          {
+            "id": "403091069",
+            "published_at": "2026-10-04T17:12:06Z"
+          },
+          {
+            "id": "405917863",
+            "published_at": "2026-10-07T15:53:10Z"
+          },
+          {
+            "id": "406976655",
+            "published_at": "2026-10-08T15:34:37Z"
+          },
+          {
+            "id": "408884550",
+            "published_at": "2026-10-10T11:04:08Z"
+          },
+          {
+            "id": "409817572",
+            "published_at": "2026-10-11T17:55:31Z"
+          },
+          {
+            "id": "411831220",
+            "published_at": "2026-10-13T15:38:48Z"
+          },
+          {
+            "id": "414025198",
+            "published_at": "2026-10-15T16:29:11Z"
+          }
+        ],
+        "intervals_days": [
+          0.2290162037037037,
+          0.13508101851851853,
+          0.7100462962962963,
+          0.1711111111111111,
+          1.0464236111111112,
+          5.7488773148148145,
+          1.0917824074074074,
+          0.05108796296296296,
+          0.04717592592592593,
+          0.9980324074074074,
+          1.7888078703703705,
+          0.8960416666666666,
+          1.4808217592592592,
+          0.4999189814814815,
+          0.3460416666666667,
+          0.9290393518518518,
+          3.1480092592592595,
+          0.46042824074074074,
+          0.47152777777777777,
+          1.6975810185185185,
+          0.22920138888888889,
+          0.8422569444444444,
+          0.26989583333333333,
+          1.5234953703703704,
+          1.438773148148148,
+          4.046539351851852,
+          0.8626157407407408,
+          1.100648148148148,
+          0.6485416666666667,
+          0.07190972222222222,
+          0.9485185185185185,
+          2.2578240740740743,
+          0.09325231481481482,
+          0.8536921296296296,
+          0.043368055555555556,
+          0.09971064814814815,
+          0.6699884259259259,
+          2.2303587962962963,
+          3.7746875,
+          3.9676388888888887,
+          0.2039351851851852,
+          0.07675925925925926,
+          1.8201273148148147,
+          0.8255208333333334,
+          2.0881018518518517,
+          1.3019212962962963,
+          0.49072916666666666,
+          1.4125925925925926,
+          0.7354282407407408,
+          0.06378472222222223,
+          0.03173611111111111,
+          2.3819791666666665,
+          0.5680324074074075,
+          0.38004629629629627,
+          0.6016550925925926,
+          0.07278935185185186,
+          2.7236458333333333,
+          1.2344212962962964,
+          1.2085300925925926,
+          6.037627314814815,
+          1.7592476851851853,
+          2.2835069444444445,
+          0.2973263888888889,
+          0.07315972222222222,
+          3.6114236111111113,
+          0.5969444444444445,
+          0.2538773148148148,
+          0.702037037037037,
+          2.9256712962962963,
+          0.09696759259259259,
+          0.21694444444444444,
+          0.0709375,
+          0.9818865740740741,
+          0.0880787037037037,
+          0.7506712962962963,
+          0.02207175925925926,
+          3.06462962962963,
+          0.9961921296296297,
+          0.3788425925925926,
+          6.520740740740741,
+          2.014247685185185,
+          0.9320486111111111,
+          0.2835648148148148,
+          0.7496875,
+          0.2777777777777778,
+          1.7628356481481482,
+          2.0055439814814813,
+          0.9847337962962963,
+          2.9066666666666667,
+          0.09798611111111111,
+          0.9533796296296296,
+          5.319467592592592,
+          3.7395949074074073,
+          3.000949074074074,
+          1.0498611111111111,
+          0.8919907407407407,
+          1.168298611111111,
+          0.8487268518518518,
+          0.9850231481481482,
+          1.1327430555555555,
+          2.9561689814814813,
+          0.04590277777777778,
+          0.7633217592592593,
+          1.2358333333333333,
+          0.7770949074074074,
+          1.2042708333333334,
+          2.0402430555555555,
+          1.1805787037037037,
+          3.061354166666667,
+          4.816527777777778,
+          3.074375,
+          0.3984259259259259,
+          1.6276736111111112,
+          3.076712962962963,
+          4.549814814814815,
+          1.4886805555555556,
+          3.5979513888888888,
+          2.4698842592592594,
+          1.8986574074074074,
+          0.9687847222222222,
+          13.34363425925926,
+          3.5778356481481484,
+          2.9038194444444443,
+          0.10991898148148148,
+          2.096261574074074,
+          2.877685185185185,
+          2.9451851851851854,
+          0.9871180555555555,
+          1.8121643518518518,
+          1.2856828703703704,
+          1.9050578703703704,
+          2.034988425925926
+        ],
+        "median_interval_days": 0.9971122685185185
+      }
+    },
+    "independent_checks": {
+      "issue_resolution": {
+        "n": 238,
+        "median_hours": 5.384722222222223,
+        "samples": [
+          {
+            "id": 5895542532,
+            "created_at": "2026-10-17T06:08:15Z",
+            "closed_at": "2026-10-17T06:29:14Z",
+            "hours": 0.3497222222222222
+          },
+          {
+            "id": 5895228699,
+            "created_at": "2026-10-17T05:22:29Z",
+            "closed_at": "2026-10-17T05:54:51Z",
+            "hours": 0.5394444444444444
+          },
+          {
+            "id": 5894481464,
+            "created_at": "2026-10-17T03:41:34Z",
+            "closed_at": "2026-10-17T03:41:49Z",
+            "hours": 0.004166666666666667
+          }
+        ],
+        "verified": true
+      },
+      "pr_merges": {
+        "n": 153,
+        "median_hours": 0.27,
+        "samples": [
+          {
+            "id": 4897925446,
+            "created_at": "2026-10-17T06:28:20Z",
+            "merged_at": "2026-10-17T08:01:08Z",
+            "hours": 1.5466666666666666
+          },
+          {
+            "id": 4898247255,
+            "created_at": "2026-10-17T07:25:49Z",
+            "merged_at": "2026-10-17T07:27:53Z",
+            "hours": 0.034444444444444444
+          },
+          {
+            "id": 4890536635,
+            "created_at": "2026-10-16T15:25:49Z",
+            "merged_at": "2026-10-16T15:34:08Z",
+            "hours": 0.1386111111111111
+          }
+        ],
+        "verified": true
+      },
+      "commits_weekly": {
+        "verified_ready_buckets": 0,
+        "all_equal_to_raw_event_counts": true
+      }
+    }
+  }
+]

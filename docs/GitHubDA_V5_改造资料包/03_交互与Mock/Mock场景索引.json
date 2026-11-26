@@ -1,0 +1,22 @@
+{
+  "schema_version": "v5-preparation-1",
+  "purpose": "用于新 Vue Mock Provider 的场景要求与验收样例；此文件不是已实现的可执行 Mock 后端",
+  "default_route": "/",
+  "main_navigation": ["总览", "仓库", "研究", "任务"],
+  "scenario_catalog": [
+    {"id":"standard", "description":"多仓库、研究样本、任务历史完整的正常演示", "expected":"四个主页面有有效内容"},
+    {"id":"empty_library", "description":"个人分析库为空", "expected":"总览和仓库显示清楚的下一步入口"},
+    {"id":"single_repository", "description":"仅有一个仓库与一个有效分析样本", "expected":"无误导分布图，比较至少需要两个"},
+    {"id":"repository_not_found", "description":"非法或不可见仓库", "expected":"输入保留，明确错误，不产生任务"},
+    {"id":"task_queued", "description":"排队且 attempt=0", "expected":"显示等待开始，不伪造百分比"},
+    {"id":"task_running", "description":"正在采集，progress_kind=stages", "expected":"只展示阶段进度，模块覆盖单独显示"},
+    {"id":"task_failed", "description":"上次任务失败", "expected":"保留旧快照，用户可主动重试生成新任务"},
+    {"id":"task_partial", "description":"部分模块完成", "expected":"明确可用数据和缺失覆盖"},
+    {"id":"github_rate_limited", "description":"外部接口限流", "expected":"提示稍后重试，Mock 不访问真实公网"},
+    {"id":"worker_unavailable", "description":"模拟 Worker 不可用", "expected":"系统状态与任务状态分开，结果仍可浏览"},
+    {"id":"research_empty", "description":"研究样本为0", "expected":"无伪统计和伪图表"},
+    {"id":"research_unfrozen", "description":"研究样本未冻结", "expected":"仅说明为当前样本观察，不作固定结论"},
+    {"id":"snapshot_stale", "description":"已有旧快照，当前数据过期", "expected":"仍能查看上次成功快照并显示采集时间"}
+  ],
+  "required_operations": ["resolve", "search", "add", "remove", "refresh", "compare", "startTask", "retryTask", "switchResearchDataset", "exportCSV", "switchTheme", "resetMock"]
+}
