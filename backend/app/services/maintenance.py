@@ -1,7 +1,6 @@
 """Persist, reuse, and expose recent weekly activity observations."""
 import hashlib
 import json
-from datetime import timedelta
 from pathlib import Path
 
 from sqlalchemy import desc, select
@@ -76,9 +75,7 @@ def enqueue_maintenance(session, repository_id, lookback_weeks=12):
     ).order_by(desc(MaintenanceRun.captured_at), desc(MaintenanceRun.run_id))).all()
     for run in candidates:
         weeks = session.scalars(select(MaintenanceWeek).where(MaintenanceWeek.run_id == run.run_id)).all()
-        if (run.captured_at > now
-                or now - run.captured_at > timedelta(hours=get_settings().base_refresh_hours)
-                or not run.archive_path):
+        if run.captured_at > now or not run.archive_path:
             continue
         try:
             details = json.loads(run.details_json)
@@ -112,6 +109,7 @@ def _empty_pattern(reason, *, run=None, evidence=None):
 
 
 def maintenance_observation(session: Session, repository_id):
+    """Return the latest archived weekly evidence regardless of its age."""
     run = session.scalar(select(MaintenanceRun).where(MaintenanceRun.repository_id == repository_id)
                          .order_by(desc(MaintenanceRun.captured_at), desc(MaintenanceRun.run_id)).limit(1))
     if run is None:
@@ -135,12 +133,6 @@ def maintenance_observation(session: Session, repository_id):
                 "activity_trend": {"status": "insufficient_data", "method": "none", "reason_code": "source_archive_unavailable", "notes": []}}
     historical_course_snapshot = (details.get("dataset_id") == "course-research-300-v1"
                                   and details.get("data_source") == "course_research_historical_snapshot")
-    now = utc_now()
-    if (run.captured_at > now or (not historical_course_snapshot and
-            (now - run.captured_at > timedelta(hours=get_settings().base_refresh_hours) or run.history_end != _week_end(now)))):
-        pattern = _empty_pattern("stale", run=run)
-        return {"maintenance_pattern": pattern, "weeks": [], "features": None,
-                "activity_trend": {"status": "temporarily_unavailable", "method": "none", "reason_code": "stale", "notes": []}}
     try:
         if _archive_hash(run.archive_path) != details.get("archive_sha256"):
             raise ValueError("archive hash mismatch")

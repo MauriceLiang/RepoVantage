@@ -6,7 +6,6 @@ from datetime import timedelta
 from sqlalchemy import desc, select
 
 from backend.app.core.clock import iso_z, parse_github_datetime, utc_now
-from backend.app.core.config import get_settings
 from backend.app.core.exceptions import AppError
 from backend.app.persistence.db import begin_immediate
 from backend.app.persistence.models import CollectionTask, Repository, RepositoryActivityEvent, RepositoryInsightRun
@@ -25,9 +24,7 @@ def _cached_commit_counts(session, repository_id, start, end):
         RepositoryInsightRun.metric_version == METRIC_VERSION,
     ).order_by(desc(RepositoryInsightRun.analyzed_at), desc(RepositoryInsightRun.run_id)).limit(1))
     now = utc_now()
-    if (run is None or run.analyzed_at > now
-            or now - run.analyzed_at > timedelta(hours=get_settings().base_refresh_hours)
-            or run.window_start > start or run.window_end < end):
+    if run is None or run.analyzed_at > now or run.window_start > start or run.window_end < end:
         return None
     try:
         sources = json.loads(run.module_coverage_json)

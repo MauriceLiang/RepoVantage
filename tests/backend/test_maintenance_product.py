@@ -86,7 +86,7 @@ def test_api_uses_the_shared_course_features_and_keeps_independent_task_statuses
     assert pattern["status"] == "insufficient_data" and pattern["reason_code"] == "source_archive_unavailable"
 
 
-def test_stale_partial_and_changed_week_never_create_model_results(backend_client, monkeypatch, tmp_path):
+def test_partial_observations_remain_visible_and_changed_week_never_create_model_results(backend_client, monkeypatch, tmp_path):
     client, factory, _ = backend_client
     setup_settings(monkeypatch, tmp_path)
     result, _ = seed(factory, tmp_path, status="partial")
@@ -94,7 +94,9 @@ def test_stale_partial_and_changed_week_never_create_model_results(backend_clien
         run = session.get(MaintenanceRun, "run-1")
         run.captured_at = NOW - timedelta(days=2)
         session.commit()
-    assert client.get("/api/v1/repositories/123/evaluation", headers=HEADERS).json()["data"]["maintenance_pattern"]["reason_code"] == "stale"
+    observation = client.get("/api/v1/repositories/123/evaluation", headers=HEADERS).json()["data"]["maintenance_pattern"]
+    assert observation["reason_code"] == "incomplete_commits_coverage"
+    assert observation["evidence"]["commit_complete_weeks"] == 11
     with factory() as session:
         run = session.get(MaintenanceRun, "run-1")
         run.captured_at = NOW
